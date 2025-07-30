@@ -53,7 +53,7 @@ const AuthForm = ({ mode = 'signin' }) => {
           throw new Error(data.message || 'Registration failed');
         }
 
-        setSuccess('Registration successful! Please sign in with your credentials.');
+        setSuccess('Registration successful! Redirecting to sign in...');
         
         // Clear form
         setFormData({
@@ -63,8 +63,14 @@ const AuthForm = ({ mode = 'signin' }) => {
           acceptTerms: false,
         });
 
+        // Redirect to login page after short delay
+        setTimeout(() => {
+          router.push('/auth/signin');
+          router.refresh();
+        }, 2000);
+
       } else {
-        // Handle sign in using NextAuth
+        // Handle sign in using NextAuth credentials provider
         const result = await signIn('credentials', {
           email: formData.email,
           password: formData.password,
@@ -131,7 +137,7 @@ const AuthForm = ({ mode = 'signin' }) => {
               </>
             ) : (
               <>
-                Don't have an account?{' '}
+                Don&apos;t have an account?{' '}
                 <Link href="/auth/signup" className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400">
                   Sign up
                 </Link>

@@ -9,6 +9,8 @@ import {
   apiResponse,
   tokenUtils 
 } from '../../../../lib/api/middleware.js';
+import { NextResponse } from 'next/server';
+import { logUserActivity } from '../../../../lib/utils/activityLogger.js';
 
 // Validation schema for user login
 const loginSchema = {
@@ -16,30 +18,33 @@ const loginSchema = {
   password: { required: true, minLength: 1 },
 };
 
-const handler = async (req, res) => {
-  const { email, password } = req.body;
+const handler = async (req) => {
+  const { email, password } = req.validatedBody;
   
   try {
     // Find user by email
     const user = await User.findByEmail(email);
     if (!user) {
-      return res.status(401).json(
-        apiResponse.error('Invalid credentials', 'INVALID_CREDENTIALS')
+      return NextResponse.json(
+        apiResponse.error('Invalid credentials', 'INVALID_CREDENTIALS'),
+        { status: 401 }
       );
     }
     
     // Check if user is active
     if (!user.isActive) {
-      return res.status(401).json(
-        apiResponse.error('Account is deactivated', 'ACCOUNT_DEACTIVATED')
+      return NextResponse.json(
+        apiResponse.error('Account is deactivated', 'ACCOUNT_DEACTIVATED'),
+        { status: 401 }
       );
     }
     
     // Verify password
     const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
-      return res.status(401).json(
-        apiResponse.error('Invalid credentials', 'INVALID_CREDENTIALS')
+      return NextResponse.json(
+        apiResponse.error('Invalid credentials', 'INVALID_CREDENTIALS'),
+        { status: 401 }
       );
     }
     
@@ -53,12 +58,16 @@ const handler = async (req, res) => {
     // Update login tracking
     await user.updateLastLogin();
     
-    return res.status(200).json(
+    // Log user login activity
+    await logUserActivity(user._id, 'login', { method: 'credentials' }, req);
+    
+    return NextResponse.json(
       apiResponse.success({
         user: user.toPublicJSON(),
         token,
         expiresIn: '24h',
-      }, 'Login successful')
+      }, 'Login successful'),
+      { status: 200 }
     );
     
   } catch (error) {
