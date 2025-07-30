@@ -1,0 +1,408 @@
+/**
+ * Agent Chat Interface
+ * Interactive chat interface for agent communication during workflows
+ */
+
+'use client';
+
+import React, { useState, useEffect, useRef } from 'react';
+import { useWebSocket } from '../../lib/websocket/WebSocketClient';
+
+export default function AgentChatInterface({ 
+  workflowId, 
+  agents = [], 
+  className = '',
+  onMessageSent = () => {},
+  onAgentSelected = () => {} 
+}) {
+  const [selectedAgent, setSelectedAgent] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [activeChannel, setActiveChannel] = useState(null);
+  const [isTyping, setIsTyping] = useState(false);
+  const [onlineAgents, setOnlineAgents] = useState(new Set());
+  const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
+
+  // WebSocket connection for real-time chat
+  const { client: wsClient, connected: wsConnected } = useWebSocket({
+    url: 'ws://localhost:8080',
+    token: 'test-token', // In production, use actual auth token
+    userId: 'user-1'
+  });
+
+  // Auto-scroll to bottom of messages
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  // WebSocket event handlers
+  useEffect(() => {
+    if (wsClient && wsConnected && workflowId) {
+      // Join workflow channel
+      wsClient.subscribeToWorkflow(workflowId);
+
+      const unsubscribes = [
+        // Handle incoming messages
+        wsClient.on('workflow_message', (data) => {
+          const message = {
+            id: data.message.id,
+            from: data.message.from,
+            to: data.message.to,
+            content: data.message.summary || 'Message received',
+            timestamp: data.message.timestamp,
+            type: 'system'
+          };
+          setMessages(prev => [...prev, message]);
+        }),
+
+        // Handle agent messages
+        wsClient.on('agent_message', (data) => {
+          const message = {
+            id: data.message.id,
+            from: data.agentId,
+            to: 'user',
+            content: data.message.summary || 'Agent update',
+            timestamp: data.message.timestamp,
+            type: 'agent'
+          };
+          setMessages(prev => [...prev, message]);
+        }),
+
+        // Handle agent activation
+        wsClient.on('agent_activated', (data) => {
+          setOnlineAgents(prev => new Set([...prev, data.agentId]));
+          const message = {
+            id: `activation-${Date.now()}`,
+            from: 'system',
+            to: 'all',
+            content: `${data.agentId} is now active`,
+            timestamp: new Date().toISOString(),
+            type: 'status'
+          };
+          setMessages(prev => [...prev, message]);
+        }),
+
+        // Handle agent completion
+        wsClient.on('agent_completed', (data) => {
+          setOnlineAgents(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(data.agentId);
+            return newSet;
+          });
+          const message = {
+            id: `completion-${Date.now()}`,
+            from: 'system',
+            to: 'all',
+            content: `${data.agentId} completed their task`,
+            timestamp: new Date().toISOString(),
+            type: 'status'
+          };
+          setMessages(prev => [...prev, message]);
+        }),
+
+        // Handle agent communication
+        wsClient.on('agent_communication', (data) => {
+          const message = {
+            id: `comm-${Date.now()}`,
+            from: data.from,
+            to: data.to,
+            content: data.content?.message || 'Inter-agent communication',
+            timestamp: new Date().toISOString(),
+            type: 'inter-agent'
+          };
+          setMessages(prev => [...prev, message]);
+        })
+      ];
+
+      return () => {
+        wsClient.unsubscribeFromWorkflow(workflowId);
+        unsubscribes.forEach(unsub => unsub());
+      };
+    }
+  }, [wsClient, wsConnected, workflowId]);
+
+  // Handle agent selection
+  const handleAgentSelect = (agent) => {
+    setSelectedAgent(agent);
+    onAgentSelected(agent);
+    
+    if (wsClient && wsConnected) {
+      // Subscribe to specific agent updates
+      wsClient.subscribeToAgent(agent.id);
+    }
+  };
+
+  // Send message
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !wsClient || !wsConnected) return;
+
+    const message = {
+      id: `user-${Date.now()}`,
+      from: 'user',
+      to: selectedAgent?.id || 'all',
+      content: newMessage,
+      timestamp: new Date().toISOString(),
+      type: 'user'
+    };
+
+    // Add to local messages immediately
+    setMessages(prev => [...prev, message]);
+
+    // Send via WebSocket
+    try {
+      await wsClient.broadcastMessage(newMessage, {
+        type: 'workflow',
+        id: workflowId
+      });
+      
+      onMessageSent(message);
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      // Could add error handling UI here
+    }
+
+    setNewMessage('');
+    inputRef.current?.focus();
+  };
+
+  // Handle enter key
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  return (
+    <div className={`bg-white rounded-lg shadow-sm border flex flex-col ${className}`}>
+      {/* Header */}
+      <div className="border-b p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Agent Chat</h3>
+            <div className="flex items-center space-x-2 mt-1 text-sm text-gray-500">
+              <span>Workflow: {workflowId}</span>
+              {wsConnected && (
+                <span className="flex items-center text-green-600">
+                  <div className="w-2 h-2 bg-green-500 rounded-full mr-1 animate-pulse"></div>
+                  Connected
+                </span>
+              )}
+            </div>
+          </div>
+          
+          <div className="text-sm text-gray-500">
+            {onlineAgents.size} agents online
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-1 overflow-hidden">
+        {/* Agent List Sidebar */}
+        <div className="w-64 border-r bg-gray-50 flex flex-col">
+          <div className="p-3 border-b bg-white">
+            <h4 className="font-medium text-gray-900 text-sm">Agents</h4>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto p-2 space-y-1">
+            {/* All Agents Option */}
+            <button
+              onClick={() => setSelectedAgent(null)}
+              className={`w-full text-left p-2 rounded text-sm transition-colors ${
+                !selectedAgent
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              <div className="flex items-center">
+                <div className="w-2 h-2 bg-gray-400 rounded-full mr-2"></div>
+                All Agents
+              </div>
+            </button>
+
+            {/* Individual Agents */}
+            {agents.map((agent) => (
+              <button
+                key={agent.id}
+                onClick={() => handleAgentSelect(agent)}
+                className={`w-full text-left p-2 rounded text-sm transition-colors ${
+                  selectedAgent?.id === agent.id
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <div className="flex items-center">
+                  <div className={`w-2 h-2 rounded-full mr-2 ${
+                    onlineAgents.has(agent.id) ? 'bg-green-500' : 'bg-gray-400'
+                  }`}></div>
+                  <span className="mr-1">{agent.icon || '🤖'}</span>
+                  <span className="truncate">{agent.name || agent.id}</span>
+                </div>
+                <div className="text-xs text-gray-500 mt-1 ml-4">
+                  {agent.title}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Chat Area */}
+        <div className="flex-1 flex flex-col">
+          {/* Chat Header */}
+          <div className="p-3 border-b bg-gray-50">
+            <div className="flex items-center">
+              <span className="text-sm font-medium">
+                {selectedAgent ? (
+                  <>
+                    <span className="mr-1">{selectedAgent.icon || '🤖'}</span>
+                    {selectedAgent.name || selectedAgent.id}
+                  </>
+                ) : (
+                  '💬 All Agents'
+                )}
+              </span>
+              {selectedAgent && onlineAgents.has(selectedAgent.id) && (
+                <span className="ml-2 flex items-center text-xs text-green-600">
+                  <div className="w-1.5 h-1.5 bg-green-500 rounded-full mr-1"></div>
+                  Online
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {messages.length === 0 ? (
+              <div className="text-center text-gray-500 py-8">
+                <div className="text-4xl mb-2">💬</div>
+                <div>No messages yet</div>
+                <div className="text-sm">Start a conversation with the agents</div>
+              </div>
+            ) : (
+              messages.map((message) => (
+                <ChatMessage
+                  key={message.id}
+                  message={message}
+                  agents={agents}
+                  isSelected={selectedAgent?.id === message.from}
+                />
+              ))
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Message Input */}
+          <div className="border-t p-4">
+            <div className="flex space-x-2">
+              <input
+                ref={inputRef}
+                type="text"
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder={
+                  selectedAgent 
+                    ? `Message ${selectedAgent.name || selectedAgent.id}...`
+                    : "Message all agents..."
+                }
+                className="flex-1 border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={!wsConnected}
+              />
+              <button
+                onClick={handleSendMessage}
+                disabled={!newMessage.trim() || !wsConnected}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Send
+              </button>
+            </div>
+            
+            {!wsConnected && (
+              <div className="text-xs text-red-500 mt-1">
+                ⚠️ Not connected to chat server
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Individual Chat Message Component
+function ChatMessage({ message, agents, isSelected }) {
+  const getMessageStyle = () => {
+    switch (message.type) {
+      case 'user':
+        return 'bg-blue-100 text-blue-900 ml-12';
+      case 'agent':
+        return 'bg-gray-100 text-gray-900 mr-12';
+      case 'system':
+        return 'bg-yellow-50 text-yellow-800 mx-8';
+      case 'status':
+        return 'bg-green-50 text-green-800 mx-8 text-center';
+      case 'inter-agent':
+        return 'bg-purple-50 text-purple-800 mx-8';
+      default:
+        return 'bg-gray-100 text-gray-900';
+    }
+  };
+
+  const getAgentInfo = (agentId) => {
+    const agent = agents.find(a => a.id === agentId);
+    return agent || { id: agentId, name: agentId, icon: '🤖' };
+  };
+
+  const formatTime = (timestamp) => {
+    return new Date(timestamp).toLocaleTimeString([], { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
+  };
+
+  return (
+    <div className={`p-3 rounded-lg ${getMessageStyle()}`}>
+      {/* Message Header */}
+      <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center space-x-2">
+          {message.from !== 'system' && (
+            <>
+              <span className="text-sm">
+                {message.from === 'user' ? '👤' : getAgentInfo(message.from).icon}
+              </span>
+              <span className="text-sm font-medium">
+                {message.from === 'user' ? 'You' : getAgentInfo(message.from).name}
+              </span>
+            </>
+          )}
+          
+          {message.to && message.to !== 'all' && message.to !== 'user' && (
+            <>
+              <span className="text-xs text-gray-500">→</span>
+              <span className="text-sm">
+                {getAgentInfo(message.to).icon}
+              </span>
+              <span className="text-sm text-gray-600">
+                {getAgentInfo(message.to).name}
+              </span>
+            </>
+          )}
+        </div>
+        
+        <span className="text-xs text-gray-500">
+          {formatTime(message.timestamp)}
+        </span>
+      </div>
+
+      {/* Message Content */}
+      <div className="text-sm">
+        {message.content}
+      </div>
+    </div>
+  );
+}
