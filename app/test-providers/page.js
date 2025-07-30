@@ -3,6 +3,7 @@
 import { useSelector, useDispatch } from 'react-redux';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import Link from "next/link";
 
 // Import actions from our slices
 import { 
@@ -213,12 +214,12 @@ export default function TestProvidersPage() {
 
           {/* Navigation */}
           <div className="mt-8 text-center">
-            <a
+            <Link
               href="/"
               className="inline-flex items-center px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
             >
               ← Back to Home
-            </a>
+            </Link>
           </div>
 
         </div>

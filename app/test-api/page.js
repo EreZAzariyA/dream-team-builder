@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import Link from "next/link";
 
 // API utility functions
 const api = {
@@ -325,12 +326,12 @@ export default function TestApiPage() {
 
           {/* Navigation */}
           <div className="mt-8 text-center">
-            <a
-              href="/"
-              className="inline-flex items-center px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
-            >
-              ← Back to Home
-            </a>
+            <Link
+                href="/"
+                className="inline-flex items-center px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
+              >
+                ← Back to Home
+              </Link>
           </div>
 
         </div>
