@@ -1,0 +1,60 @@
+**PROJECT CONTEXT:**
+Build a sophisticated chat interface for Dream Team where users communicate with AI agents and monitor agent-to-agent communication. This supports multi-participant conversations with real-time WebSocket updates and professional UX patterns.
+
+**TECH STACK:**
+- React 19 with hooks and TypeScript
+- Tailwind CSS v4 with dark mode
+- WebSocket real-time messaging
+- Professional chat UI patterns
+
+**HIGH-LEVEL GOAL:**
+Create a professional chat interface that handles human-to-agent and agent-to-agent communication with clear visual distinction, real-time updates, and enterprise-grade polish.
+
+**DETAILED STEP-BY-STEP INSTRUCTIONS:**
+
+1. Design the chat layout structure:
+   - Fixed header with active workflow indicator and participant list
+   - Scrollable message area with auto-scroll to latest messages
+   - Input area with message composition and agent selection
+   - Sidebar showing active agents and their online status
+
+2. Create message bubble variations:
+   - **User messages**: Right-aligned, blue background, white text
+   - **Agent messages**: Left-aligned, role-specific colors, agent avatar
+   - **System messages**: Center-aligned, gray background, italic text
+   - **Agent-to-agent**: Special styling with "from → to" indicators
+
+3. Add real-time communication features:
+   - Typing indicators showing which agent is processing
+   - Message timestamps with "just now", "2m ago" formatting
+   - Delivery status indicators (sending, sent, read)
+   - Workflow suggestions with action buttons
+
+4. Include interactive workflow triggers:
+   - Smart message detection for workflow keywords
+   - Suggested workflow cards appearing in chat
+   - One-click workflow initiation buttons
+   - Progress updates appearing as chat messages
+
+**CODE EXAMPLES & CONSTRAINTS:**
+```typescript
+interface ChatMessage {
+  id: string;
+  type: 'user' | 'agent' | 'system' | 'workflow-suggestion';
+  sender: string;
+  content: string;
+  timestamp: Date;
+  agentId?: string;
+  workflowId?: string;
+  actions?: Array<{label: string; action: string}>;
+}
+```
+
+- WebSocket message handling: `useEffect` with cleanup for listeners
+- Auto-scroll: `useRef` with `scrollIntoView` for latest messages  
+- Agent colors: Consistent with other components (PM purple, Dev green, etc.)
+- Message input: `textarea` with `Shift+Enter` for new lines, `Enter` to send
+- Responsive: Full height on desktop, keyboard-aware on mobile
+
+**STRICT SCOPE:**
+Create ChatInterface component with message types and real-time features. Include TypeScript interfaces and WebSocket message handling. Do NOT implement WebSocket server logic or authentication flows.

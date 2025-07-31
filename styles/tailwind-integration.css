@@ -1,0 +1,408 @@
+/**
+ * Dream Team Tailwind Integration
+ * Combines custom design tokens with Tailwind CSS utilities
+ * Import this file to get seamless integration
+ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Import Design Tokens */
+@import './tokens/index.css';
+
+/* Professional Base Layer Overrides */
+@layer base {
+  /* Custom scrollbar for better UX */
+  ::-webkit-scrollbar {
+    @apply w-2 h-2;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-gray-100 dark:bg-gray-800;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gray-400 dark:bg-gray-600 rounded;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-500 dark:bg-gray-500;
+  }
+
+  /* Professional focus styles */
+  :focus-visible {
+    @apply outline-none ring-2 ring-primary-500 ring-offset-2 rounded;
+  }
+
+  /* Selection styling */
+  ::selection {
+    @apply bg-primary-100 text-primary-900;
+  }
+
+  .dark ::selection {
+    @apply bg-primary-800 text-primary-100;
+  }
+}
+
+/* Professional Component Layer */
+@layer components {
+  /* Agent Role Utilities */
+  .text-agent-pm { @apply text-agent-pm-600; }
+  .text-agent-architect { @apply text-agent-architect-600; }
+  .text-agent-developer { @apply text-agent-developer-600; }
+  .text-agent-qa { @apply text-agent-qa-600; }
+  .text-agent-ux { @apply text-agent-ux-600; }
+  .text-agent-data { @apply text-agent-data-600; }
+
+  .bg-agent-pm { @apply bg-agent-pm-500; }
+  .bg-agent-architect { @apply bg-agent-architect-500; }
+  .bg-agent-developer { @apply bg-agent-developer-500; }
+  .bg-agent-qa { @apply bg-agent-qa-500; }
+  .bg-agent-ux { @apply bg-agent-ux-500; }
+  .bg-agent-data { @apply bg-agent-data-500; }
+
+  .border-agent-pm { @apply border-agent-pm-500; }
+  .border-agent-architect { @apply border-agent-architect-500; }
+  .border-agent-developer { @apply border-agent-developer-500; }
+  .border-agent-qa { @apply border-agent-qa-500; }
+  .border-agent-ux { @apply border-agent-ux-500; }
+  .border-agent-data { @apply border-agent-data-500; }
+
+  /* Professional Typography Utilities */
+  .text-display {
+    @apply text-display font-bold tracking-tight;
+  }
+  
+  .text-h1 {
+    @apply text-h1 font-semibold tracking-tight;
+  }
+  
+  .text-h2 {
+    @apply text-h2 font-semibold;
+  }
+  
+  .text-h3 {
+    @apply text-h3 font-medium;
+  }
+  
+  .text-h4 {
+    @apply text-h4 font-medium;
+  }
+  
+  .text-body-large {
+    @apply text-body-large;
+  }
+  
+  .text-body {
+    @apply text-body;
+  }
+  
+  .text-body-small {
+    @apply text-body-small;
+  }
+  
+  .text-caption {
+    @apply text-caption tracking-wide;
+  }
+  
+  .text-code {
+    @apply text-code font-secondary;
+  }
+
+  /* Professional Status Components */
+  .status-indicator {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-caption font-medium;
+  }
+  
+  .status-active {
+    @apply status-indicator text-status-active bg-status-active-bg border border-status-active;
+  }
+  
+  .status-available {
+    @apply status-indicator text-status-available bg-status-available-bg border border-status-available;
+  }
+  
+  .status-busy {
+    @apply status-indicator text-status-busy bg-status-busy-bg border border-status-busy;
+  }
+  
+  .status-error {
+    @apply status-indicator text-status-error bg-status-error-bg border border-status-error;
+  }
+  
+  .status-offline {
+    @apply status-indicator text-status-offline bg-status-offline-bg border border-status-offline;
+  }
+
+  /* Priority Indicators */
+  .priority-critical {
+    @apply inline-flex items-center px-2 py-1 rounded text-caption font-medium;
+    @apply text-priority-critical bg-priority-critical-bg;
+  }
+  
+  .priority-high {
+    @apply inline-flex items-center px-2 py-1 rounded text-caption font-medium;
+    @apply text-priority-high bg-priority-high-bg;
+  }
+  
+  .priority-medium {
+    @apply inline-flex items-center px-2 py-1 rounded text-caption font-medium;
+    @apply text-priority-medium bg-priority-medium-bg;
+  }
+  
+  .priority-low {
+    @apply inline-flex items-center px-2 py-1 rounded text-caption font-medium;
+    @apply text-priority-low bg-priority-low-bg;
+  }
+
+  /* Professional Button Variants */
+  .btn {
+    @apply inline-flex items-center justify-center px-4 py-2 text-button font-medium rounded-md;
+    @apply transition-all duration-fast ease-out;
+    @apply focus:outline-none focus:ring-2 focus:ring-offset-2;
+  }
+  
+  .btn-primary {
+    @apply btn bg-primary-600 text-white hover:bg-primary-700;
+    @apply focus:ring-primary-500 shadow-sm hover:shadow-md;
+    @apply hover:-translate-y-0.5 active:translate-y-0;
+  }
+  
+  .btn-secondary {
+    @apply btn bg-secondary-600 text-white hover:bg-secondary-700;
+    @apply focus:ring-secondary-500 shadow-sm hover:shadow-md;
+    @apply hover:-translate-y-0.5 active:translate-y-0;
+  }
+  
+  .btn-success {
+    @apply btn bg-green-600 text-white hover:bg-green-700;
+    @apply focus:ring-green-500 shadow-sm hover:shadow-md;
+    @apply hover:-translate-y-0.5 active:translate-y-0;
+  }
+  
+  .btn-outline {
+    @apply btn bg-transparent border border-gray-300 text-gray-700;
+    @apply hover:bg-gray-50 focus:ring-primary-500;
+  }
+  
+  .btn-ghost {
+    @apply btn bg-transparent text-gray-600 hover:bg-gray-100;
+    @apply focus:ring-primary-500;
+  }
+
+  /* Professional Card Components */
+  .card {
+    @apply bg-white dark:bg-gray-800 rounded-lg shadow-sm;
+    @apply border border-gray-200 dark:border-gray-700;
+  }
+  
+  .card-hover {
+    @apply card transition-all duration-normal ease-professional;
+    @apply hover:-translate-y-1 hover:shadow-md;
+  }
+  
+  .card-interactive {
+    @apply card-hover cursor-pointer;
+    @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+  }
+
+  /* Professional Form Components */
+  .form-input {
+    @apply w-full px-3 py-2 bg-white dark:bg-gray-800;
+    @apply border border-gray-300 dark:border-gray-600;
+    @apply rounded-md shadow-sm text-body;
+    @apply focus:ring-2 focus:ring-primary-500 focus:border-primary-500;
+    @apply transition-colors duration-fast ease-out;
+  }
+  
+  .form-label {
+    @apply block text-body-small font-medium text-gray-700 dark:text-gray-300 mb-2;
+  }
+  
+  .form-error {
+    @apply text-caption text-red-600 dark:text-red-400 mt-1;
+  }
+  
+  .form-help {
+    @apply text-caption text-gray-500 dark:text-gray-400 mt-1;
+  }
+
+  /* Professional Navigation */
+  .nav-link {
+    @apply flex items-center px-3 py-2 text-body font-medium rounded-md;
+    @apply text-gray-600 dark:text-gray-300;
+    @apply hover:text-gray-900 dark:hover:text-white;
+    @apply hover:bg-gray-50 dark:hover:bg-gray-700;
+    @apply transition-colors duration-fast ease-out;
+  }
+  
+  .nav-link-active {
+    @apply nav-link bg-primary-50 dark:bg-primary-900/50;
+    @apply text-primary-700 dark:text-primary-300;
+    @apply border-r-2 border-primary-600;
+  }
+
+  /* Professional Modal Components */
+  .modal-overlay {
+    @apply fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50;
+    @apply animate-fade-in;
+  }
+  
+  .modal-content {
+    @apply bg-white dark:bg-gray-800 rounded-lg shadow-xl;
+    @apply max-w-md w-full mx-4 p-6;
+    @apply animate-scale-in;
+  }
+  
+  .modal-header {
+    @apply flex items-center justify-between mb-4;
+  }
+  
+  .modal-title {
+    @apply text-h4 text-gray-900 dark:text-white;
+  }
+  
+  .modal-close {
+    @apply text-gray-400 hover:text-gray-600 dark:hover:text-gray-300;
+    @apply transition-colors duration-fast ease-out;
+  }
+
+  /* Professional Loading States */
+  .loading-skeleton {
+    @apply animate-pulse bg-gray-200 dark:bg-gray-700 rounded;
+  }
+  
+  .loading-spinner {
+    @apply animate-spin rounded-full border-2 border-gray-300;
+    @apply border-t-primary-600 w-4 h-4;
+  }
+
+  /* Professional Empty States */
+  .empty-state {
+    @apply flex flex-col items-center justify-center py-12 text-center;
+  }
+  
+  .empty-state-icon {
+    @apply w-12 h-12 text-gray-400 dark:text-gray-500 mb-4;
+  }
+  
+  .empty-state-title {
+    @apply text-h5 text-gray-900 dark:text-white mb-2;
+  }
+  
+  .empty-state-description {
+    @apply text-body text-gray-500 dark:text-gray-400 mb-6 max-w-sm;
+  }
+}
+
+/* Professional Utility Layer */
+@layer utilities {
+  /* Agent Role Background Utilities */
+  .bg-agent-pm-soft { @apply bg-agent-pm-50 dark:bg-agent-pm-900/20; }
+  .bg-agent-architect-soft { @apply bg-agent-architect-50 dark:bg-agent-architect-900/20; }
+  .bg-agent-developer-soft { @apply bg-agent-developer-50 dark:bg-agent-developer-900/20; }
+  .bg-agent-qa-soft { @apply bg-agent-qa-50 dark:bg-agent-qa-900/20; }
+  .bg-agent-ux-soft { @apply bg-agent-ux-50 dark:bg-agent-ux-900/20; }
+  .bg-agent-data-soft { @apply bg-agent-data-50 dark:bg-agent-data-900/20; }
+
+  /* Professional Shadow Utilities */
+  .shadow-agent-pm { @apply shadow-agent-pm; }
+  .shadow-agent-architect { @apply shadow-agent-architect; }
+  .shadow-agent-developer { @apply shadow-agent-developer; }
+  .shadow-agent-qa { @apply shadow-agent-qa; }
+  .shadow-agent-ux { @apply shadow-agent-ux; }
+  .shadow-agent-data { @apply shadow-agent-data; }
+
+  /* Professional Animation Utilities */
+  .animate-agent-pulse { @apply animate-agent-pulse; }
+  .animate-workflow-progress { @apply animate-workflow-progress; }
+  .animate-professional-bounce { @apply animate-professional-bounce; }
+  .animate-data-update { @apply animate-data-update; }
+
+  /* Professional Spacing Utilities for Components */
+  .space-agent-card { @apply space-y-4; }
+  .space-workflow-section { @apply space-y-6; }
+  .space-dashboard-grid { @apply space-y-6; }
+
+  /* Professional Text Utilities */
+  .text-professional {
+    @apply text-gray-700 dark:text-gray-300 leading-relaxed;
+  }
+  
+  .text-professional-muted {
+    @apply text-gray-500 dark:text-gray-400 leading-relaxed;
+  }
+  
+  .text-professional-subtle {
+    @apply text-gray-400 dark:text-gray-500 leading-relaxed;
+  }
+
+  /* Responsive Touch Targets */
+  .touch-target {
+    @apply min-h-11 min-w-11;
+  }
+
+  /* Professional Gradients */
+  .gradient-primary {
+    @apply bg-gradient-to-r from-primary-600 to-secondary-600;
+  }
+  
+  .gradient-agent-pm {
+    @apply bg-gradient-to-r from-agent-pm-500 to-agent-pm-600;
+  }
+  
+  .gradient-agent-developer {
+    @apply bg-gradient-to-r from-agent-developer-500 to-agent-developer-600;
+  }
+}
+
+/* Responsive Design Adjustments */
+@media (max-width: 768px) {
+  .container-professional {
+    @apply px-3;
+  }
+  
+  .modal-content {
+    @apply mx-3 p-4;
+  }
+  
+  .btn {
+    @apply touch-target;
+  }
+  
+  .nav-link {
+    @apply touch-target;
+  }
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+  .card {
+    @apply border-2;
+  }
+  
+  .btn {
+    @apply border-2 border-current;
+  }
+  
+  .form-input {
+    @apply border-2;
+  }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  .animate-agent-pulse,
+  .animate-workflow-progress,
+  .animate-professional-bounce,
+  .animate-data-update {
+    @apply animate-none;
+  }
+  
+  .card-hover,
+  .btn,
+  .nav-link {
+    @apply transition-none;
+  }
+}

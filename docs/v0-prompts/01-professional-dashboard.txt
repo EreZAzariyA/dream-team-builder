@@ -1,0 +1,48 @@
+**PROJECT CONTEXT:**
+Create a sophisticated dashboard for "Dream Team" - an enterprise AI-powered development platform that orchestrates 10+ specialized AI agents (PM, Architect, Developer, QA, etc.) through complex workflows. This serves technical development leads and professional developers who need real-time visibility into multi-agent AI workflows.
+
+**TECH STACK:**
+- Next.js 15.4.5 with React 19.1.0
+- Tailwind CSS v4 with dark mode support
+- TypeScript
+- Real-time WebSocket integration
+- Professional enterprise-grade UI patterns
+
+**HIGH-LEVEL GOAL:**
+Design a professional, sophisticated dashboard that displays active AI agent workflows, real-time progress, and system status with enterprise-grade visual authority.
+
+**DETAILED STEP-BY-STEP INSTRUCTIONS:**
+
+1. Create a full-screen dashboard layout with:
+   - Top navigation bar with "Dream Team" branding and user profile
+   - Left sidebar navigation (Dashboard, Workflows, Agents, Integrations, Analytics)
+   - Main content area with grid layout for widgets
+   - Status bar at bottom showing system health
+
+2. Design the main dashboard grid with these cards:
+   - **Active Workflows Card**: Show 3-4 running workflows with progress bars, agent icons, and status indicators
+   - **Agent Status Grid**: Display all 10 agents (PM, Architect, Dev, QA, etc.) with online/busy/idle states
+   - **Real-time Activity Feed**: Live updates showing agent communications and task completions
+   - **System Metrics**: Success rates, completion times, active users
+
+3. Use these visual design elements:
+   - **Color Palette**: Primary blue (#0066CC), success green (#10B981), warning amber (#F59E0B), error red (#EF4444)
+   - **Typography**: Inter font family, clear hierarchy from 12px to 32px
+   - **Spacing**: 8px grid system with generous whitespace
+   - **Shadows**: Subtle elevation with modern card shadows
+
+4. Add interactive elements:
+   - Hover effects on all cards with subtle scale transforms
+   - Loading skeletons for data fetching
+   - Real-time pulse animations for active agents
+   - Click-through navigation to detailed views
+
+**CODE EXAMPLES & CONSTRAINTS:**
+- Use Tailwind classes: `bg-white dark:bg-gray-800`, `border border-gray-200 dark:border-gray-700`
+- Icons from Lucide React: `<Activity />`, `<Users />`, `<Workflow />`
+- Agent status indicators: Green dot for active, amber for busy, gray for idle
+- Real-time updates every 2 seconds with smooth transitions
+- Responsive: 4-column grid on desktop, 2-column on tablet, 1-column on mobile
+
+**STRICT SCOPE:**
+Create only the dashboard page component. Include TypeScript interfaces for props. Use modern React patterns with hooks. Do NOT create additional pages or modify existing navigation components.

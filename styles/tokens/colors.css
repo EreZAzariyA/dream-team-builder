@@ -1,0 +1,266 @@
+/**
+ * Dream Team Design Tokens - Colors
+ * Professional AI Agent Orchestration Platform
+ * Generated from UI/UX Specification v1.0
+ */
+
+:root {
+  /* Primary Brand Colors */
+  --color-primary-50: #eff6ff;
+  --color-primary-100: #dbeafe;
+  --color-primary-200: #bfdbfe;
+  --color-primary-300: #93c5fd;
+  --color-primary-400: #60a5fa;
+  --color-primary-500: #0066cc;
+  --color-primary-600: #0056b3;
+  --color-primary-700: #1d4ed8;
+  --color-primary-800: #1e40af;
+  --color-primary-900: #1e3a8a;
+
+  /* Secondary Brand Colors */
+  --color-secondary-50: #eef2ff;
+  --color-secondary-100: #e0e7ff;
+  --color-secondary-200: #c7d2fe;
+  --color-secondary-300: #a5b4fc;
+  --color-secondary-400: #818cf8;
+  --color-secondary-500: #6366f1;
+  --color-secondary-600: #4f46e5;
+  --color-secondary-700: #4338ca;
+  --color-secondary-800: #3730a3;
+  --color-secondary-900: #312e81;
+
+  /* Accent Colors */
+  --color-accent-50: #faf5ff;
+  --color-accent-100: #f3e8ff;
+  --color-accent-200: #e9d5ff;
+  --color-accent-300: #d8b4fe;
+  --color-accent-400: #c084fc;
+  --color-accent-500: #8b5cf6;
+  --color-accent-600: #7c3aed;
+  --color-accent-700: #6d28d9;
+  --color-accent-800: #5b21b6;
+  --color-accent-900: #4c1d95;
+
+  /* Semantic Colors */
+  --color-success-50: #ecfdf5;
+  --color-success-100: #d1fae5;
+  --color-success-200: #a7f3d0;
+  --color-success-300: #6ee7b7;
+  --color-success-400: #34d399;
+  --color-success-500: #10b981;
+  --color-success-600: #059669;
+  --color-success-700: #047857;
+  --color-success-800: #065f46;
+  --color-success-900: #064e3b;
+
+  --color-warning-50: #fffbeb;
+  --color-warning-100: #fef3c7;
+  --color-warning-200: #fde68a;
+  --color-warning-300: #fcd34d;
+  --color-warning-400: #fbbf24;
+  --color-warning-500: #f59e0b;
+  --color-warning-600: #d97706;
+  --color-warning-700: #b45309;
+  --color-warning-800: #92400e;
+  --color-warning-900: #78350f;
+
+  --color-error-50: #fef2f2;
+  --color-error-100: #fee2e2;
+  --color-error-200: #fecaca;
+  --color-error-300: #fca5a5;
+  --color-error-400: #f87171;
+  --color-error-500: #ef4444;
+  --color-error-600: #dc2626;
+  --color-error-700: #b91c1c;
+  --color-error-800: #991b1b;
+  --color-error-900: #7f1d1d;
+
+  --color-info-50: #ecfeff;
+  --color-info-100: #cffafe;
+  --color-info-200: #a5f3fc;
+  --color-info-300: #67e8f9;
+  --color-info-400: #22d3ee;
+  --color-info-500: #06b6d4;
+  --color-info-600: #0891b2;
+  --color-info-700: #0e7490;
+  --color-info-800: #155e75;
+  --color-info-900: #164e63;
+
+  /* AI Agent Role Colors */
+  --color-agent-pm-50: #faf5ff;
+  --color-agent-pm-100: #f3e8ff;
+  --color-agent-pm-200: #e9d5ff;
+  --color-agent-pm-300: #d8b4fe;
+  --color-agent-pm-400: #c084fc;
+  --color-agent-pm-500: #8b5cf6;
+  --color-agent-pm-600: #7c3aed;
+  --color-agent-pm-700: #6d28d9;
+  --color-agent-pm-800: #5b21b6;
+  --color-agent-pm-900: #4c1d95;
+
+  --color-agent-architect-50: #ecfeff;
+  --color-agent-architect-100: #cffafe;
+  --color-agent-architect-200: #a5f3fc;
+  --color-agent-architect-300: #67e8f9;
+  --color-agent-architect-400: #22d3ee;
+  --color-agent-architect-500: #06b6d4;
+  --color-agent-architect-600: #0891b2;
+  --color-agent-architect-700: #0e7490;
+  --color-agent-architect-800: #155e75;
+  --color-agent-architect-900: #164e63;
+
+  --color-agent-developer-50: #ecfdf5;
+  --color-agent-developer-100: #d1fae5;
+  --color-agent-developer-200: #a7f3d0;
+  --color-agent-developer-300: #6ee7b7;
+  --color-agent-developer-400: #34d399;
+  --color-agent-developer-500: #10b981;
+  --color-agent-developer-600: #059669;
+  --color-agent-developer-700: #047857;
+  --color-agent-developer-800: #065f46;
+  --color-agent-developer-900: #064e3b;
+
+  --color-agent-qa-50: #fffbeb;
+  --color-agent-qa-100: #fef3c7;
+  --color-agent-qa-200: #fde68a;
+  --color-agent-qa-300: #fcd34d;
+  --color-agent-qa-400: #fbbf24;
+  --color-agent-qa-500: #f59e0b;
+  --color-agent-qa-600: #d97706;
+  --color-agent-qa-700: #b45309;
+  --color-agent-qa-800: #92400e;
+  --color-agent-qa-900: #78350f;
+
+  --color-agent-ux-50: #fdf2f8;
+  --color-agent-ux-100: #fce7f3;
+  --color-agent-ux-200: #fbcfe8;
+  --color-agent-ux-300: #f9a8d4;
+  --color-agent-ux-400: #f472b6;
+  --color-agent-ux-500: #ec4899;
+  --color-agent-ux-600: #db2777;
+  --color-agent-ux-700: #be185d;
+  --color-agent-ux-800: #9d174d;
+  --color-agent-ux-900: #831843;
+
+  --color-agent-data-50: #f5f3ff;
+  --color-agent-data-100: #ede9fe;
+  --color-agent-data-200: #ddd6fe;
+  --color-agent-data-300: #c4b5fd;
+  --color-agent-data-400: #a78bfa;
+  --color-agent-data-500: #7c3aed;
+  --color-agent-data-600: #7c3aed;
+  --color-agent-data-700: #6d28d9;
+  --color-agent-data-800: #5b21b6;
+  --color-agent-data-900: #4c1d95;
+
+  /* Neutral Colors - Light Mode */
+  --color-gray-50: #f9fafb;
+  --color-gray-100: #f3f4f6;
+  --color-gray-200: #e5e7eb;
+  --color-gray-300: #d1d5db;
+  --color-gray-400: #9ca3af;
+  --color-gray-500: #6b7280;
+  --color-gray-600: #4b5563;
+  --color-gray-700: #374151;
+  --color-gray-800: #1f2937;
+  --color-gray-900: #111827;
+
+  /* Professional Status Colors */
+  --color-status-active: var(--color-success-500);
+  --color-status-active-bg: var(--color-success-50);
+  --color-status-active-border: var(--color-success-500);
+
+  --color-status-available: var(--color-gray-500);
+  --color-status-available-bg: var(--color-gray-50);
+  --color-status-available-border: var(--color-gray-300);
+
+  --color-status-busy: var(--color-warning-500);
+  --color-status-busy-bg: var(--color-warning-50);
+  --color-status-busy-border: var(--color-warning-500);
+
+  --color-status-error: var(--color-error-500);
+  --color-status-error-bg: var(--color-error-50);
+  --color-status-error-border: var(--color-error-500);
+
+  --color-status-offline: var(--color-gray-400);
+  --color-status-offline-bg: var(--color-gray-100);
+  --color-status-offline-border: var(--color-gray-200);
+
+  /* Priority Colors */
+  --color-priority-critical: #dc2626;
+  --color-priority-critical-bg: #fef2f2;
+  --color-priority-high: #ea580c;
+  --color-priority-high-bg: #fff7ed;
+  --color-priority-medium: #ca8a04;
+  --color-priority-medium-bg: #fefce8;
+  --color-priority-low: #65a30d;
+  --color-priority-low-bg: #f7fee7;
+}
+
+/* Dark Mode Colors */
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Primary Colors - Dark Mode */
+    --color-primary-500: #4a9eff;
+    --color-primary-600: #0066cc;
+    
+    /* Secondary Colors - Dark Mode */
+    --color-secondary-500: #818cf8;
+    --color-secondary-600: #6366f1;
+    
+    /* Accent Colors - Dark Mode */
+    --color-accent-500: #a78bfa;
+    --color-accent-600: #8b5cf6;
+    
+    /* Semantic Colors - Dark Mode */
+    --color-success-500: #34d399;
+    --color-warning-500: #fbbf24;
+    --color-error-500: #f87171;
+    --color-info-500: #22d3ee;
+    
+    /* Neutral Colors - Dark Mode */
+    --color-gray-50: #111827;
+    --color-gray-100: #1f2937;
+    --color-gray-200: #374151;
+    --color-gray-300: #4b5563;
+    --color-gray-400: #6b7280;
+    --color-gray-500: #9ca3af;
+    --color-gray-600: #d1d5db;
+    --color-gray-700: #e5e7eb;
+    --color-gray-800: #f3f4f6;
+    --color-gray-900: #f9fafb;
+  }
+}
+
+/* Explicit Dark Mode Class Support */
+.dark {
+  /* Primary Colors - Dark Mode */
+  --color-primary-500: #4a9eff;
+  --color-primary-600: #0066cc;
+  
+  /* Secondary Colors - Dark Mode */
+  --color-secondary-500: #818cf8;
+  --color-secondary-600: #6366f1;
+  
+  /* Accent Colors - Dark Mode */
+  --color-accent-500: #a78bfa;
+  --color-accent-600: #8b5cf6;
+  
+  /* Semantic Colors - Dark Mode */
+  --color-success-500: #34d399;
+  --color-warning-500: #fbbf24;
+  --color-error-500: #f87171;
+  --color-info-500: #22d3ee;
+  
+  /* Neutral Colors - Dark Mode */
+  --color-gray-50: #111827;
+  --color-gray-100: #1f2937;
+  --color-gray-200: #374151;
+  --color-gray-300: #4b5563;
+  --color-gray-400: #6b7280;
+  --color-gray-500: #9ca3af;
+  --color-gray-600: #d1d5db;
+  --color-gray-700: #e5e7eb;
+  --color-gray-800: #f3f4f6;
+  --color-gray-900: #f9fafb;
+}

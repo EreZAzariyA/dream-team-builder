@@ -1,0 +1,254 @@
+/**
+ * Dream Team Design Tokens - Spacing
+ * Professional AI Agent Orchestration Platform
+ * 8px Grid System Implementation
+ * Generated from UI/UX Specification v1.0
+ */
+
+:root {
+  /* Base Unit: 8px */
+  --spacing-base: 8px;
+
+  /* Spacing Scale - 8px Grid System */
+  --spacing-0: 0px;
+  --spacing-px: 1px;
+  --spacing-0-5: 2px;   /* 0.25 * base */
+  --spacing-1: 4px;     /* 0.5 * base */
+  --spacing-1-5: 6px;   /* 0.75 * base */
+  --spacing-2: 8px;     /* 1 * base */
+  --spacing-2-5: 10px;  /* 1.25 * base */
+  --spacing-3: 12px;    /* 1.5 * base */
+  --spacing-3-5: 14px;  /* 1.75 * base */
+  --spacing-4: 16px;    /* 2 * base */
+  --spacing-5: 20px;    /* 2.5 * base */
+  --spacing-6: 24px;    /* 3 * base */
+  --spacing-7: 28px;    /* 3.5 * base */
+  --spacing-8: 32px;    /* 4 * base */
+  --spacing-9: 36px;    /* 4.5 * base */
+  --spacing-10: 40px;   /* 5 * base */
+  --spacing-11: 44px;   /* 5.5 * base */
+  --spacing-12: 48px;   /* 6 * base */
+  --spacing-14: 56px;   /* 7 * base */
+  --spacing-16: 64px;   /* 8 * base */
+  --spacing-20: 80px;   /* 10 * base */
+  --spacing-24: 96px;   /* 12 * base */
+  --spacing-28: 112px;  /* 14 * base */
+  --spacing-32: 128px;  /* 16 * base */
+  --spacing-36: 144px;  /* 18 * base */
+  --spacing-40: 160px;  /* 20 * base */
+  --spacing-44: 176px;  /* 22 * base */
+  --spacing-48: 192px;  /* 24 * base */
+  --spacing-52: 208px;  /* 26 * base */
+  --spacing-56: 224px;  /* 28 * base */
+  --spacing-60: 240px;  /* 30 * base */
+  --spacing-64: 256px;  /* 32 * base */
+  --spacing-72: 288px;  /* 36 * base */
+  --spacing-80: 320px;  /* 40 * base */
+  --spacing-96: 384px;  /* 48 * base */
+
+  /* Semantic Spacing Tokens */
+  --spacing-xs: var(--spacing-1);    /* 4px - Tight spacing, form field gaps */
+  --spacing-sm: var(--spacing-2);    /* 8px - Component internal padding */
+  --spacing-md: var(--spacing-4);    /* 16px - Standard spacing, card padding */
+  --spacing-lg: var(--spacing-6);    /* 24px - Section spacing, large padding */
+  --spacing-xl: var(--spacing-8);    /* 32px - Major section gaps */
+  --spacing-2xl: var(--spacing-12);  /* 48px - Page section spacing */
+  --spacing-3xl: var(--spacing-16);  /* 64px - Hero sections, major breaks */
+  --spacing-4xl: var(--spacing-24);  /* 96px - Page-level spacing */
+
+  /* Component-Specific Spacing */
+  --spacing-agent-card-padding: var(--spacing-6);      /* 24px */
+  --spacing-agent-card-margin: var(--spacing-4);       /* 16px */
+  --spacing-workflow-timeline-padding: var(--spacing-8); /* 32px */
+  --spacing-workflow-timeline-margin: var(--spacing-6);  /* 24px */
+  --spacing-chat-message-padding: var(--spacing-4);    /* 16px */
+  --spacing-chat-message-margin: var(--spacing-2);     /* 8px */
+  --spacing-dashboard-grid-gap: var(--spacing-6);      /* 24px */
+  --spacing-mobile-touch-target: var(--spacing-11);    /* 44px - Minimum touch target */
+
+  /* Layout Spacing */
+  --spacing-container-padding: var(--spacing-4);       /* 16px */
+  --spacing-section-margin: var(--spacing-8);          /* 32px */
+  --spacing-form-field-gap: var(--spacing-3);          /* 12px */
+  --spacing-button-padding-x: var(--spacing-4);        /* 16px */
+  --spacing-button-padding-y: var(--spacing-2);        /* 8px */
+  --spacing-modal-padding: var(--spacing-6);           /* 24px */
+  --spacing-card-padding: var(--spacing-4);            /* 16px */
+  --spacing-list-item-padding: var(--spacing-3);       /* 12px */
+
+  /* Professional UI Spacing */
+  --spacing-navbar-height: var(--spacing-16);          /* 64px */
+  --spacing-sidebar-width: 256px;                      /* 32 * base */
+  --spacing-header-height: var(--spacing-12);          /* 48px */
+  --spacing-footer-height: var(--spacing-10);          /* 40px */
+  --spacing-content-max-width: 1200px;                 /* Max content width */
+}
+
+/* Spacing Utility Classes */
+/* Margin */
+.m-0 { margin: var(--spacing-0); }
+.m-1 { margin: var(--spacing-1); }
+.m-2 { margin: var(--spacing-2); }
+.m-3 { margin: var(--spacing-3); }
+.m-4 { margin: var(--spacing-4); }
+.m-5 { margin: var(--spacing-5); }
+.m-6 { margin: var(--spacing-6); }
+.m-8 { margin: var(--spacing-8); }
+.m-10 { margin: var(--spacing-10); }
+.m-12 { margin: var(--spacing-12); }
+.m-16 { margin: var(--spacing-16); }
+.m-20 { margin: var(--spacing-20); }
+.m-24 { margin: var(--spacing-24); }
+
+/* Margin Top */
+.mt-0 { margin-top: var(--spacing-0); }
+.mt-1 { margin-top: var(--spacing-1); }
+.mt-2 { margin-top: var(--spacing-2); }
+.mt-3 { margin-top: var(--spacing-3); }
+.mt-4 { margin-top: var(--spacing-4); }
+.mt-6 { margin-top: var(--spacing-6); }
+.mt-8 { margin-top: var(--spacing-8); }
+.mt-12 { margin-top: var(--spacing-12); }
+
+/* Margin Bottom */
+.mb-0 { margin-bottom: var(--spacing-0); }
+.mb-1 { margin-bottom: var(--spacing-1); }
+.mb-2 { margin-bottom: var(--spacing-2); }
+.mb-3 { margin-bottom: var(--spacing-3); }
+.mb-4 { margin-bottom: var(--spacing-4); }
+.mb-6 { margin-bottom: var(--spacing-6); }
+.mb-8 { margin-bottom: var(--spacing-8); }
+.mb-12 { margin-bottom: var(--spacing-12); }
+
+/* Margin Left/Right */
+.ml-0 { margin-left: var(--spacing-0); }
+.ml-2 { margin-left: var(--spacing-2); }
+.ml-4 { margin-left: var(--spacing-4); }
+.ml-6 { margin-left: var(--spacing-6); }
+
+.mr-0 { margin-right: var(--spacing-0); }
+.mr-2 { margin-right: var(--spacing-2); }
+.mr-4 { margin-right: var(--spacing-4); }
+.mr-6 { margin-right: var(--spacing-6); }
+
+/* Padding */
+.p-0 { padding: var(--spacing-0); }
+.p-1 { padding: var(--spacing-1); }
+.p-2 { padding: var(--spacing-2); }
+.p-3 { padding: var(--spacing-3); }
+.p-4 { padding: var(--spacing-4); }
+.p-5 { padding: var(--spacing-5); }
+.p-6 { padding: var(--spacing-6); }
+.p-8 { padding: var(--spacing-8); }
+.p-10 { padding: var(--spacing-10); }
+.p-12 { padding: var(--spacing-12); }
+
+/* Padding Top */
+.pt-0 { padding-top: var(--spacing-0); }
+.pt-1 { padding-top: var(--spacing-1); }
+.pt-2 { padding-top: var(--spacing-2); }
+.pt-3 { padding-top: var(--spacing-3); }
+.pt-4 { padding-top: var(--spacing-4); }
+.pt-6 { padding-top: var(--spacing-6); }
+.pt-8 { padding-top: var(--spacing-8); }
+
+/* Padding Bottom */
+.pb-0 { padding-bottom: var(--spacing-0); }
+.pb-1 { padding-bottom: var(--spacing-1); }
+.pb-2 { padding-bottom: var(--spacing-2); }
+.pb-3 { padding-bottom: var(--spacing-3); }
+.pb-4 { padding-bottom: var(--spacing-4); }
+.pb-6 { padding-bottom: var(--spacing-6); }
+.pb-8 { padding-bottom: var(--spacing-8); }
+
+/* Padding Left/Right */
+.px-0 { padding-left: var(--spacing-0); padding-right: var(--spacing-0); }
+.px-2 { padding-left: var(--spacing-2); padding-right: var(--spacing-2); }
+.px-3 { padding-left: var(--spacing-3); padding-right: var(--spacing-3); }
+.px-4 { padding-left: var(--spacing-4); padding-right: var(--spacing-4); }
+.px-6 { padding-left: var(--spacing-6); padding-right: var(--spacing-6); }
+.px-8 { padding-left: var(--spacing-8); padding-right: var(--spacing-8); }
+
+.py-0 { padding-top: var(--spacing-0); padding-bottom: var(--spacing-0); }
+.py-1 { padding-top: var(--spacing-1); padding-bottom: var(--spacing-1); }
+.py-2 { padding-top: var(--spacing-2); padding-bottom: var(--spacing-2); }
+.py-3 { padding-top: var(--spacing-3); padding-bottom: var(--spacing-3); }
+.py-4 { padding-top: var(--spacing-4); padding-bottom: var(--spacing-4); }
+.py-6 { padding-top: var(--spacing-6); padding-bottom: var(--spacing-6); }
+
+/* Gap Utilities */
+.gap-1 { gap: var(--spacing-1); }
+.gap-2 { gap: var(--spacing-2); }
+.gap-3 { gap: var(--spacing-3); }
+.gap-4 { gap: var(--spacing-4); }
+.gap-5 { gap: var(--spacing-5); }
+.gap-6 { gap: var(--spacing-6); }
+.gap-8 { gap: var(--spacing-8); }
+.gap-10 { gap: var(--spacing-10); }
+.gap-12 { gap: var(--spacing-12); }
+
+/* Component-Specific Spacing Classes */
+.agent-card-spacing {
+  padding: var(--spacing-agent-card-padding);
+  margin: var(--spacing-agent-card-margin);
+}
+
+.workflow-timeline-spacing {
+  padding: var(--spacing-workflow-timeline-padding);
+  margin: var(--spacing-workflow-timeline-margin);
+}
+
+.chat-message-spacing {
+  padding: var(--spacing-chat-message-padding);
+  margin: var(--spacing-chat-message-margin);
+}
+
+.dashboard-grid-spacing {
+  gap: var(--spacing-dashboard-grid-gap);
+}
+
+.mobile-touch-spacing {
+  min-height: var(--spacing-mobile-touch-target);
+  min-width: var(--spacing-mobile-touch-target);
+}
+
+/* Professional Layout Classes */
+.container-spacing {
+  padding-left: var(--spacing-container-padding);
+  padding-right: var(--spacing-container-padding);
+  max-width: var(--spacing-content-max-width);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.section-spacing {
+  margin-top: var(--spacing-section-margin);
+  margin-bottom: var(--spacing-section-margin);
+}
+
+.form-field-spacing {
+  margin-bottom: var(--spacing-form-field-gap);
+}
+
+.button-spacing {
+  padding: var(--spacing-button-padding-y) var(--spacing-button-padding-x);
+}
+
+.card-spacing {
+  padding: var(--spacing-card-padding);
+}
+
+.modal-spacing {
+  padding: var(--spacing-modal-padding);
+}
+
+/* Mobile Spacing Adjustments */
+@media (max-width: 768px) {
+  :root {
+    --spacing-container-padding: var(--spacing-3);     /* 12px */
+    --spacing-section-margin: var(--spacing-5);        /* 20px */
+    --spacing-card-padding: var(--spacing-3);          /* 12px */
+    --spacing-modal-padding: var(--spacing-4);         /* 16px */
+    --spacing-dashboard-grid-gap: var(--spacing-4);    /* 16px */
+  }
+}

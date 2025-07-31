@@ -1,0 +1,175 @@
+/**
+ * Dream Team Design Tokens - Shadows & Elevation
+ * Professional AI Agent Orchestration Platform
+ * Generated from UI/UX Specification v1.0
+ */
+
+:root {
+  /* Shadow System - Professional Depth */
+  
+  /* Level 0 - No Elevation */
+  --shadow-none: none;
+  
+  /* Level 1 - Cards, Inputs */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+  
+  /* Level 2 - Buttons, Elevated Cards */
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.05), 0 2px 4px rgba(0, 0, 0, 0.06);
+  
+  /* Level 3 - Modals, Dropdowns */
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.05);
+  
+  /* Level 4 - Major Overlays */
+  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.1), 0 10px 10px rgba(0, 0, 0, 0.04);
+  
+  /* Level 5 - Maximum Elevation */
+  --shadow-2xl: 0 25px 50px rgba(0, 0, 0, 0.15), 0 10px 10px rgba(0, 0, 0, 0.04);
+
+  /* Inner Shadows */
+  --shadow-inner: inset 0 2px 4px rgba(0, 0, 0, 0.06);
+  
+  /* Colored Shadows for Professional Status */
+  --shadow-primary: 0 4px 14px rgba(0, 102, 204, 0.15);
+  --shadow-success: 0 4px 14px rgba(16, 185, 129, 0.15);
+  --shadow-warning: 0 4px 14px rgba(245, 158, 11, 0.15);
+  --shadow-error: 0 4px 14px rgba(239, 68, 68, 0.15);
+  
+  /* Agent Role Shadows */
+  --shadow-agent-pm: 0 4px 14px rgba(139, 92, 246, 0.15);
+  --shadow-agent-architect: 0 4px 14px rgba(6, 182, 212, 0.15);
+  --shadow-agent-developer: 0 4px 14px rgba(16, 185, 129, 0.15);
+  --shadow-agent-qa: 0 4px 14px rgba(245, 158, 11, 0.15);
+  --shadow-agent-ux: 0 4px 14px rgba(236, 72, 153, 0.15);
+  --shadow-agent-data: 0 4px 14px rgba(124, 58, 237, 0.15);
+  
+  /* Focus Shadows for Accessibility */
+  --shadow-focus-primary: 0 0 0 3px rgba(0, 102, 204, 0.2);
+  --shadow-focus-success: 0 0 0 3px rgba(16, 185, 129, 0.2);
+  --shadow-focus-warning: 0 0 0 3px rgba(245, 158, 11, 0.2);
+  --shadow-focus-error: 0 0 0 3px rgba(239, 68, 68, 0.2);
+}
+
+/* Dark Mode Shadows */
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Enhanced shadows for dark mode */
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.2), 0 2px 4px rgba(0, 0, 0, 0.2);
+    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.3), 0 4px 6px rgba(0, 0, 0, 0.2);
+    --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.4), 0 10px 10px rgba(0, 0, 0, 0.2);
+    --shadow-2xl: 0 25px 50px rgba(0, 0, 0, 0.5), 0 10px 10px rgba(0, 0, 0, 0.2);
+    
+    /* Colored shadows adjusted for dark mode */
+    --shadow-primary: 0 4px 14px rgba(74, 158, 255, 0.25);
+    --shadow-success: 0 4px 14px rgba(52, 211, 153, 0.25);
+    --shadow-warning: 0 4px 14px rgba(251, 191, 36, 0.25);
+    --shadow-error: 0 4px 14px rgba(248, 113, 113, 0.25);
+  }
+}
+
+/* Explicit Dark Mode Class Support */
+.dark {
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.2), 0 2px 4px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.3), 0 4px 6px rgba(0, 0, 0, 0.2);
+  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.4), 0 10px 10px rgba(0, 0, 0, 0.2);
+  --shadow-2xl: 0 25px 50px rgba(0, 0, 0, 0.5), 0 10px 10px rgba(0, 0, 0, 0.2);
+  
+  --shadow-primary: 0 4px 14px rgba(74, 158, 255, 0.25);
+  --shadow-success: 0 4px 14px rgba(52, 211, 153, 0.25);
+  --shadow-warning: 0 4px 14px rgba(251, 191, 36, 0.25);
+  --shadow-error: 0 4px 14px rgba(248, 113, 113, 0.25);
+}
+
+/* Shadow Utility Classes */
+.shadow-none { box-shadow: var(--shadow-none); }
+.shadow-sm { box-shadow: var(--shadow-sm); }
+.shadow-md { box-shadow: var(--shadow-md); }
+.shadow-lg { box-shadow: var(--shadow-lg); }
+.shadow-xl { box-shadow: var(--shadow-xl); }
+.shadow-2xl { box-shadow: var(--shadow-2xl); }
+.shadow-inner { box-shadow: var(--shadow-inner); }
+
+/* Colored Shadow Utilities */
+.shadow-primary { box-shadow: var(--shadow-primary); }
+.shadow-success { box-shadow: var(--shadow-success); }
+.shadow-warning { box-shadow: var(--shadow-warning); }
+.shadow-error { box-shadow: var(--shadow-error); }
+
+/* Agent Role Shadow Utilities */
+.shadow-agent-pm { box-shadow: var(--shadow-agent-pm); }
+.shadow-agent-architect { box-shadow: var(--shadow-agent-architect); }
+.shadow-agent-developer { box-shadow: var(--shadow-agent-developer); }
+.shadow-agent-qa { box-shadow: var(--shadow-agent-qa); }
+.shadow-agent-ux { box-shadow: var(--shadow-agent-ux); }
+.shadow-agent-data { box-shadow: var(--shadow-agent-data); }
+
+/* Focus Shadow Utilities */
+.focus-shadow-primary:focus { box-shadow: var(--shadow-focus-primary); }
+.focus-shadow-success:focus { box-shadow: var(--shadow-focus-success); }
+.focus-shadow-warning:focus { box-shadow: var(--shadow-focus-warning); }
+.focus-shadow-error:focus { box-shadow: var(--shadow-focus-error); }
+
+/* Professional Component Shadow Classes */
+.agent-card-shadow {
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.3s ease;
+}
+
+.agent-card-shadow:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.agent-card-shadow.active {
+  box-shadow: var(--shadow-agent-developer);
+}
+
+.workflow-timeline-shadow {
+  box-shadow: var(--shadow-md);
+}
+
+.modal-shadow {
+  box-shadow: var(--shadow-xl);
+}
+
+.dropdown-shadow {
+  box-shadow: var(--shadow-lg);
+}
+
+.button-shadow {
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.2s ease;
+}
+
+.button-shadow:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.button-shadow:active {
+  box-shadow: var(--shadow-inner);
+}
+
+/* Professional Status Shadows */
+.status-active-shadow {
+  box-shadow: var(--shadow-success);
+}
+
+.status-warning-shadow {
+  box-shadow: var(--shadow-warning);
+}
+
+.status-error-shadow {
+  box-shadow: var(--shadow-error);
+}
+
+/* Mobile Shadow Adjustments */
+@media (max-width: 768px) {
+  :root {
+    /* Reduced shadows for mobile */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
+    --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.12);
+    --shadow-xl: 0 8px 16px rgba(0, 0, 0, 0.15);
+    --shadow-2xl: 0 12px 24px rgba(0, 0, 0, 0.18);
+  }
+}

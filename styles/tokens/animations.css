@@ -1,0 +1,366 @@
+/**
+ * Dream Team Design Tokens - Animations & Motion
+ * Professional AI Agent Orchestration Platform
+ * Generated from UI/UX Specification v1.0
+ */
+
+:root {
+  /* Duration Tokens */
+  --duration-instant: 0ms;
+  --duration-fast: 150ms;
+  --duration-normal: 300ms;
+  --duration-slow: 500ms;
+  --duration-slower: 750ms;
+
+  /* Easing Functions */
+  --ease-linear: linear;
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+  /* Professional Motion Curves */
+  --ease-professional: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-smooth: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --ease-snappy: cubic-bezier(0.68, -0.6, 0.32, 1.6);
+}
+
+/* Keyframe Animations */
+
+/* Agent Status Pulse */
+@keyframes agent-pulse {
+  0% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.05); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* Workflow Progress Animation */
+@keyframes workflow-progress {
+  0% { width: 0%; }
+  100% { width: var(--progress-width, 100%); }
+}
+
+/* Loading Spinner */
+@keyframes loading-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Fade In/Out */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* Slide Animations */
+@keyframes slide-in-up {
+  from { 
+    opacity: 0; 
+    transform: translateY(20px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+@keyframes slide-in-down {
+  from { 
+    opacity: 0; 
+    transform: translateY(-20px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+@keyframes slide-in-left {
+  from { 
+    opacity: 0; 
+    transform: translateX(-20px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateX(0); 
+  }
+}
+
+@keyframes slide-in-right {
+  from { 
+    opacity: 0; 
+    transform: translateX(20px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateX(0); 
+  }
+}
+
+/* Scale Animations */
+@keyframes scale-in {
+  from { 
+    opacity: 0; 
+    transform: scale(0.9); 
+  }
+  to { 
+    opacity: 1; 
+    transform: scale(1); 
+  }
+}
+
+@keyframes scale-out {
+  from { 
+    opacity: 1; 
+    transform: scale(1); 
+  }
+  to { 
+    opacity: 0; 
+    transform: scale(0.9); 
+  }
+}
+
+/* Professional Bounce */
+@keyframes professional-bounce {
+  0% { transform: scale(1); }
+  25% { transform: scale(1.05); }
+  50% { transform: scale(0.98); }
+  75% { transform: scale(1.02); }
+  100% { transform: scale(1); }
+}
+
+/* Success Checkmark Animation */
+@keyframes success-checkmark {
+  0% { 
+    stroke-dasharray: 0 100;
+    stroke-dashoffset: 0;
+  }
+  100% { 
+    stroke-dasharray: 100 0;
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Error Shake Animation */
+@keyframes error-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+/* Typing Indicator */
+@keyframes typing-dot {
+  0%, 60%, 100% { opacity: 0.3; transform: scale(0.8); }
+  30% { opacity: 1; transform: scale(1); }
+}
+
+/* Progress Bar Fill */
+@keyframes progress-fill {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+/* Real-time Data Update */
+@keyframes data-update {
+  0% { background-color: rgba(16, 185, 129, 0.1); }
+  50% { background-color: rgba(16, 185, 129, 0.3); }
+  100% { background-color: rgba(16, 185, 129, 0.1); }
+}
+
+/* Animation Utility Classes */
+
+/* Duration Classes */
+.animate-instant { animation-duration: var(--duration-instant); }
+.animate-fast { animation-duration: var(--duration-fast); }
+.animate-normal { animation-duration: var(--duration-normal); }
+.animate-slow { animation-duration: var(--duration-slow); }
+.animate-slower { animation-duration: var(--duration-slower); }
+
+/* Easing Classes */
+.ease-linear { animation-timing-function: var(--ease-linear); }
+.ease-out { animation-timing-function: var(--ease-out); }
+.ease-in { animation-timing-function: var(--ease-in); }
+.ease-in-out { animation-timing-function: var(--ease-in-out); }
+.ease-bounce { animation-timing-function: var(--ease-bounce); }
+.ease-professional { animation-timing-function: var(--ease-professional); }
+.ease-smooth { animation-timing-function: var(--ease-smooth); }
+.ease-snappy { animation-timing-function: var(--ease-snappy); }
+
+/* Animation Classes */
+.animate-pulse {
+  animation: agent-pulse 2s ease-in-out infinite;
+}
+
+.animate-spin {
+  animation: loading-spin 1s linear infinite;
+}
+
+.animate-fade-in {
+  animation: fade-in var(--duration-normal) var(--ease-out) forwards;
+}
+
+.animate-fade-out {
+  animation: fade-out var(--duration-normal) var(--ease-in) forwards;
+}
+
+.animate-slide-in-up {
+  animation: slide-in-up var(--duration-normal) var(--ease-out) forwards;
+}
+
+.animate-slide-in-down {
+  animation: slide-in-down var(--duration-normal) var(--ease-out) forwards;
+}
+
+.animate-slide-in-left {
+  animation: slide-in-left var(--duration-normal) var(--ease-out) forwards;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right var(--duration-normal) var(--ease-out) forwards;
+}
+
+.animate-scale-in {
+  animation: scale-in var(--duration-normal) var(--ease-out) forwards;
+}
+
+.animate-scale-out {
+  animation: scale-out var(--duration-normal) var(--ease-in) forwards;
+}
+
+.animate-bounce {
+  animation: professional-bounce var(--duration-slow) var(--ease-bounce);
+}
+
+.animate-shake {
+  animation: error-shake var(--duration-fast) var(--ease-in-out);
+}
+
+.animate-checkmark {
+  animation: success-checkmark var(--duration-slow) var(--ease-out) forwards;
+}
+
+.animate-progress {
+  animation: progress-fill var(--duration-slower) var(--ease-professional) forwards;
+  transform-origin: left center;
+}
+
+.animate-data-update {
+  animation: data-update 1s var(--ease-in-out);
+}
+
+/* Professional Component Animations */
+
+/* Agent Card Hover */
+.agent-card-hover {
+  transition: all var(--duration-normal) var(--ease-professional);
+}
+
+.agent-card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+/* Button Interactions */
+.button-interaction {
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.button-interaction:hover {
+  transform: translateY(-1px);
+}
+
+.button-interaction:active {
+  transform: translateY(0);
+}
+
+/* Workflow Timeline Animations */
+.workflow-step-enter {
+  animation: slide-in-left var(--duration-normal) var(--ease-out) forwards;
+}
+
+.workflow-step-complete {
+  animation: scale-in var(--duration-normal) var(--ease-bounce) forwards;
+}
+
+/* Modal Animations */
+.modal-enter {
+  animation: scale-in var(--duration-normal) var(--ease-professional) forwards;
+}
+
+.modal-exit {
+  animation: scale-out var(--duration-fast) var(--ease-in) forwards;
+}
+
+/* Notification Animations */
+.notification-enter {
+  animation: slide-in-right var(--duration-normal) var(--ease-out) forwards;
+}
+
+.notification-exit {
+  animation: slide-in-right var(--duration-fast) var(--ease-in) reverse forwards;
+}
+
+/* Loading States */
+.loading-skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading-skeleton 1.5s infinite;
+}
+
+@keyframes loading-skeleton {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Dark Mode Loading Skeleton */
+.dark .loading-skeleton {
+  background: linear-gradient(90deg, #374151 25%, #4b5563 50%, #374151 75%);
+  background-size: 200% 100%;
+}
+
+/* Typing Indicator Animation */
+.typing-indicator {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.typing-indicator .dot {
+  width: 4px;
+  height: 4px;
+  background-color: var(--color-gray-400);
+  border-radius: 50%;
+  animation: typing-dot 1.4s ease-in-out infinite;
+}
+
+.typing-indicator .dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-indicator .dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  
+  .animate-pulse {
+    animation: none;
+  }
+  
+  .animate-spin {
+    animation: none;
+  }
+}

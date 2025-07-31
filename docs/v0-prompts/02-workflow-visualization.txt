@@ -1,0 +1,47 @@
+**PROJECT CONTEXT:**
+Build a sophisticated workflow visualization component for Dream Team's BMAD (Business Methodology for Autonomous Development) system. This shows real-time progress of AI agents working together through sequential workflows like PM → Architect → Developer → QA.
+
+**TECH STACK:**
+- React 19 with TypeScript
+- Tailwind CSS v4 with professional design tokens
+- Real-time WebSocket updates
+- SVG-based visualizations
+
+**HIGH-LEVEL GOAL:**
+Create an interactive, real-time workflow visualization that clearly shows agent handoffs, current progress, and communication flow between AI agents.
+
+**DETAILED STEP-BY-STEP INSTRUCTIONS:**
+
+1. Design a horizontal workflow timeline with:
+   - Connected nodes representing each agent (PM, Architect, Dev, QA)
+   - Progress lines connecting agents showing completion status
+   - Current active agent highlighted with animation
+   - Agent avatars with role-specific icons and colors
+
+2. Add workflow status indicators:
+   - **Completed steps**: Green checkmark with solid connection line
+   - **Current step**: Pulsing blue ring with animated progress indicator
+   - **Pending steps**: Gray outline with dashed connection line
+   - **Error states**: Red warning icon with error details tooltip
+
+3. Include real-time communication display:
+   - Speech bubbles showing agent-to-agent messages
+   - Timestamp indicators for each communication
+   - Message type indicators (handoff, question, completion)
+   - Smooth animations for new messages appearing
+
+4. Design interactive elements:
+   - Click any agent node to see detailed task breakdown
+   - Hover over connections to see handoff details
+   - Expandable section showing generated artifacts
+   - Time estimates and actual completion times
+
+**CODE EXAMPLES & CONSTRAINTS:**
+- Agent colors: PM (#8B5CF6), Architect (#06B6D4), Dev (#10B981), QA (#F59E0B)
+- Use CSS animations: `animate-pulse`, `animate-bounce`, custom keyframes for progress
+- SVG paths for connecting lines with smooth curves
+- Responsive: Horizontal on desktop, vertical stack on mobile
+- WebSocket message format: `{type: 'agent_update', agentId: 'pm', status: 'active', message: '...'}`
+
+**STRICT SCOPE:**
+Create the WorkflowVisualization component with TypeScript interfaces. Include loading states and error handling. Do NOT modify WebSocket connection logic or agent orchestration code.

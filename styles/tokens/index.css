@@ -1,0 +1,274 @@
+/**
+ * Dream Team Design Tokens - Main Import File
+ * Professional AI Agent Orchestration Platform
+ * Generated from UI/UX Specification v1.0
+ * 
+ * Import this file to get all design tokens for your Dream Team platform
+ */
+
+/* Core Design Token Files */
+@import './colors.css';
+@import './typography.css';
+@import './spacing.css';
+@import './shadows.css';
+@import './animations.css';
+
+/**
+ * USAGE INSTRUCTIONS:
+ * 
+ * 1. Import this file in your main CSS/SCSS:
+ *    @import '../styles/tokens/index.css';
+ * 
+ * 2. Or import in your Next.js _app.js:
+ *    import '../styles/tokens/index.css';
+ * 
+ * 3. Use tokens in your components:
+ *    .my-component {
+ *      color: var(--color-primary-600);
+ *      font-size: var(--font-size-body);
+ *      padding: var(--spacing-md);
+ *      box-shadow: var(--shadow-sm);
+ *    }
+ * 
+ * 4. Use utility classes:
+ *    <div className="text-h3 p-6 shadow-md">
+ *      My Professional Component
+ *    </div>
+ */
+
+/* Base Styles Using Design Tokens */
+html {
+  font-family: var(--font-family-primary);
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+  color: var(--color-gray-900);
+  background-color: var(--color-gray-50);
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: inherit;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Professional Reset */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* Headings */
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-gray-900);
+}
+
+h1 {
+  font-size: var(--font-size-h1);
+  line-height: var(--line-height-h1);
+  letter-spacing: var(--letter-spacing-h1);
+  margin-bottom: var(--spacing-lg);
+}
+
+h2 {
+  font-size: var(--font-size-h2);
+  line-height: var(--line-height-h2);
+  letter-spacing: var(--letter-spacing-h2);
+  margin-bottom: var(--spacing-md);
+}
+
+h3 {
+  font-size: var(--font-size-h3);
+  line-height: var(--line-height-h3);
+  letter-spacing: var(--letter-spacing-h3);
+  margin-bottom: var(--spacing-md);
+}
+
+h4 {
+  font-size: var(--font-size-h4);
+  line-height: var(--line-height-h4);
+  letter-spacing: var(--letter-spacing-h4);
+  margin-bottom: var(--spacing-sm);
+}
+
+h5 {
+  font-size: var(--font-size-h5);
+  line-height: var(--line-height-h5);
+  letter-spacing: var(--letter-spacing-h5);
+  margin-bottom: var(--spacing-sm);
+}
+
+h6 {
+  font-size: var(--font-size-h6);
+  line-height: var(--line-height-h6);
+  letter-spacing: var(--letter-spacing-h6);
+  margin-bottom: var(--spacing-sm);
+}
+
+/* Body Text */
+p {
+  margin: 0 0 var(--spacing-md) 0;
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+  color: var(--color-gray-700);
+}
+
+/* Code Elements */
+code, pre {
+  font-family: var(--font-family-secondary);
+  font-size: var(--font-size-code);
+  line-height: var(--line-height-code);
+}
+
+code {
+  background-color: var(--color-gray-100);
+  padding: var(--spacing-1) var(--spacing-2);
+  border-radius: 4px;
+  color: var(--color-gray-800);
+}
+
+pre {
+  background-color: var(--color-gray-100);
+  padding: var(--spacing-md);
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: var(--spacing-md) 0;
+}
+
+/* Links */
+a {
+  color: var(--color-primary-600);
+  text-decoration: none;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+a:hover {
+  color: var(--color-primary-700);
+  text-decoration: underline;
+}
+
+a:focus {
+  outline: 2px solid var(--color-primary-500);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Form Elements */
+input, textarea, select {
+  font-family: inherit;
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+  color: var(--color-gray-900);
+  background-color: var(--color-gray-50);
+  border: 1px solid var(--color-gray-300);
+  border-radius: 6px;
+  padding: var(--spacing-2) var(--spacing-3);
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: var(--color-primary-500);
+  box-shadow: var(--shadow-focus-primary);
+}
+
+/* Buttons */
+button {
+  font-family: inherit;
+  font-size: var(--font-size-button);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-button);
+  letter-spacing: var(--letter-spacing-button);
+  border: none;
+  border-radius: 6px;
+  padding: var(--spacing-2) var(--spacing-4);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+  background-color: var(--color-primary-600);
+  color: white;
+}
+
+button:hover {
+  background-color: var(--color-primary-700);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+button:focus {
+  outline: none;
+  box-shadow: var(--shadow-focus-primary);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Lists */
+ul, ol {
+  margin: 0 0 var(--spacing-md) 0;
+  padding-left: var(--spacing-lg);
+}
+
+li {
+  margin-bottom: var(--spacing-xs);
+  color: var(--color-gray-700);
+}
+
+/* Professional Focus Styles */
+:focus-visible {
+  outline: 2px solid var(--color-primary-500);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-gray-100);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-gray-400);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-gray-500);
+}
+
+/* Dark Mode Scrollbar */
+.dark ::-webkit-scrollbar-track {
+  background: var(--color-gray-800);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: var(--color-gray-600);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: var(--color-gray-500);
+}
+
+/* Selection Styling */
+::selection {
+  background-color: var(--color-primary-100);
+  color: var(--color-primary-900);
+}
+
+/* Dark Mode Selection */
+.dark ::selection {
+  background-color: var(--color-primary-800);
+  color: var(--color-primary-100);
+}

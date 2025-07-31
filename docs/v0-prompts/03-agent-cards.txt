@@ -1,0 +1,62 @@
+**PROJECT CONTEXT:**
+Design a comprehensive set of reusable agent cards for Dream Team's AI orchestration platform. These cards represent individual AI agents (PM, Architect, Developer, QA, etc.) and need to convey professional authority and real-time status.
+
+**TECH STACK:**
+- React 19 functional components with TypeScript
+- Tailwind CSS v4 with custom design tokens
+- Professional enterprise color system
+- Framer Motion for micro-interactions
+
+**HIGH-LEVEL GOAL:**
+Create a family of sophisticated agent cards that can display different states (active, idle, working, completed) with consistent visual language and professional polish.
+
+**DETAILED STEP-BY-STEP INSTRUCTIONS:**
+
+1. Design the base AgentCard component structure:
+   - 320px width, flexible height, rounded corners with subtle shadow
+   - Header section with agent icon, name, and status indicator
+   - Main content area showing current task or recent activity
+   - Footer with action buttons and last updated timestamp
+
+2. Create status-specific variants:
+   - **Active**: Blue border, pulsing status dot, "Working on..." text
+   - **Idle**: Gray border, dim status dot, "Available" text  
+   - **Completed**: Green border, checkmark icon, "Completed: [task]" text
+   - **Error**: Red border, warning icon, error message display
+
+3. Add role-specific customization:
+   - **PM Agent**: Purple theme (#8B5CF6), briefcase icon, project management tasks
+   - **Architect**: Cyan theme (#06B6D4), blueprint icon, system design tasks
+   - **Developer**: Green theme (#10B981), code icon, implementation tasks
+   - **QA**: Amber theme (#F59E0B), bug icon, testing and validation tasks
+
+4. Include interactive features:
+   - Hover effect with subtle scale and shadow increase
+   - Click to expand showing detailed task breakdown
+   - Real-time progress indicator for active tasks
+   - Communication history toggle button
+
+**CODE EXAMPLES & CONSTRAINTS:**
+```typescript
+interface AgentCardProps {
+  agent: {
+    id: string;
+    name: string;
+    role: 'pm' | 'architect' | 'dev' | 'qa';
+    status: 'active' | 'idle' | 'completed' | 'error';
+    currentTask?: string;
+    progress?: number;
+    lastUpdated: Date;
+  };
+  onClick?: () => void;
+  className?: string;
+}
+```
+
+- Use Tailwind: `group hover:scale-105 transition-transform duration-200`
+- Status dots: `w-3 h-3 rounded-full` with appropriate bg colors
+- Icons from Lucide: `<User />`, `<Code />`, `<Settings />`, `<Shield />`
+- Typography: `text-sm font-medium` for headers, `text-xs text-gray-500` for metadata
+
+**STRICT SCOPE:**
+Create AgentCard component with all variants and TypeScript interfaces. Include Storybook-style examples showing different states. Do NOT create the parent container or grid layout components.
