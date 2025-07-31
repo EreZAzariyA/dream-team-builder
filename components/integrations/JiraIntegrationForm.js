@@ -171,8 +171,8 @@ export default function JiraIntegrationForm({ onSubmit, onCancel, isLoading, ini
           </h4>
           <ol className="text-sm text-blue-800 dark:text-blue-200 space-y-1 list-decimal list-inside">
             <li>Go to <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" rel="noopener noreferrer" className="underline">Atlassian Account Settings</a></li>
-            <li>Click "Create API token"</li>
-            <li>Give it a descriptive label like "BMAD Workflow Integration"</li>
+            <li>Click &quot;Create API token&quot;</li>
+            <li>Give it a descriptive label like &quot;BMAD Workflow Integration&quot;</li>
             <li>Copy the generated token and paste it above</li>
             <li>Make sure you have appropriate permissions to create issues in your JIRA projects</li>
           </ol>
