@@ -1,6 +1,4 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '../../../../../lib/auth/config.js';
 import { User } from '../../../../../lib/database/models/index.js';
 import { connectMongoose } from '../../../../../lib/database/mongodb.js';
 
@@ -23,7 +21,7 @@ export async function GET(request) {
     let stateData;
     try {
       stateData = JSON.parse(state);
-    } catch (err) {
+    } catch (e) {
       return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/integrations?error=invalid_state`);
     }
 

@@ -18,8 +18,7 @@ export default function AgentChatInterface({
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
-  const [activeChannel, setActiveChannel] = useState(null);
-  const [isTyping, setIsTyping] = useState(false);
+  
   const [onlineAgents, setOnlineAgents] = useState(new Set());
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -289,7 +288,6 @@ export default function AgentChatInterface({
                   key={message.id}
                   message={message}
                   agents={agents}
-                  isSelected={selectedAgent?.id === message.from}
                 />
               ))
             )}
@@ -335,7 +333,7 @@ export default function AgentChatInterface({
 }
 
 // Individual Chat Message Component
-function ChatMessage({ message, agents, isSelected }) {
+function ChatMessage({ message, agents }) {
   const getMessageStyle = () => {
     switch (message.type) {
       case 'user':

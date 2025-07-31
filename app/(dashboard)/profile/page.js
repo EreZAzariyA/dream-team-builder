@@ -1,7 +1,7 @@
 'use client';
 
 import { useSession, signOut } from 'next-auth/react';
-import { useAuth } from '../../lib/store/hooks/authHooks.js';
+import { useAuth } from '../../../lib/store/hooks/authHooks.js';
 import { useState } from 'react';
 import Link from 'next/link';
 
@@ -84,7 +84,7 @@ export default function ProfilePage() {
       
       setSuccess('Profile updated successfully!');
       setIsEditing(false);
-    } catch (error) {
+    } catch (e) {
       setError('Failed to update profile. Please try again.');
     } finally {
       setIsLoading(false);
@@ -402,7 +402,7 @@ export default function ProfilePage() {
                   Dashboard
                 </Link>
                 <button
-                  onClick={() => signOut({ callbackUrl: '/' })}
+                  onClick={() => signOut({ callbackUrl: '/auth/signin' })}
                   className="w-full flex items-center px-4 py-2 text-sm text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition duration-150 ease-in-out"
                 >
                   <span className="mr-3">🚪</span>

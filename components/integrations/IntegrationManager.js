@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useDispatch } from 'react-redux';
-import { useSession, getSession, signIn } from 'next-auth/react';
+import { useSession, signIn, getSession } from 'next-auth/react';
 
 // Integration configuration forms
 import GitHubIntegrationForm from './GitHubIntegrationForm.js';
@@ -26,6 +26,7 @@ async function createIntegration(integrationData) {
   });
   if (!response.ok) {
     const error = await response.json();
+
     throw new Error(error.error || 'Failed to create integration');
   }
   return response.json();
@@ -328,14 +329,16 @@ export default function IntegrationManager() {
   const handleConnectGitHub = async () => {
     // Store current user ID for account linking
     localStorage.setItem('accountLinking', JSON.stringify({
-      existingUserId: session.user.id,
       provider: 'github',
       timestamp: Date.now()
     }));
     
     // Use NextAuth's signIn with custom callback
     await signIn('github', {
-      callbackUrl: '/integrations?linking=github'
+      callbackUrl: '/integrations?linking=github',
+      prompt: 'consent',
+      login: '',
+      redirect: 'http://localhost:3000/integrations'
     });
   };
 

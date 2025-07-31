@@ -122,12 +122,7 @@ export default function OnboardingManager({ children }) {
     markOnboardingAsSeen();
   };
 
-  // Public API for triggering onboarding components
-  const triggerOnboarding = {
-    showWelcome: () => setOnboardingState(prev => ({ ...prev, showWelcome: true })),
-    showTour: () => setOnboardingState(prev => ({ ...prev, showTour: true })),
-    showWorkflowLauncher: () => setOnboardingState(prev => ({ ...prev, showWorkflowLauncher: true }))
-  };
+  
 
   return (
     <>
@@ -166,7 +161,6 @@ export default function OnboardingManager({ children }) {
 
 // Hook for accessing onboarding controls from other components
 export function useOnboarding() {
-  const [, setForceUpdate] = useState({});
   
   const showWelcome = () => {
     // Trigger welcome modal

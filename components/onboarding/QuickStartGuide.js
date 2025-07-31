@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useSelector } from 'react-redux';
 
 export default function QuickStartGuide({ onStartWorkflow, isCollapsed: initialCollapsed = false }) {
   const [isCollapsed, setIsCollapsed] = useState(initialCollapsed);

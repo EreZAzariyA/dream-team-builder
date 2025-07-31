@@ -6,7 +6,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch } from 'react-redux';
 import { useMutation, useQuery } from '@tanstack/react-query';
 
 export default function WorkflowInitiator({ onWorkflowStarted, className = '' }) {

@@ -5,7 +5,7 @@ import { authOptions } from '../../../../lib/auth/config.js';
 import WorkflowAnalytics from '../../../../lib/database/models/WorkflowAnalytics.js';
 import { connectMongoose } from '../../../../lib/database/mongodb.js';
 
-export async function GET(request) {
+export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     if (!session) {

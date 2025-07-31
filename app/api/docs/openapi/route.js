@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import OpenAPIGenerator from '../../../../lib/docs/openapi-generator.js';
 
-export async function GET(request) {
+export async function GET() {
   try {
     const generator = new OpenAPIGenerator();
     const spec = await generator.generateSpec();

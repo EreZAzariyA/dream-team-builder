@@ -28,7 +28,7 @@ async function getTestOrchestrator() {
 /**
  * GET /api/bmad/test - Test BMAD system without authentication
  */
-export async function GET(request) {
+export async function GET() {
   try {
     const bmad = await getTestOrchestrator();
 

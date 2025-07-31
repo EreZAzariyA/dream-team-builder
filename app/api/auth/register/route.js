@@ -1,5 +1,5 @@
 import { User } from '../../../../lib/database/models/index.js';
-import { signIn } from 'next-auth/react';
+
 import { 
   withDatabase, 
   withMethods, 

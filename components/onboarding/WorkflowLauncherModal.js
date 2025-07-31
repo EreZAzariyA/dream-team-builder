@@ -45,7 +45,7 @@ export default function WorkflowLauncherModal({ isOpen, onClose, onSelectTemplat
     enabled: isOpen
   });
 
-  const { data: agentsData, isLoading: agentsLoading } = useQuery({
+  const { data: agentsData } = useQuery({
     queryKey: ['bmad-agents'],
     queryFn: fetchBmadAgents,
     enabled: isOpen

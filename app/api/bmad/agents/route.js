@@ -25,7 +25,7 @@ async function getOrchestrator() {
 /**
  * GET /api/bmad/agents - Get all available agents
  */
-export async function GET(request) {
+export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     if (!session) {

@@ -5,7 +5,7 @@ import { authOptions } from '../../../lib/auth/config.js';
 import WorkflowTemplate from '../../../lib/database/models/WorkflowTemplate.js';
 import { connectMongoose } from '../../../lib/database/mongodb.js';
 
-export async function GET(request) {
+export async function GET() {
   try {
     await connectMongoose();
     const templates = await WorkflowTemplate.find({});

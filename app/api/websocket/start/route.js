@@ -11,7 +11,7 @@ import { initializeWebSocketServer, getWebSocketServer } from '../../../../lib/w
 /**
  * POST /api/websocket/start - Start WebSocket server
  */
-export async function POST(request) {
+export async function POST() {
   try {
     // Check authentication (optional - you might want to allow this for development)
     const session = await getServerSession(authOptions);
@@ -63,7 +63,7 @@ export async function POST(request) {
 /**
  * GET /api/websocket/start - Get WebSocket server status
  */
-export async function GET(request) {
+export async function GET() {
   try {
     const webSocketServer = getWebSocketServer();
     

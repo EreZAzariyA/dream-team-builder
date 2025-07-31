@@ -7,7 +7,7 @@ import { selectAgentSequence } from '../../lib/store/slices/workflowSlice';
 import { selectAvailableAgents } from '../../lib/store/slices/agentSlice';
 
 const WorkflowDiagram = ({ workflowId, currentAgentId }) => {
-  const { sequence, currentIndex } = useSelector(selectAgentSequence);
+  const { sequence } = useSelector(selectAgentSequence);
   const availableAgents = useSelector(selectAvailableAgents);
 
   return (

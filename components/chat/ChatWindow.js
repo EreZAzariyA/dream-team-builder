@@ -3,9 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { useMutation, useQuery } from '@tanstack/react-query';
 import { addAgentChatMessage, selectAgentChatHistory } from '../../lib/store/slices/agentSlice';
-import { sendMessage } from '../../lib/store/slices/realtimeSlice';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 import WorkflowInitiator from '../bmad/WorkflowInitiator';
@@ -123,7 +121,7 @@ const ChatWindow = ({ workflowId = 'default-workflow', agentId = 'default-agent'
   };
 
   // Handle system message actions
-  const handleMessageAction = (action, messageData) => {
+  const handleMessageAction = (action) => {
     switch (action) {
       case 'show-workflow-initiator':
         setShowWorkflowInitiator(true);

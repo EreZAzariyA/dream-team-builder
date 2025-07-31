@@ -1,7 +1,6 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { CheckCircle, XCircle, Clock } from 'lucide-react';
 
 const AgentStatusCard = ({ agent }) => {
   // Maps agent status from data to the statuses defined in the UI/UX specification.

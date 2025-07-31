@@ -1,9 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useSession, signOut } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Workflow, Bot, BarChart, Plug, BookOpen, Settings, MessageSquare, Activity, LogOut } from 'lucide-react';
+import { signOut } from 'next-auth/react';
+import { LayoutDashboard, Workflow, Bot, BarChart, Plug, BookOpen, User, MessageSquare, Activity, LogOut } from 'lucide-react';
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard', type: 'link' },
@@ -14,8 +14,8 @@ const navItems = [
   { icon: Activity, label: 'Monitoring', href: '/monitoring', type: 'link' },
   { icon: Plug, label: 'Integrations', href: '/integrations', type: 'link' },
   { icon: BookOpen, label: 'Docs', href: '/docs', type: 'link' },
-  { icon: Settings, label: 'Settings', href: '/settings', type: 'link' },
-  { icon: LogOut, label: 'Sign Out', onClick: () => signOut(), type: 'button' },
+  { icon: User, label: 'Profile', href: '/profile', type: 'link' },
+  { icon: LogOut, label: 'Sign Out', onClick: () => signOut({ callbackUrl: '/auth/signin' }), type: 'button' },
 ];
 
 // Base classes for navigation links

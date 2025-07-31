@@ -1,11 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
 
 export default function OnboardingWelcomeModal({ onClose, onStartTour, onQuickStart }) {
   const [isVisible, setIsVisible] = useState(false);
-  const [currentStep, setCurrentStep] = useState(0);
 
   useEffect(() => {
     // Animate modal entrance

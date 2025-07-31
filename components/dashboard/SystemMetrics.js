@@ -1,6 +1,6 @@
 'use client';
 
-import { Activity, Users, Workflow, CheckCircle, XCircle, Clock, Zap } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Zap } from 'lucide-react';
 
 const StatCard = ({ icon, label, value, change, changeType, isLast }) => {
   const Icon = icon;

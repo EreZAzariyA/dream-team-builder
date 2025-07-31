@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import { checkDatabaseHealth, getConnectionState } from '../../../lib/database/mongodb.js';
 import { healthMonitor } from '../../../lib/monitoring/health-monitor.js';
-import { withMonitoring } from '../../../lib/monitoring/api-middleware.js';
 
-export async function GET(request) {
+
+export async function GET() {
   try {
     // Get enhanced health status from health monitor
     const healthStatus = await healthMonitor.getHealthStatus();

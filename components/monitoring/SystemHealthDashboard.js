@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 async function fetchHealthStatus() {
@@ -49,7 +49,7 @@ export default function SystemHealthDashboard() {
     refetchInterval: 60000, // Refresh every minute
   });
 
-  const { data: alertsData, error: alertsError, isLoading: alertsLoading } = useQuery({
+  const { data: alertsData, isLoading: alertsLoading } = useQuery({
     queryKey: ['alerts', alertFilter],
     queryFn: () => {
       switch (alertFilter) {

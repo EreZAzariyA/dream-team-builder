@@ -5,7 +5,7 @@ import { Bot, Zap, Workflow, Users, BarChart, Plug } from "lucide-react";
 import { useSession } from "next-auth/react";
 
 export default function Home() {
-  const { data: session, status } = useSession();
+  const { data: session } = useSession();
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900">
       {/* Navigation Header */}

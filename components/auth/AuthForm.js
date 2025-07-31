@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { signIn, getSession, useSession } from 'next-auth/react';
+import { signIn, useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -92,7 +92,7 @@ const AuthForm = ({ mode = 'signin' }) => {
 
         if (result?.ok) {
           // Get updated session
-          const session = await getSession();
+          // const session = await getSession();
           
           setSuccess('Sign in successful! Redirecting...');
           
@@ -130,7 +130,7 @@ const AuthForm = ({ mode = 'signin' }) => {
       await signIn('github', {
         callbackUrl: '/dashboard',
       });
-    } catch (error) {
+    } catch (e) {
       setError('GitHub sign in failed');
       setIsLoading(false);
     }

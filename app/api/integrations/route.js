@@ -19,7 +19,7 @@ if (!pluginManager.getPlugin('jira')) {
   pluginManager.registerPlugin('jira', new JiraPlugin());
 }
 
-export async function GET(request) {
+export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
@@ -80,7 +80,7 @@ export async function POST(request) {
     // Test the integration configuration
     try {
       const testPlugin = new plugin.constructor();
-      await testPlugin.initialize(config);
+      await testPlugin.initialize(config, session.user);
     } catch (error) {
       return NextResponse.json(
         { error: 'Integration configuration test failed', details: error.message },
