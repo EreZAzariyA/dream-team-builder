@@ -40,7 +40,7 @@ export default function EnhancedChatWindow({ className = '', initialTemplate }) 
 
   // WebSocket connection for system-wide updates
   const { client: wsClient, connected: wsConnected } = useWebSocket({
-    url: 'ws://localhost:8080',
+    url: 'ws://localhost:3000/ws',
     token: session?.accessToken || 'test-token',
     userId: session?.user?.id || 'anonymous'
   });

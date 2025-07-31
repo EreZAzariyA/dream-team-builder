@@ -25,7 +25,7 @@ export default function AgentChatInterface({
 
   // WebSocket connection for real-time chat
   const { client: wsClient, connected: wsConnected } = useWebSocket({
-    url: 'ws://localhost:8080',
+    url: 'ws://localhost:3000/ws',
     token: 'test-token', // In production, use actual auth token
     userId: 'user-1'
   });
