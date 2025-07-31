@@ -156,6 +156,14 @@ module.exports = {
         },
       },
 
+      borderColor: {
+        'status-active': 'var(--color-status-active-border)',
+        'status-available': 'var(--color-status-available-border)',
+        'status-busy': 'var(--color-status-busy-border)',
+        'status-error': 'var(--color-status-error-border)',
+        'status-offline': 'var(--color-status-offline-border)',
+      },
+
       // Typography - Professional Font System
       fontFamily: {
         primary: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],

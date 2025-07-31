@@ -4,8 +4,7 @@
  * Import this file to get seamless integration
  */
 
-@tailwind base;
-@tailwind components;
+@import "tailwindcss/preflight";
 @tailwind utilities;
 
 /* Import Design Tokens */
@@ -230,7 +229,7 @@
 
   /* Professional Navigation */
   .nav-link {
-    @apply flex items-center px-3 py-2 text-body font-medium rounded-md;
+    @apply flex items-center px-3 py-2 text-body font-medium rounded-md gap-3;
     @apply text-gray-600 dark:text-gray-300;
     @apply hover:text-gray-900 dark:hover:text-white;
     @apply hover:bg-gray-50 dark:hover:bg-gray-700;
