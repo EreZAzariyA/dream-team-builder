@@ -2,21 +2,21 @@
 
 import { Activity, Users, Workflow, CheckCircle, XCircle, Clock, Zap } from 'lucide-react';
 
-const StatCard = ({ icon, label, value, change, changeType }) => {
+const StatCard = ({ icon, label, value, change, changeType, isLast }) => {
   const Icon = icon;
   return (
-    <div className="card p-4">
+    <div className={`p-4 ${!isLast ? 'border-r border-gray-200 dark:border-gray-700' : ''}`}>
       <div className="flex items-center">
-        <div className="bg-primary-100 dark:bg-primary-900/50 p-2 rounded-lg">
-          <Icon className="w-6 h-6 text-primary-600 dark:text-primary-300" />
+        <div className="bg-secondary-100 dark:bg-secondary-900/50 p-2 rounded-full">
+          <Icon className="w-5 h-5 text-secondary-600 dark:text-secondary-300" />
         </div>
-        <div className="ml-4">
+        <div className="ml-3">
           <p className="text-body-small text-professional-muted">{label}</p>
-          <p className="text-h4 font-bold text-professional">{value}</p>
+          <p className="text-h5 font-semibold text-professional">{value}</p>
         </div>
       </div>
       {change && (
-        <div className={`text-caption mt-2 flex items-center ${changeType === 'increase' ? 'text-green-500' : 'text-red-500'}`}>
+        <div className={`text-caption mt-2 flex items-center ${changeType === 'increase' ? 'text-success' : 'text-error'}`}>
           {changeType === 'increase' ? '▲' : '▼'} {change}
         </div>
       )}
@@ -33,10 +33,12 @@ const SystemMetrics = () => {
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-      {stats.map((stat, index) => (
-        <StatCard key={index} {...stat} />
-      ))}
+    <div>
+      <div className="card grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
+        {stats.map((stat, index) => (
+          <StatCard key={index} {...stat} isLast={index === stats.length - 1} />
+        ))}
+      </div>
     </div>
   );
 };

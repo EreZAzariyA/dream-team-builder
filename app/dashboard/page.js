@@ -21,11 +21,13 @@ const DashboardPage = () => {
   const { theme, setTheme } = useTheme();
 
   const navItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', href: '#', type: 'link' },
-    { icon: Workflow, label: 'Workflows', href: '#', type: 'link' },
-    { icon: Users, label: 'Agents', href: '#', type: 'link' },
-    { icon: BarChart, label: 'Analytics', href: '#', type: 'link' },
-    { icon: Settings, label: 'Settings', href: '#', type: 'link' },
+    { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard', type: 'link' },
+    { icon: Workflow, label: 'Workflows', href: '/workflow-visualization', type: 'link' },
+    { icon: Users, label: 'Agents', href: '/agents', type: 'link' },
+    { icon: BarChart, label: 'Analytics', href: '/analytics', type: 'link' },
+    { icon: Settings, label: 'Integrations', href: '/integrations', type: 'link' },
+    { icon: Users, label: 'Docs', href: '/docs', type: 'link' },
+    { icon: Settings, label: 'Settings', href: '/settings', type: 'link' },
     { icon: LogOut, label: 'Sign Out', onClick: () => signOut(), type: 'button' },
   ];
 
