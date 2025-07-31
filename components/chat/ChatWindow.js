@@ -105,7 +105,7 @@ const ChatWindow = ({ workflowId = 'default-workflow', agentId = 'default-agent'
   };
 
   // Handle workflow started
-  const handleWorkflowStarted = (workflow) => {
+  const onWorkflowStarted = (workflow) => {
     setActiveWorkflowId(workflow.workflowId);
     setShowWorkflowInitiator(false);
     setBmadMode(true);
@@ -179,7 +179,7 @@ const ChatWindow = ({ workflowId = 'default-workflow', agentId = 'default-agent'
                 </button>
               </div>
               <WorkflowInitiator 
-                onWorkflowStarted={handleWorkflowStarted}
+                onWorkflowStarted={onWorkflowStarted}
                 className="max-w-none"
               />
             </div>
