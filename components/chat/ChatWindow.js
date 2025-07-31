@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useMemo } from 'react';
 import { addAgentChatMessage, selectAgentChatHistory } from '../../lib/store/slices/agentSlice';
@@ -11,13 +11,7 @@ import WorkflowInitiator from '../bmad/WorkflowInitiator';
 import WorkflowStatus from './WorkflowStatus';
 
 const ChatWindow = ({ workflowId = 'default-workflow', agentId = 'default-agent', initialTemplate, pusherClient, pusherConnected }) => {
-  useEffect(() => {
-    if (initialTemplate) {
-      const initialMessage = `Starting workflow with template: ${initialTemplate}`;
-      handleSendMessage(initialMessage, true); // Send as system message
-    }
-  }, [initialTemplate]);
-  
+
   const dispatch = useDispatch();
   useEffect(() => {
     if (pusherClient && pusherConnected) {
@@ -67,7 +61,7 @@ const ChatWindow = ({ workflowId = 'default-workflow', agentId = 'default-agent'
     );
   };
 
-  const handleSendMessage = async (content, isSystem = false) => {
+  const handleSendMessage = useCallback(async (content, isSystem = false) => {
     const newMessage = {
       sender: isSystem ? 'System' : 'User',
       content,
@@ -76,22 +70,24 @@ const ChatWindow = ({ workflowId = 'default-workflow', agentId = 'default-agent'
     
     dispatch(addAgentChatMessage({ agentId, message: newMessage }));
 
-    if (!isSystem && pusherClient && pusherConnected) {
-      if (bmadMode && activeWorkflowId) {
-        // If in BMAD mode and a workflow is active, send as a command to the workflow
-        pusherClient.broadcastMessage(JSON.stringify({
-          command: 'agent_message',
-          agent: 'orchestrator', // Assuming orchestrator handles initial routing
-          workflowId: activeWorkflowId,
-          content: newMessage.content,
-          sender: newMessage.sender,
-        }), { type: 'workflow', id: activeWorkflowId });
-      } else {
-        // Otherwise, send as a regular chat message
-        pusherClient.broadcastMessage(newMessage.content, {
-          type: 'workflow',
-          id: workflowId
+    // Send message via API if connected
+    if (!isSystem && pusherConnected) {
+      try {
+        const target = bmadMode && activeWorkflowId 
+          ? { type: 'workflow', id: activeWorkflowId }
+          : { type: 'workflow', id: workflowId };
+          
+        await fetch('/api/pusher/send-message', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            content: newMessage.content,
+            target,
+            userId: 'user-1'
+          })
         });
+      } catch (error) {
+        console.error('Failed to send message:', error);
       }
     }
 
@@ -112,7 +108,14 @@ const ChatWindow = ({ workflowId = 'default-workflow', agentId = 'default-agent'
         dispatch(addAgentChatMessage({ agentId, message: suggestion }));
       }, 1000);
     }
-  };
+  }, [agentId, activeWorkflowId, bmadMode, dispatch, pusherConnected, showWorkflowInitiator, workflowId]);
+
+  useEffect(() => {
+    if (initialTemplate) {
+      const initialMessage = `Starting workflow with template: ${initialTemplate}`;
+      handleSendMessage(initialMessage, true); // Send as system message
+    }
+  }, [initialTemplate, handleSendMessage]);
 
   // Handle workflow started
   const onWorkflowStarted = (workflow) => {

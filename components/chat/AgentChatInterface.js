@@ -19,7 +19,7 @@ export default function AgentChatInterface({
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   
-  const [onlineAgents, setOnlineAgents] = useState(new Set());
+  const [onlineAgents] = useState(new Set());
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -57,7 +57,7 @@ export default function AgentChatInterface({
         });
 
         // Also listen for user messages (for testing)
-        channel.bind('user-message', (data) => {
+        channel.bind('user-message', () => {
           // Handle user messages if needed
         });
       }
@@ -102,7 +102,7 @@ export default function AgentChatInterface({
       if (success) {
         onMessageSent(message);
       }
-    } catch (error) {
+    } catch {
       // Handle error silently or show user notification
     }
 
@@ -119,18 +119,18 @@ export default function AgentChatInterface({
   };
 
   return (
-    <div className={`bg-white rounded-lg shadow-sm border flex flex-col ${className}`}>
+    <div className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col ${className}`}>
       {/* Header */}
-      <div className="border-b p-4 bg-blue-800">
+      <div className="border-b border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-700">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">Agent Chat</h3>
-            <div className="flex items-center space-x-2 mt-1 text-sm text-gray-500">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Agent Chat</h3>
+            <div className="flex items-center space-x-2 mt-1 text-sm text-gray-500 dark:text-gray-400">
               <span>Workflow: {workflowId}</span>
               <span className={`flex items-center ${
-                pusherConnected ? 'text-green-600' : 
-                pusherConnecting ? 'text-yellow-600' : 
-                'text-red-600'
+                pusherConnected ? 'text-green-600 dark:text-green-400' : 
+                pusherConnecting ? 'text-yellow-600 dark:text-yellow-400' : 
+                'text-red-600 dark:text-red-400'
               }`}>
                 <div className={`w-2 h-2 rounded-full mr-1 ${
                   pusherConnected ? 'bg-green-500 animate-pulse' : 
@@ -145,7 +145,7 @@ export default function AgentChatInterface({
             </div>
           </div>
           
-          <div className="text-sm text-gray-500">
+          <div className="text-sm text-gray-500 dark:text-gray-400">
             {onlineAgents.size} agents online
           </div>
         </div>
@@ -153,9 +153,9 @@ export default function AgentChatInterface({
 
       <div className="flex flex-1 overflow-hidden">
         {/* Agent List Sidebar */}
-        <div className="w-64 border-r bg-gray-50 flex flex-col">
-          <div className="p-3 border-b bg-white">
-            <h4 className="font-medium text-gray-900 text-sm">Agents</h4>
+        <div className="w-64 border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700 flex flex-col">
+          <div className="p-3 border-b border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-600">
+            <h4 className="font-medium text-gray-900 dark:text-white text-sm">Agents</h4>
           </div>
           
           <div className="flex-1 overflow-y-auto p-2 space-y-1">
@@ -164,8 +164,8 @@ export default function AgentChatInterface({
               onClick={() => setSelectedAgent(null)}
               className={`w-full text-left p-2 rounded text-sm transition-colors ${
                 !selectedAgent
-                  ? 'bg-blue-100 text-blue-700'
-                  : 'text-gray-700 hover:bg-gray-100'
+                  ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
               }`}
             >
               <div className="flex items-center">
@@ -181,8 +181,8 @@ export default function AgentChatInterface({
                 onClick={() => handleAgentSelect(agent)}
                 className={`w-full text-left p-2 rounded text-sm transition-colors ${
                   selectedAgent?.id === agent.id
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-700 hover:bg-gray-100'
+                    ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
                 }`}
               >
                 <div className="flex items-center">
@@ -203,9 +203,9 @@ export default function AgentChatInterface({
         {/* Chat Area */}
         <div className="flex-1 flex flex-col">
           {/* Chat Header */}
-          <div className="p-3 border-b bg-gray-50">
+          <div className="p-3 border-b border-gray-200 dark:border-gray-700 bg-blue-50/50 dark:bg-blue-900/15">
             <div className="flex items-center">
-              <span className="text-sm font-medium">
+              <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
                 {selectedAgent ? (
                   <>
                     <span className="mr-1">{selectedAgent.icon || '🤖'}</span>
@@ -234,7 +234,7 @@ export default function AgentChatInterface({
               </div>
             ) : (
               messages.map((message) => (
-                <ChatMessage
+                <AgentChatMessage
                   key={message.id}
                   message={message}
                   agents={agents}
@@ -285,7 +285,7 @@ export default function AgentChatInterface({
 }
 
 // Individual Chat Message Component
-function ChatMessage({ message, agents }) {
+function AgentChatMessage({ message, agents }) {
   const getMessageStyle = () => {
     switch (message.type) {
       case 'user':

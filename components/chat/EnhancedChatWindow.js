@@ -18,7 +18,7 @@ export default function EnhancedChatWindow({ className = '', initialTemplate }) 
   const [activeWorkflowId, setActiveWorkflowId] = useState(null);
   const [showVisualization, setShowVisualization] = useState(false);
   const [showAgentChat, setShowAgentChat] = useState(false);
-  const [viewMode, setViewMode] = useState('chat'); // chat, split, visualization
+  const [viewMode, setViewMode] = useState('agent-chat'); // agent-chat, traditional-chat, split, visualization
   const [agents, setAgents] = useState([]);
 
   // Load available agents
@@ -65,7 +65,10 @@ export default function EnhancedChatWindow({ className = '', initialTemplate }) 
     } else if (mode === 'split') {
       setShowVisualization(true);
       setShowAgentChat(true);
-    } else {
+    } else if (mode === 'agent-chat') {
+      setShowVisualization(false);
+      setShowAgentChat(false);
+    } else if (mode === 'traditional-chat') {
       setShowVisualization(false);
       setShowAgentChat(false);
     }
@@ -74,17 +77,17 @@ export default function EnhancedChatWindow({ className = '', initialTemplate }) 
   return (
     <div className={`h-full flex flex-col ${className}`}>
       {/* Header Controls */}
-      <div className="border-b bg-white p-4">
+      <div className="border-b bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 p-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
               Dream Team Chat
             </h2>
             {activeWorkflowId && (
-              <div className="flex items-center space-x-2 mt-1 text-sm text-gray-500">
+              <div className="flex items-center space-x-2 mt-1 text-sm text-gray-500 dark:text-gray-400">
                 <span>Active Workflow: {activeWorkflowId}</span>
                 {pusherConnected && (
-                  <span className="flex items-center text-green-600">
+                  <span className="flex items-center text-green-600 dark:text-green-400">
                     <div className="w-2 h-2 bg-green-500 rounded-full mr-1 animate-pulse"></div>
                     Live
                   </span>
@@ -95,41 +98,42 @@ export default function EnhancedChatWindow({ className = '', initialTemplate }) 
 
           {/* View Mode Controls */}
           <div className="flex items-center space-x-2">
-            {activeWorkflowId && (
-              <>
-                <div className="flex space-x-1 bg-gray-100 rounded-lg p-1">
-                  {[
-                    { mode: 'chat', label: 'Chat', icon: '💬' },
-                    { mode: 'split', label: 'Split', icon: '📊' },
-                    { mode: 'visualization', label: 'Viz', icon: '🔍' }
-                  ].map(({ mode, label, icon }) => (
-                    <button
-                      key={mode}
-                      onClick={() => handleViewModeChange(mode)}
-                      className={`px-3 py-1 text-sm rounded-md transition-colors flex items-center space-x-1 ${
-                        viewMode === mode
-                          ? 'bg-white text-blue-600 shadow-sm'
-                          : 'text-gray-600 hover:text-gray-900'
-                      }`}
-                    >
-                      <span>{icon}</span>
-                      <span>{label}</span>
-                    </button>
-                  ))}
-                </div>
-
+            <div className="flex space-x-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+              {[
+                { mode: 'agent-chat', label: 'Agents', icon: '🤖' },
+                { mode: 'traditional-chat', label: 'Chat', icon: '💬' },
+                ...(activeWorkflowId ? [
+                  { mode: 'split', label: 'Split', icon: '📊' },
+                  { mode: 'visualization', label: 'Viz', icon: '🔍' }
+                ] : [])
+              ].map(({ mode, label, icon }) => (
                 <button
-                  onClick={() => {
-                    setActiveWorkflowId(null);
-                    setShowVisualization(false);
-                    setShowAgentChat(false);
-                    setViewMode('chat');
-                  }}
-                  className="px-3 py-1 text-sm text-gray-600 hover:text-gray-900 border rounded"
+                  key={mode}
+                  onClick={() => handleViewModeChange(mode)}
+                  className={`px-3 py-1 text-sm rounded-md transition-colors flex items-center space-x-1 ${
+                    viewMode === mode
+                      ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
+                      : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
+                  }`}
                 >
-                  ✕ Close Workflow
+                  <span>{icon}</span>
+                  <span>{label}</span>
                 </button>
-              </>
+              ))}
+            </div>
+
+            {activeWorkflowId && (
+              <button
+                onClick={() => {
+                  setActiveWorkflowId(null);
+                  setShowVisualization(false);
+                  setShowAgentChat(false);
+                  setViewMode('agent-chat');
+                }}
+                className="px-3 py-1 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-300 dark:border-gray-600 rounded"
+              >
+                ✕ Close Workflow
+              </button>
             )}
           </div>
         </div>
@@ -137,8 +141,19 @@ export default function EnhancedChatWindow({ className = '', initialTemplate }) 
 
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden">
-        {viewMode === 'chat' || !activeWorkflowId ? (
-          /* Full Chat Mode */
+        {viewMode === 'agent-chat' ? (
+          /* Agent Chat Mode with Agents List */
+          <div className="flex-1 flex">
+            <div className="flex-1">
+              <AgentChatInterface
+                workflowId={activeWorkflowId || 'default-workflow'}
+                agents={agents}
+                className="h-full"
+              />
+            </div>
+          </div>
+        ) : viewMode === 'traditional-chat' ? (
+          /* Traditional Chat Mode */
           <div className="flex-1">
             <ChatWindow 
               onWorkflowStarted={handleWorkflowStarted}
@@ -194,19 +209,19 @@ export default function EnhancedChatWindow({ className = '', initialTemplate }) 
       </div>
 
       {/* Status Bar */}
-      <div className="border-t bg-gray-50 px-4 py-2">
-        <div className="flex items-center justify-between text-sm text-gray-500">
+      <div className="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-4 py-2">
+        <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
           <div className="flex items-center space-x-4">
             <span>
               Agents: {agents.length} available
             </span>
             {pusherConnected ? (
-              <span className="flex items-center text-green-600">
+              <span className="flex items-center text-green-600 dark:text-green-400">
                 <div className="w-1.5 h-1.5 bg-green-500 rounded-full mr-1"></div>
                 Real-time connected
               </span>
             ) : (
-              <span className="flex items-center text-red-600">
+              <span className="flex items-center text-red-600 dark:text-red-400">
                 <div className="w-1.5 h-1.5 bg-red-500 rounded-full mr-1"></div>
                 Real-time disconnected
               </span>
@@ -224,7 +239,7 @@ export default function EnhancedChatWindow({ className = '', initialTemplate }) 
       </div>
 
       {/* Floating Action Buttons */}
-      {activeWorkflowId && viewMode === 'chat' && (
+      {activeWorkflowId && viewMode === 'traditional-chat' && (
         <div className="fixed bottom-6 right-6 flex flex-col space-y-2">
           <button
             onClick={() => setShowVisualization(!showVisualization)}
@@ -245,7 +260,7 @@ export default function EnhancedChatWindow({ className = '', initialTemplate }) 
       )}
 
       {/* Floating Panels */}
-      {showVisualization && viewMode === 'chat' && (
+      {showVisualization && viewMode === 'traditional-chat' && (
         <div className="fixed bottom-20 right-6 w-96 h-96 bg-white rounded-lg shadow-xl border z-50">
           <div className="flex items-center justify-between p-3 border-b">
             <h4 className="font-medium">Workflow Progress</h4>
@@ -265,7 +280,7 @@ export default function EnhancedChatWindow({ className = '', initialTemplate }) 
         </div>
       )}
 
-      {showAgentChat && viewMode === 'chat' && (
+      {showAgentChat && viewMode === 'traditional-chat' && (
         <div className="fixed bottom-20 left-6 w-96 h-96 bg-white rounded-lg shadow-xl border z-50">
           <div className="flex items-center justify-between p-3 border-b">
             <h4 className="font-medium">Agent Communication</h4>
