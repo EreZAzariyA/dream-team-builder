@@ -3,13 +3,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
+import { useMemo } from 'react';
 import { addAgentChatMessage, selectAgentChatHistory } from '../../lib/store/slices/agentSlice';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 import WorkflowInitiator from '../bmad/WorkflowInitiator';
 import WorkflowStatus from './WorkflowStatus';
 
-const ChatWindow = ({ workflowId = 'default-workflow', agentId = 'default-agent', initialTemplate, wsClient, wsConnected }) => {
+const ChatWindow = ({ workflowId = 'default-workflow', agentId = 'default-agent', initialTemplate, pusherClient, pusherConnected }) => {
   useEffect(() => {
     if (initialTemplate) {
       const initialMessage = `Starting workflow with template: ${initialTemplate}`;
@@ -19,24 +20,38 @@ const ChatWindow = ({ workflowId = 'default-workflow', agentId = 'default-agent'
   
   const dispatch = useDispatch();
   useEffect(() => {
-    if (wsClient) {
-      const handleWsMessage = (message) => {
-        if (message.type === 'chat_message' && message.workflowId === workflowId) {
-          const botMessage = {
-            sender: message.sender,
-            content: message.content,
-            timestamp: message.timestamp,
-          };
-          dispatch(addAgentChatMessage({ agentId, message: botMessage }));
+    if (pusherClient && pusherConnected) {
+      const channelName = `workflow-${workflowId}`;
+      const channel = pusherClient.subscribe(channelName);
+      
+      if (channel) {
+        const handlePusherMessage = (message) => {
+          if (message.type === 'chat_message' || message.type === 'agent-message') {
+            const botMessage = {
+              sender: message.sender || message.agentId || 'agent',
+              content: message.content,
+              timestamp: message.timestamp || new Date().toISOString(),
+            };
+            dispatch(addAgentChatMessage({ agentId, message: botMessage }));
+          }
+        };
+        
+        // Bind to multiple event types
+        channel.bind('chat_message', handlePusherMessage);
+        channel.bind('agent-message', handlePusherMessage);
+        channel.bind('user-message', handlePusherMessage);
+      }
+      
+      return () => {
+        if (pusherClient) {
+          pusherClient.unsubscribe(channelName);
         }
       };
-      wsClient.on('message', handleWsMessage);
-      return () => {
-        wsClient.off('message', handleWsMessage);
-      };
     }
-  }, [wsClient, workflowId, agentId, dispatch]);
-  const messages = useSelector(selectAgentChatHistory(agentId));
+  }, [pusherClient, pusherConnected, workflowId, agentId, dispatch]);
+  
+  // Memoized selector to prevent unnecessary rerenders
+  const messages = useSelector(useMemo(() => selectAgentChatHistory(agentId), [agentId]));
   const [showWorkflowInitiator, setShowWorkflowInitiator] = useState(false);
   const [activeWorkflowId, setActiveWorkflowId] = useState(null);
   const [bmadMode, setBmadMode] = useState(false);
@@ -61,24 +76,21 @@ const ChatWindow = ({ workflowId = 'default-workflow', agentId = 'default-agent'
     
     dispatch(addAgentChatMessage({ agentId, message: newMessage }));
 
-    if (!isSystem && wsClient && wsConnected) {
+    if (!isSystem && pusherClient && pusherConnected) {
       if (bmadMode && activeWorkflowId) {
         // If in BMAD mode and a workflow is active, send as a command to the workflow
-        wsClient.broadcastMessage(JSON.stringify({
+        pusherClient.broadcastMessage(JSON.stringify({
           command: 'agent_message',
           agent: 'orchestrator', // Assuming orchestrator handles initial routing
           workflowId: activeWorkflowId,
           content: newMessage.content,
           sender: newMessage.sender,
-        }), activeWorkflowId);
+        }), { type: 'workflow', id: activeWorkflowId });
       } else {
         // Otherwise, send as a regular chat message
-        wsClient.send({
-          type: 'chat_message',
-          workflowId,
-          sender: newMessage.sender,
-          content: newMessage.content,
-          timestamp: newMessage.timestamp,
+        pusherClient.broadcastMessage(newMessage.content, {
+          type: 'workflow',
+          id: workflowId
         });
       }
     }

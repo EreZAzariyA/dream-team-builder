@@ -7,7 +7,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useWebSocket } from '../../lib/websocket/WebSocketClient';
+import { usePusher } from '../../lib/pusher/PusherClient';
 
 export default function LiveWorkflowVisualization({ workflowId, className = '' }) {
   const [selectedAgent, setSelectedAgent] = useState(null);
@@ -28,49 +28,48 @@ export default function LiveWorkflowVisualization({ workflowId, className = '' }
     enabled: !!workflowId
   });
 
-  // WebSocket connection for real-time updates
-  const { client: wsClient, connected: wsConnected } = useWebSocket({
-    url: 'ws://localhost:3000/ws',
+  // Pusher connection for real-time updates
+  const { client: pusherClient, connected: pusherConnected } = usePusher({
     token: 'test-token', // In production, use actual auth token
     userId: 'user-1'
   });
 
-  // Subscribe to workflow updates via WebSocket
+  // Subscribe to workflow updates via Pusher
   useEffect(() => {
-    if (wsClient && wsConnected && workflowId) {
-      wsClient.subscribeToWorkflow(workflowId);
+    if (pusherClient && pusherConnected && workflowId) {
+      pusherClient.subscribeToWorkflow(workflowId);
 
       const unsubscribes = [
-        wsClient.on('workflow_update', (data) => {
+        pusherClient.on('workflow_update', (data) => {
           console.log('Workflow update:', data);
           // Trigger query invalidation for real-time updates
         }),
         
-        wsClient.on('agent_activated', (data) => {
+        pusherClient.on('agent_activated', (data) => {
           console.log('Agent activated:', data);
           if (isAutoScrolling) {
             scrollToLatestActivity();
           }
         }),
         
-        wsClient.on('agent_completed', (data) => {
+        pusherClient.on('agent_completed', (data) => {
           console.log('Agent completed:', data);
           if (isAutoScrolling) {
             scrollToLatestActivity();
           }
         }),
         
-        wsClient.on('workflow_message', (data) => {
+        pusherClient.on('workflow_message', (data) => {
           console.log('Workflow message:', data);
         })
       ];
 
       return () => {
-        wsClient.unsubscribeFromWorkflow(workflowId);
+        pusherClient.unsubscribeFromWorkflow(workflowId);
         unsubscribes.forEach(unsub => unsub());
       };
     }
-  }, [wsClient, wsConnected, workflowId, isAutoScrolling]);
+  }, [pusherClient, pusherConnected, workflowId, isAutoScrolling]);
 
   // Auto-scroll to latest activity
   const scrollToLatestActivity = () => {
@@ -121,7 +120,7 @@ export default function LiveWorkflowVisualization({ workflowId, className = '' }
                 <div className={`w-2 h-2 rounded-full mr-1 ${getStatusColor(workflow.status)}`}></div>
                 {workflow.status}
               </span>
-              {wsConnected && (
+              {pusherConnected && (
                 <span className="flex items-center text-green-600">
                   <div className="w-2 h-2 bg-green-500 rounded-full mr-1 animate-pulse"></div>
                   Live

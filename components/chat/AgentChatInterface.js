@@ -6,7 +6,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useWebSocket } from '../../lib/websocket/WebSocketClient';
+import { usePusherSimple } from '../../lib/pusher/SimplePusherClient';
 
 export default function AgentChatInterface({ 
   workflowId, 
@@ -23,12 +23,9 @@ export default function AgentChatInterface({
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
-  // WebSocket connection for real-time chat
-  const { client: wsClient, connected: wsConnected } = useWebSocket({
-    url: 'ws://localhost:3000/ws',
-    token: 'test-token', // In production, use actual auth token
-    userId: 'user-1'
-  });
+  // Pusher connection for real-time chat
+  const { connected: pusherConnected, connecting: pusherConnecting, error: pusherError, subscribeToWorkflow, sendMessage, pusher } = usePusherSimple();
+  
 
   // Auto-scroll to bottom of messages
   const scrollToBottom = () => {
@@ -39,106 +36,49 @@ export default function AgentChatInterface({
     scrollToBottom();
   }, [messages]);
 
-  // WebSocket event handlers
+  // Pusher event handlers
   useEffect(() => {
-    if (wsClient && wsConnected && workflowId) {
+    if (pusher && pusherConnected && workflowId) {
       // Join workflow channel
-      wsClient.subscribeToWorkflow(workflowId);
-
-      const unsubscribes = [
+      const channel = subscribeToWorkflow(workflowId);
+      
+      if (channel) {
         // Handle incoming messages
-        wsClient.on('workflow_message', (data) => {
+        channel.bind('agent-message', (data) => {
           const message = {
-            id: data.message.id,
-            from: data.message.from,
-            to: data.message.to,
-            content: data.message.summary || 'Message received',
-            timestamp: data.message.timestamp,
-            type: 'system'
-          };
-          setMessages(prev => [...prev, message]);
-        }),
-
-        // Handle agent messages
-        wsClient.on('agent_message', (data) => {
-          const message = {
-            id: data.message.id,
-            from: data.agentId,
+            id: `agent-${Date.now()}`,
+            from: data.agentId || 'agent',
             to: 'user',
-            content: data.message.summary || 'Agent update',
-            timestamp: data.message.timestamp,
+            content: data.content || 'Agent response',
+            timestamp: new Date().toISOString(),
             type: 'agent'
           };
           setMessages(prev => [...prev, message]);
-        }),
+        });
 
-        // Handle agent activation
-        wsClient.on('agent_activated', (data) => {
-          setOnlineAgents(prev => new Set([...prev, data.agentId]));
-          const message = {
-            id: `activation-${Date.now()}`,
-            from: 'system',
-            to: 'all',
-            content: `${data.agentId} is now active`,
-            timestamp: new Date().toISOString(),
-            type: 'status'
-          };
-          setMessages(prev => [...prev, message]);
-        }),
-
-        // Handle agent completion
-        wsClient.on('agent_completed', (data) => {
-          setOnlineAgents(prev => {
-            const newSet = new Set(prev);
-            newSet.delete(data.agentId);
-            return newSet;
-          });
-          const message = {
-            id: `completion-${Date.now()}`,
-            from: 'system',
-            to: 'all',
-            content: `${data.agentId} completed their task`,
-            timestamp: new Date().toISOString(),
-            type: 'status'
-          };
-          setMessages(prev => [...prev, message]);
-        }),
-
-        // Handle agent communication
-        wsClient.on('agent_communication', (data) => {
-          const message = {
-            id: `comm-${Date.now()}`,
-            from: data.from,
-            to: data.to,
-            content: data.content?.message || 'Inter-agent communication',
-            timestamp: new Date().toISOString(),
-            type: 'inter-agent'
-          };
-          setMessages(prev => [...prev, message]);
-        })
-      ];
+        // Also listen for user messages (for testing)
+        channel.bind('user-message', (data) => {
+          // Handle user messages if needed
+        });
+      }
 
       return () => {
-        wsClient.unsubscribeFromWorkflow(workflowId);
-        unsubscribes.forEach(unsub => unsub());
+        if (pusher) {
+          pusher.unsubscribe(`workflow-${workflowId}`);
+        }
       };
     }
-  }, [wsClient, wsConnected, workflowId]);
+  }, [pusher, pusherConnected, workflowId, subscribeToWorkflow]);
 
   // Handle agent selection
   const handleAgentSelect = (agent) => {
     setSelectedAgent(agent);
     onAgentSelected(agent);
-    
-    if (wsClient && wsConnected) {
-      // Subscribe to specific agent updates
-      wsClient.subscribeToAgent(agent.id);
-    }
   };
 
   // Send message
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !wsClient || !wsConnected) return;
+    if (!newMessage.trim() || !pusherConnected) return;
 
     const message = {
       id: `user-${Date.now()}`,
@@ -152,17 +92,18 @@ export default function AgentChatInterface({
     // Add to local messages immediately
     setMessages(prev => [...prev, message]);
 
-    // Send via WebSocket
+    // Send via Pusher API
     try {
-      await wsClient.broadcastMessage(newMessage, {
+      const success = await sendMessage(newMessage, {
         type: 'workflow',
         id: workflowId
       });
       
-      onMessageSent(message);
+      if (success) {
+        onMessageSent(message);
+      }
     } catch (error) {
-      console.error('Failed to send message:', error);
-      // Could add error handling UI here
+      // Handle error silently or show user notification
     }
 
     setNewMessage('');
@@ -180,18 +121,27 @@ export default function AgentChatInterface({
   return (
     <div className={`bg-white rounded-lg shadow-sm border flex flex-col ${className}`}>
       {/* Header */}
-      <div className="border-b p-4">
+      <div className="border-b p-4 bg-blue-800">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-lg font-semibold text-gray-900">Agent Chat</h3>
             <div className="flex items-center space-x-2 mt-1 text-sm text-gray-500">
               <span>Workflow: {workflowId}</span>
-              {wsConnected && (
-                <span className="flex items-center text-green-600">
-                  <div className="w-2 h-2 bg-green-500 rounded-full mr-1 animate-pulse"></div>
-                  Connected
-                </span>
-              )}
+              <span className={`flex items-center ${
+                pusherConnected ? 'text-green-600' : 
+                pusherConnecting ? 'text-yellow-600' : 
+                'text-red-600'
+              }`}>
+                <div className={`w-2 h-2 rounded-full mr-1 ${
+                  pusherConnected ? 'bg-green-500 animate-pulse' : 
+                  pusherConnecting ? 'bg-yellow-500 animate-spin' : 
+                  'bg-red-500'
+                }`}></div>
+                {pusherConnected ? 'Connected' : 
+                 pusherConnecting ? 'Connecting...' : 
+                 pusherError ? `Error: ${pusherError.message || 'Connection failed'}` :
+                 'Disconnected'}
+              </span>
             </div>
           </div>
           
@@ -309,20 +259,22 @@ export default function AgentChatInterface({
                     : "Message all agents..."
                 }
                 className="flex-1 border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                disabled={!wsConnected}
+                disabled={!pusherConnected}
               />
               <button
                 onClick={handleSendMessage}
-                disabled={!newMessage.trim() || !wsConnected}
+                disabled={!newMessage.trim() || !pusherConnected}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Send
               </button>
             </div>
             
-            {!wsConnected && (
+            {!pusherConnected && (
               <div className="text-xs text-red-500 mt-1">
-                ⚠️ Not connected to chat server
+                ⚠️ {pusherConnecting ? 'Connecting to chat server...' : 
+                     pusherError ? `Connection error: ${pusherError.message || 'Unknown error'}` :
+                     'Not connected to chat server'}
               </div>
             )}
           </div>

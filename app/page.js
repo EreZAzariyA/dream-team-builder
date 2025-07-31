@@ -3,9 +3,14 @@
 import Link from "next/link";
 import { Bot, Zap, Workflow, Users, BarChart, Plug } from "lucide-react";
 import { useSession } from "next-auth/react";
+import { usePusherSimple } from "../lib/pusher/SimplePusherClient";
 
 export default function Home() {
   const { data: session } = useSession();
+  
+  // Test Pusher connection
+  const { connected, connecting, error } = usePusherSimple();
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900">
       {/* Navigation Header */}
@@ -39,8 +44,13 @@ export default function Home() {
         <div className="text-center mb-16">
           <div className="mb-6">
             <div className="inline-flex items-center px-4 py-2 bg-blue-100 dark:bg-blue-900/20 rounded-full text-blue-600 dark:text-blue-400 text-body-small font-medium mb-6">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-2"></div>
-              BMAD Architecture Ready
+              <div className={`w-2 h-2 rounded-full mr-2 ${
+                connected ? 'bg-green-500 animate-pulse' : 
+                connecting ? 'bg-yellow-500 animate-spin' : 
+                'bg-red-500'
+              }`}></div>
+              Pusher: {connected ? 'Connected' : connecting ? 'Connecting...' : 'Disconnected'}
+              {error && ` (Error)`}
             </div>
           </div>
           <h1 className="text-display text-gray-900 dark:text-white mb-6">

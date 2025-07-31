@@ -11,56 +11,24 @@ import { useQuery } from '@tanstack/react-query';
 import EnhancedChatWindow from '../../components/chat/EnhancedChatWindow';
 import LiveWorkflowVisualization from '../../components/workflow/LiveWorkflowVisualization';
 import AgentChatInterface from '../../components/chat/AgentChatInterface';
+import { usePusherSimple } from '../../lib/pusher/SimplePusherClient';
 
 export default function RealtimeTestPage() {
   const { data: session, status } = useSession();
-  const [webSocketStatus, setWebSocketStatus] = useState('unknown');
-  const [testWorkflowId, setTestWorkflowId] = useState(null);
+  const [testWorkflowId, setTestWorkflowId] = useState('test-workflow-123');
   const [testResults, setTestResults] = useState([]);
 
-  // Check WebSocket server status
-  const { data: wsStatus, refetch: refetchWsStatus } = useQuery({
-    queryKey: ['websocket-status'],
-    queryFn: async () => {
-      const response = await fetch('/api/websocket/start');
-      return response.json();
-    },
-    refetchInterval: 5000
-  });
+  // Use Pusher instead of WebSocket
+  const { connected: pusherConnected, connecting: pusherConnecting, error: pusherError } = usePusherSimple();
 
-  useEffect(() => {
-    if (wsStatus) {
-      setWebSocketStatus(wsStatus.status || 'unknown');
-    }
-  }, [wsStatus]);
-
-  // Start WebSocket server
-  const startWebSocketServer = async () => {
-    try {
-      const response = await fetch('/api/websocket/start', {
-        method: 'POST'
-      });
-      const data = await response.json();
-      
-      if (data.success) {
-        setTestResults(prev => [...prev, {
-          id: Date.now(),
-          type: 'success',
-          message: 'WebSocket server started successfully',
-          timestamp: new Date()
-        }]);
-        refetchWsStatus();
-      } else {
-        throw new Error(data.error);
-      }
-    } catch (error) {
-      setTestResults(prev => [...prev, {
-        id: Date.now(),
-        type: 'error',
-        message: `Failed to start WebSocket server: ${error.message}`,
-        timestamp: new Date()
-      }]);
-    }
+  // Test Pusher connection
+  const testPusherConnection = () => {
+    setTestResults(prev => [...prev, {
+      id: Date.now(),
+      type: pusherConnected ? 'success' : 'error',
+      message: pusherConnected ? 'Pusher connected successfully' : 'Pusher not connected',
+      timestamp: new Date()
+    }]);
   };
 
   // Start test workflow
@@ -171,17 +139,19 @@ export default function RealtimeTestPage() {
                 🚀 Epic 7: Real-time Collaboration Test
               </h1>
               <p className="text-gray-600 mt-1">
-                Test WebSocket communication, live workflow visualization, and agent chat
+                Test Pusher real-time communication, live workflow visualization, and agent chat
               </p>
             </div>
             
             <div className="flex items-center space-x-4">
               <div className={`px-3 py-1 rounded-full text-sm ${
-                webSocketStatus === 'running' 
+                pusherConnected 
                   ? 'bg-green-100 text-green-700' 
+                  : pusherConnecting
+                  ? 'bg-yellow-100 text-yellow-700'
                   : 'bg-red-100 text-red-700'
               }`}>
-                WebSocket: {webSocketStatus}
+                Pusher: {pusherConnected ? 'Connected' : pusherConnecting ? 'Connecting...' : 'Disconnected'}
               </div>
               
               {testWorkflowId && (
@@ -208,16 +178,15 @@ export default function RealtimeTestPage() {
             </button>
             
             <button
-              onClick={startWebSocketServer}
-              disabled={webSocketStatus === 'running'}
-              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              onClick={testPusherConnection}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
             >
-              🌐 Start WebSocket Server
+              🌐 Test Pusher Connection
             </button>
             
             <button
               onClick={startTestWorkflow}
-              disabled={webSocketStatus !== 'running'}
+              disabled={!pusherConnected}
               className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               🚀 Start Test Workflow
@@ -325,12 +294,12 @@ export default function RealtimeTestPage() {
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-2">
-              <h4 className="font-medium text-gray-900">🌐 Story 7.1: WebSocket System</h4>
+              <h4 className="font-medium text-gray-900">🌐 Story 7.1: Pusher Real-time System</h4>
               <ul className="text-sm text-gray-600 space-y-1">
                 <li>✅ Real-time client-server communication</li>
                 <li>✅ Workflow and agent subscriptions</li>
                 <li>✅ Message broadcasting and routing</li>
-                <li>✅ Connection management and heartbeat</li>
+                <li>✅ Connection management via Pusher</li>
                 <li>✅ Event-driven architecture integration</li>
               </ul>
             </div>

@@ -11,7 +11,7 @@ import { useQuery } from '@tanstack/react-query';
 import ChatWindow from './ChatWindow';
 import LiveWorkflowVisualization from '../workflow/LiveWorkflowVisualization';
 import AgentChatInterface from './AgentChatInterface';
-import { useWebSocket } from '../../lib/websocket/WebSocketClient';
+import { usePusherSimple } from '../../lib/pusher/SimplePusherClient';
 
 export default function EnhancedChatWindow({ className = '', initialTemplate }) {
   const { data: session } = useSession();
@@ -38,12 +38,8 @@ export default function EnhancedChatWindow({ className = '', initialTemplate }) 
     }
   }, [agentsData]);
 
-  // WebSocket connection for system-wide updates
-  const { client: wsClient, connected: wsConnected } = useWebSocket({
-    url: 'ws://localhost:3000/ws',
-    token: session?.accessToken || 'test-token',
-    userId: session?.user?.id || 'anonymous'
-  });
+  // Pusher connection for system-wide updates
+  const { connected: pusherConnected, pusher: pusherClient } = usePusherSimple();
 
   // Handle workflow start from regular chat
   const handleWorkflowStarted = (workflowId) => {
@@ -52,8 +48,9 @@ export default function EnhancedChatWindow({ className = '', initialTemplate }) 
     setShowAgentChat(true);
     
     // Subscribe to the new workflow
-    if (wsClient && wsConnected) {
-      wsClient.subscribeToWorkflow(workflowId);
+    if (pusherClient && pusherConnected) {
+      const channelName = `workflow-${workflowId}`;
+      pusherClient.subscribe(channelName);
     }
   };
 
@@ -86,7 +83,7 @@ export default function EnhancedChatWindow({ className = '', initialTemplate }) 
             {activeWorkflowId && (
               <div className="flex items-center space-x-2 mt-1 text-sm text-gray-500">
                 <span>Active Workflow: {activeWorkflowId}</span>
-                {wsConnected && (
+                {pusherConnected && (
                   <span className="flex items-center text-green-600">
                     <div className="w-2 h-2 bg-green-500 rounded-full mr-1 animate-pulse"></div>
                     Live
@@ -147,8 +144,8 @@ export default function EnhancedChatWindow({ className = '', initialTemplate }) 
               onWorkflowStarted={handleWorkflowStarted}
               className="h-full"
               initialTemplate={initialTemplate}
-              wsClient={wsClient}
-              wsConnected={wsConnected}
+              pusherClient={pusherClient}
+              pusherConnected={pusherConnected}
             />
           </div>
         ) : viewMode === 'visualization' ? (
@@ -168,8 +165,8 @@ export default function EnhancedChatWindow({ className = '', initialTemplate }) 
                 onWorkflowStarted={handleWorkflowStarted}
                 className="h-full"
                 compact={true}
-                wsClient={wsClient}
-                wsConnected={wsConnected}
+                pusherClient={pusherClient}
+                pusherConnected={pusherConnected}
               />
             </div>
 
@@ -203,7 +200,7 @@ export default function EnhancedChatWindow({ className = '', initialTemplate }) 
             <span>
               Agents: {agents.length} available
             </span>
-            {wsConnected ? (
+            {pusherConnected ? (
               <span className="flex items-center text-green-600">
                 <div className="w-1.5 h-1.5 bg-green-500 rounded-full mr-1"></div>
                 Real-time connected
