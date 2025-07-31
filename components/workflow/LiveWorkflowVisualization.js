@@ -268,6 +268,8 @@ const TimelineView = React.forwardRef(({ workflow, selectedAgent, onAgentSelect 
   );
 });
 
+TimelineView.displayName = 'TimelineView';
+
 // Network View Component  
 const NetworkView = React.forwardRef(({ workflow, selectedAgent, onAgentSelect }, ref) => {
   const agents = workflow.agents || {};
@@ -310,6 +312,8 @@ const NetworkView = React.forwardRef(({ workflow, selectedAgent, onAgentSelect }
     </div>
   );
 });
+
+NetworkView.displayName = 'NetworkView';
 
 // Details View Component
 const DetailsView = ({ workflow, selectedAgent }) => {

@@ -103,7 +103,7 @@ export default function IntegrationsPage() {
             </h4>
             <p className="text-body-small text-green-800 dark:text-green-200">
               All integration credentials are encrypted and stored securely. Only you can access your integrations, 
-              and they're only used for the specific actions you configure. You can disable or delete any integration at any time.
+              and they&apos;re only used for the specific actions you configure. You can disable or delete any integration at any time.
             </p>
           </div>
         </div>
