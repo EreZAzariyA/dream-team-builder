@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
-import { signIn, getSession } from 'next-auth/react';
+import { useState, useEffect } from 'react';
+import { signIn, getSession, useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 const AuthForm = ({ mode = 'signin' }) => {
   const router = useRouter();
+  const { data: session, status } = useSession();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -19,6 +20,14 @@ const AuthForm = ({ mode = 'signin' }) => {
   });
 
   const isSignUp = mode === 'signup';
+
+  // Redirect logged-in users away from auth pages
+  useEffect(() => {
+    if (status === 'loading') return; // Still loading
+    if (session) {
+      router.push('/dashboard');
+    }
+  }, [session, status, router]);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -126,6 +135,27 @@ const AuthForm = ({ mode = 'signin' }) => {
       setIsLoading(false);
     }
   };
+
+  // Show loading while checking session
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  // If user is logged in, don't render the form (will redirect)
+  if (session) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Redirecting to dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 py-12 px-4 sm:px-6 lg:px-8">

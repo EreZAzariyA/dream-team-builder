@@ -22,5 +22,87 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+/* Professional Component Layer */
+@layer components {
+  /* Typography utilities needed for the layout */
+  .text-h1 {
+    @apply text-4xl font-semibold tracking-tight;
+  }
+  
+  .text-h2 {
+    @apply text-3xl font-semibold;
+  }
+  
+  .text-h3 {
+    @apply text-2xl font-medium;
+  }
+  
+  .text-h4 {
+    @apply text-xl font-medium;
+  }
+  
+  .text-body {
+    @apply text-base;
+  }
+  
+  .text-body-small {
+    @apply text-sm;
+  }
+  
+  .text-caption {
+    @apply text-xs;
+  }
+
+  /* Button utilities */
+  .btn-primary {
+    @apply inline-flex items-center justify-center px-4 py-2 text-base font-medium rounded-md;
+    @apply bg-blue-600 text-white hover:bg-blue-700;
+    @apply transition-all duration-150 ease-out;
+    @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
+    @apply shadow-sm hover:shadow-md;
+  }
+  
+  .btn-ghost {
+    @apply inline-flex items-center justify-center px-2 py-2 text-base font-medium rounded-md;
+    @apply bg-transparent text-gray-600 hover:bg-gray-100;
+    @apply transition-all duration-150 ease-out;
+    @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
+  }
+
+  /* Professional text utilities */
+  .text-professional {
+    @apply text-gray-700 dark:text-gray-300;
+  }
+  
+  .text-professional-muted {
+    @apply text-gray-500 dark:text-gray-400;
+  }
+
+  /* Primary color utilities for navigation */
+  .text-primary {
+    @apply text-blue-600 dark:text-blue-400;
+  }
+  
+  .bg-primary-50 {
+    @apply bg-blue-50;
+  }
+  
+  .text-primary-600 {
+    @apply text-blue-600;
+  }
+  
+  .text-primary-300 {
+    @apply text-blue-300;
+  }
+  
+  .bg-primary-500\/20 {
+    @apply bg-blue-500/20;
+  }
+  
+  .dark .bg-primary-500\/20 {
+    @apply bg-blue-500/20;
+  }
 }

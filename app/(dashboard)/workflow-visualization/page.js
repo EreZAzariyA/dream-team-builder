@@ -2,11 +2,11 @@
 'use client';
 
 import React from 'react';
-import ChatWindow from '../../components/chat/ChatWindow';
-import WorkflowStatus from '../../components/workflow/WorkflowStatus';
-import WorkflowDiagram from '../../components/workflow/WorkflowDiagram';
-import AgentOutputPanel from '../../components/workflow/AgentOutputPanel';
-import WorkflowTimeline from '../../components/workflow/WorkflowTimeline';
+import ChatWindow from '../../../components/chat/ChatWindow';
+import WorkflowStatus from '../../../components/workflow/WorkflowStatus';
+import WorkflowDiagram from '../../../components/workflow/WorkflowDiagram';
+import AgentOutputPanel from '../../../components/workflow/AgentOutputPanel';
+import WorkflowTimeline from '../../../components/workflow/WorkflowTimeline';
 
 const WorkflowVisualizationPage = () => {
   // Placeholder data for now - will be connected to Redux later
