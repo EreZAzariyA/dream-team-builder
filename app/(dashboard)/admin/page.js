@@ -9,7 +9,7 @@ export default function AdminPage() {
       <ul>
         <li>
           <Link href="/admin/dashboard">
-            <a>Dashboard</a>
+            Dashboard
           </Link>
         </li>
       </ul>
