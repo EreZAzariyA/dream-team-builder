@@ -13,7 +13,7 @@ import LiveWorkflowVisualization from '../workflow/LiveWorkflowVisualization';
 import AgentChatInterface from './AgentChatInterface';
 import { useWebSocket } from '../../lib/websocket/WebSocketClient';
 
-export default function EnhancedChatWindow({ className = '' }) {
+export default function EnhancedChatWindow({ className = '', initialTemplate }) {
   const { data: session } = useSession();
   const [activeWorkflowId, setActiveWorkflowId] = useState(null);
   const [showVisualization, setShowVisualization] = useState(false);
@@ -146,6 +146,9 @@ export default function EnhancedChatWindow({ className = '' }) {
             <ChatWindow 
               onWorkflowStarted={handleWorkflowStarted}
               className="h-full"
+              initialTemplate={initialTemplate}
+              wsClient={wsClient}
+              wsConnected={wsConnected}
             />
           </div>
         ) : viewMode === 'visualization' ? (
@@ -165,6 +168,8 @@ export default function EnhancedChatWindow({ className = '' }) {
                 onWorkflowStarted={handleWorkflowStarted}
                 className="h-full"
                 compact={true}
+                wsClient={wsClient}
+                wsConnected={wsConnected}
               />
             </div>
 

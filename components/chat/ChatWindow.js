@@ -11,8 +11,33 @@ import MessageInput from './MessageInput';
 import WorkflowInitiator from '../bmad/WorkflowInitiator';
 import WorkflowStatus from './WorkflowStatus';
 
-const ChatWindow = ({ workflowId = 'default-workflow', agentId = 'default-agent' }) => {
+const ChatWindow = ({ workflowId = 'default-workflow', agentId = 'default-agent', initialTemplate, wsClient, wsConnected }) => {
+  useEffect(() => {
+    if (initialTemplate) {
+      const initialMessage = `Starting workflow with template: ${initialTemplate}`;
+      handleSendMessage(initialMessage, true); // Send as system message
+    }
+  }, [initialTemplate]);
+  
   const dispatch = useDispatch();
+  useEffect(() => {
+    if (wsClient) {
+      const handleWsMessage = (message) => {
+        if (message.type === 'chat_message' && message.workflowId === workflowId) {
+          const botMessage = {
+            sender: message.sender,
+            content: message.content,
+            timestamp: message.timestamp,
+          };
+          dispatch(addAgentChatMessage({ agentId, message: botMessage }));
+        }
+      };
+      wsClient.on('message', handleWsMessage);
+      return () => {
+        wsClient.off('message', handleWsMessage);
+      };
+    }
+  }, [wsClient, workflowId, agentId, dispatch]);
   const messages = useSelector(selectAgentChatHistory(agentId));
   const [showWorkflowInitiator, setShowWorkflowInitiator] = useState(false);
   const [activeWorkflowId, setActiveWorkflowId] = useState(null);
@@ -29,18 +54,39 @@ const ChatWindow = ({ workflowId = 'default-workflow', agentId = 'default-agent'
     );
   };
 
-  const handleSendMessage = (content) => {
+  const handleSendMessage = async (content, isSystem = false) => {
     const newMessage = {
-      sender: 'User',
+      sender: isSystem ? 'System' : 'User',
       content,
       timestamp: new Date().toLocaleTimeString(),
     };
     
     dispatch(addAgentChatMessage({ agentId, message: newMessage }));
-    dispatch(sendMessage({ workflowId, message: newMessage, messageId: Date.now().toString() }));
 
-    // Check if message triggers BMAD workflow
-    if (detectWorkflowTrigger(content) && !showWorkflowInitiator) {
+    if (!isSystem && wsClient && wsConnected) {
+      if (bmadMode && activeWorkflowId) {
+        // If in BMAD mode and a workflow is active, send as a command to the workflow
+        wsClient.broadcastMessage(JSON.stringify({
+          command: 'agent_message',
+          agent: 'orchestrator', // Assuming orchestrator handles initial routing
+          workflowId: activeWorkflowId,
+          content: newMessage.content,
+          sender: newMessage.sender,
+        }), activeWorkflowId);
+      } else {
+        // Otherwise, send as a regular chat message
+        wsClient.send({
+          type: 'chat_message',
+          workflowId,
+          sender: newMessage.sender,
+          content: newMessage.content,
+          timestamp: newMessage.timestamp,
+        });
+      }
+    }
+
+    // Check if message triggers BMAD workflow (only for user messages)
+    if (!isSystem && detectWorkflowTrigger(content) && !showWorkflowInitiator) {
       const suggestion = {
         sender: 'System',
         content: `🤖 I detected you want to start a project! Would you like me to initiate a BMAD workflow? This will coordinate our AI agents (PM, Architect, Developer, QA) to help you build it step by step.`,
@@ -152,7 +198,7 @@ const ChatWindow = ({ workflowId = 'default-workflow', agentId = 'default-agent'
         )}
 
         {/* Messages */}
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-y-auto">
           <MessageList 
             messages={messages} 
             onMessageAction={handleMessageAction}

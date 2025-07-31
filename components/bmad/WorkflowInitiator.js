@@ -16,7 +16,6 @@ export default function WorkflowInitiator({ onWorkflowStarted, className = '' })
   const [showAdvanced, setShowAdvanced] = useState(false);
   
   const dispatch = useDispatch();
-  const { user } = useSelector(state => state.ui.auth);
 
   // Fetch available agents and sequences
   const { data: agentsData, isLoading: loadingAgents } = useQuery({

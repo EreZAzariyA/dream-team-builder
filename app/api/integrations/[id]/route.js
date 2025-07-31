@@ -13,9 +13,10 @@ export async function GET(request, { params }) {
     }
 
     await connectMongoose();
+    const resolvedParams = await params;
 
     const integration = await Integration.findOne({
-      _id: params.id,
+      _id: resolvedParams.id,
       userId: session.user.id
     });
 
@@ -44,11 +45,12 @@ export async function PUT(request, { params }) {
     }
 
     await connectMongoose();
+    const resolvedParams = await params;
 
     const { name, config, isActive } = await request.json();
 
     const integration = await Integration.findOne({
-      _id: params.id,
+      _id: resolvedParams.id,
       userId: session.user.id
     });
 
@@ -100,9 +102,10 @@ export async function DELETE(request, { params }) {
     }
 
     await connectMongoose();
+    const resolvedParams = await params;
 
     const integration = await Integration.findOneAndDelete({
-      _id: params.id,
+      _id: resolvedParams.id,
       userId: session.user.id
     });
 

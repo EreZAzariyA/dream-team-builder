@@ -12,9 +12,10 @@ async function patchHandler(request, { params }) {
     }
 
     const { action } = await request.json();
+    const resolvedParams = await params;
 
     if (action === 'resolve') {
-      const resolvedAlert = await alertManager.resolveAlert(params.id, session.user.id);
+      const resolvedAlert = await alertManager.resolveAlert(resolvedParams.id, session.user.id);
       
       return NextResponse.json({
         success: true,
