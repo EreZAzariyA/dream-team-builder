@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import InteractiveAPIDocumentation from '../../components/docs/InteractiveAPIDocumentation.js';
+import InteractiveAPIDocumentation from '../../../components/docs/InteractiveAPIDocumentation.js';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
