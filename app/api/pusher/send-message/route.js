@@ -7,6 +7,8 @@ import { NextResponse } from 'next/server';
 import { pusherServer, CHANNELS, EVENTS } from '../../../../lib/pusher/config';
 import { BmadOrchestrator } from '../../../../lib/bmad/BmadOrchestrator.js';
 import { aiService } from '../../../../lib/ai/AIService.js';
+import { connectMongoose } from '../../../../lib/database/mongodb.js';
+import AgentMessage from '../../../../lib/database/models/AgentMessage.js';
 
 /**
  * Load agent definition from file
@@ -141,6 +143,56 @@ The issue is with the AI generation service. Please try again, or contact suppor
   }
 }
 
+/**
+ * Save message to database for persistence
+ */
+async function saveMessageToDatabase(messageData, messageType = 'response', fromAgent = 'user', toAgent = null) {
+  try {
+    await connectMongoose();
+    
+    // For now, we'll skip the workflowId ObjectId requirement
+    // since our workflow IDs are strings, not MongoDB ObjectIds
+    // In a future version, we could look up the actual Workflow document
+    
+    const agentMessage = new AgentMessage({
+      messageId: messageData.id,
+      fromAgent: fromAgent,
+      toAgent: toAgent,
+      messageType: messageType,
+      content: {
+        text: messageData.content,
+        data: {
+          timestamp: messageData.timestamp,
+          userId: messageData.userId,
+          target: messageData.target
+        }
+      },
+      priority: 'medium',
+      category: 'workflow',
+      timestamp: new Date(messageData.timestamp || Date.now()),
+      status: 'delivered',
+      metadata: {
+        conversationId: `conversation-${messageData.target?.id || 'default'}`,
+        correlationId: `corr-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        context: {
+          messageType: messageType,
+          channel: messageData.target?.type,
+          workflowId: messageData.target?.id
+        }
+      }
+      // Note: Skipping workflowId for now since we need proper MongoDB ObjectId
+    });
+    
+    await agentMessage.save();
+    console.log(`💾 Message saved to database: ${messageData.id}`);
+    return agentMessage;
+  } catch (error) {
+    console.error('Failed to save message to database:', error);
+    // Don't throw - we don't want to break the real-time functionality
+    return null;
+  }
+}
+
 export async function POST(request) {
   try {
     const { content, target, userId, timestamp } = await request.json();
@@ -182,6 +234,9 @@ export async function POST(request) {
     // Send message via Pusher
     await pusherServer.trigger(channelName, eventName, messageData);
 
+    // Save user message to database
+    await saveMessageToDatabase(messageData, 'request', 'user', target.targetAgent || 'system');
+
     // Process with real BMAD agents
     if (target.type === 'workflow') {
       try {
@@ -208,6 +263,14 @@ export async function POST(request) {
             EVENTS.AGENT_MESSAGE,
             agentResponse
           );
+
+          // Save agent response to database
+          await saveMessageToDatabase(
+            { ...agentResponse, target }, 
+            'response', 
+            response.agentId || 'bmad-orchestrator', 
+            'user'
+          );
         }, 1000);
       } catch (error) {
         console.error('BMAD processing error:', error);
@@ -226,6 +289,14 @@ export async function POST(request) {
             channelName,
             EVENTS.AGENT_MESSAGE,
             fallbackResponse
+          );
+
+          // Save fallback response to database
+          await saveMessageToDatabase(
+            { ...fallbackResponse, target }, 
+            'response', 
+            'bmad-assistant', 
+            'user'
           );
         }, 1000);
       }

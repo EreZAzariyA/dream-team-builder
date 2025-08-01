@@ -18,6 +18,7 @@ export default function AgentChatInterface({
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [agentMessages, setAgentMessages] = useState({}); // Store messages per agent
   const [newMessage, setNewMessage] = useState('');
+  const [loadingMessages, setLoadingMessages] = useState(false);
   
   const [onlineAgents] = useState(new Set());
   const messagesEndRef = useRef(null);
@@ -43,6 +44,87 @@ export default function AgentChatInterface({
     });
   };
 
+  // Load existing messages for the workflow
+  const loadExistingMessages = async () => {
+    if (!workflowId) return;
+    
+    setLoadingMessages(true);
+    try {
+      console.log('🔍 Loading existing messages for workflow:', workflowId);
+      const response = await fetch(`/api/chat/messages?workflowId=${workflowId}`, {
+        credentials: 'include'
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const messages = data.messages || [];
+        console.log('📋 Loaded', messages.length, 'existing messages');
+        
+        // Group messages by agent
+        const messagesByAgent = {};
+        messages.forEach(msg => {
+          // Handle the actual database structure
+          let agentKey = 'all'; // default fallback
+          
+          if (msg.toAgent === 'user') {
+            // Agent message to user - group by sender agent
+            agentKey = msg.fromAgent || 'all';
+          } else if (msg.fromAgent === 'user') {
+            // User message to agent - group by target agent  
+            agentKey = msg.toAgent || 'all';
+          } else {
+            // Inter-agent message - group by the conversation participants
+            agentKey = msg.fromAgent || msg.toAgent || 'all';
+          }
+          
+          console.log('Grouping message:', {
+            fromAgent: msg.fromAgent,
+            toAgent: msg.toAgent,
+            messageType: msg.messageType,
+            assignedKey: agentKey,
+            content: msg.content?.text?.substring(0, 50) + '...'
+          });
+          
+          if (!messagesByAgent[agentKey]) {
+            messagesByAgent[agentKey] = [];
+          }
+          
+          // Transform database message to component format
+          const transformedMessage = {
+            id: msg._id || msg.messageId || `msg-${Date.now()}-${Math.random()}`,
+            from: msg.fromAgent === 'user' ? 'user' : (msg.fromAgent || 'agent'),
+            to: msg.toAgent || 'user',
+            content: typeof msg.content === 'string' 
+              ? msg.content 
+              : msg.content?.text || JSON.stringify(msg.content),
+            timestamp: msg.timestamp || msg.createdAt,
+            type: msg.fromAgent === 'user' ? 'user' : 'agent',
+            agentName: msg.fromAgent !== 'user' ? msg.fromAgent : null,
+            provider: msg.provider
+          };
+          
+          messagesByAgent[agentKey].push(transformedMessage);
+        });
+        
+        // Sort messages by timestamp within each agent
+        Object.keys(messagesByAgent).forEach(agentKey => {
+          messagesByAgent[agentKey].sort((a, b) => 
+            new Date(a.timestamp) - new Date(b.timestamp)
+          );
+        });
+        
+        setAgentMessages(messagesByAgent);
+        console.log('✅ Messages loaded and grouped by agent:', messagesByAgent);
+      } else {
+        console.warn('Failed to load messages:', response.status);
+      }
+    } catch (error) {
+      console.error('Error loading messages:', error);
+    } finally {
+      setLoadingMessages(false);
+    }
+  };
+
   // Pusher connection for real-time chat
   const { connected: pusherConnected, connecting: pusherConnecting, error: pusherError, subscribeToWorkflow, sendMessage, pusher } = usePusherSimple();
   
@@ -55,6 +137,13 @@ export default function AgentChatInterface({
   useEffect(() => {
     scrollToBottom();
   }, [agentMessages, selectedAgent]);
+
+  // Load existing messages when workflow changes
+  useEffect(() => {
+    if (workflowId) {
+      loadExistingMessages();
+    }
+  }, [workflowId]);
 
   // Pusher event handlers
   useEffect(() => {
@@ -398,7 +487,10 @@ function AgentChatMessage({ message, agents }) {
 
       {/* Message Content */}
       <div className="text-sm">
-        {message.content}
+        {typeof message.content === 'string' 
+          ? message.content 
+          : message.content?.text || JSON.stringify(message.content)
+        }
       </div>
     </div>
   );

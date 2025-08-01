@@ -8,67 +8,48 @@
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useQuery } from '@tanstack/react-query';
+import { LogOut } from 'lucide-react';
 import ChatWindow from './ChatWindow';
 import LiveWorkflowVisualization from '../workflow/LiveWorkflowVisualization';
 import AgentChatInterface from './AgentChatInterface';
+import ConfirmationModal from '../common/ConfirmationModal';
 import { usePusherSimple } from '../../lib/pusher/SimplePusherClient';
+import { useWorkflow } from '../../lib/hooks/useWorkflow';
 
 export default function EnhancedChatWindow({ className = '', initialTemplate }) {
   const { data: session } = useSession();
-  const [activeWorkflowId, setActiveWorkflowId] = useState(null);
+  
+  // Use the workflow hook for all workflow management
+  const {
+    activeWorkflowId,
+    currentWorkflow,
+    loading: workflowLoading,
+    error: workflowError,
+    closeWorkflow,
+    setActiveWorkflowId
+  } = useWorkflow(initialTemplate);
+  
   const [showVisualization, setShowVisualization] = useState(false);
   const [showAgentChat, setShowAgentChat] = useState(false);
   const [viewMode, setViewMode] = useState('agent-chat'); // agent-chat, traditional-chat, split, visualization
   const [agents, setAgents] = useState([]);
+  const [showCloseConfirmation, setShowCloseConfirmation] = useState(false);
 
-  // Auto-start workflow if template is provided
-  useEffect(() => {
-    if (initialTemplate && !activeWorkflowId) {
-      // Parse URL parameters to get template details
-      const urlParams = new URLSearchParams(window.location.search);
-      const templateName = urlParams.get('name') || 'Template Workflow';
-      const templateCategory = urlParams.get('category') || 'development';
-      const templateAgents = urlParams.get('agents')?.split(',') || ['pm', 'architect', 'dev'];
-      
-      // Create a workflow initiation message
-      const workflowMessage = `Start ${templateName} workflow for ${templateCategory} project using agents: ${templateAgents.join(', ')}`;
-      
-      // Auto-start the workflow
-      startTemplateWorkflow(templateName, workflowMessage);
-    }
-  }, [initialTemplate, activeWorkflowId]);
+  // Handle close workspace confirmation
+  const handleCloseWorkspace = () => {
+    setShowCloseConfirmation(true);
+  };
 
-  // Function to start workflow from template
-  const startTemplateWorkflow = async (templateName, workflowMessage) => {
-    try {
-      const response = await fetch('/api/bmad/workflow', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userPrompt: workflowMessage,
-          name: templateName,
-          description: `Template-based workflow: ${templateName}`,
-          sequence: 'FULL_STACK', // Default to full-stack sequence
-          priority: 'medium',
-          tags: ['template', initialTemplate]
-        })
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        const workflowId = data.workflowId;
-        console.log('Template workflow started:', workflowId);
-        handleWorkflowStarted(workflowId);
-      } else {
-        console.error('Failed to start workflow:', await response.text());
-        throw new Error('API request failed');
-      }
-    } catch (error) {
-      console.error('Failed to start template workflow:', error);
-      // Fallback to default workflow ID based on template
-      const fallbackWorkflowId = `${initialTemplate}-${Date.now()}`;
-      handleWorkflowStarted(fallbackWorkflowId);
-    }
+  const confirmCloseWorkspace = () => {
+    closeWorkflow(); // Use the hook's closeWorkflow function
+    setShowVisualization(false);
+    setShowAgentChat(false);
+    setViewMode('agent-chat');
+    setShowCloseConfirmation(false);
+  };
+
+  const cancelCloseWorkspace = () => {
+    setShowCloseConfirmation(false);
   };
 
   // Load available agents
@@ -96,13 +77,19 @@ export default function EnhancedChatWindow({ className = '', initialTemplate }) 
     setActiveWorkflowId(workflowId);
     setShowVisualization(true);
     setShowAgentChat(true);
-    
-    // Subscribe to the new workflow
-    if (pusherClient && pusherConnected) {
-      const channelName = `workflow-${workflowId}`;
-      pusherClient.subscribe(channelName);
-    }
   };
+  
+  // Handle workflow state changes and Pusher subscriptions
+  useEffect(() => {
+    if (activeWorkflowId && pusherClient && pusherConnected) {
+      const channelName = `workflow-${activeWorkflowId}`;
+      pusherClient.subscribe(channelName);
+      
+      return () => {
+        pusherClient.unsubscribe(channelName);
+      };
+    }
+  }, [activeWorkflowId, pusherClient, pusherConnected]);
 
   // Handle view mode changes
   const handleViewModeChange = (mode) => {
@@ -133,17 +120,34 @@ export default function EnhancedChatWindow({ className = '', initialTemplate }) 
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
               Dream Team Chat
             </h2>
-            {activeWorkflowId && (
-              <div className="flex items-center space-x-2 mt-1 text-sm text-gray-500 dark:text-gray-400">
-                <span>Active Workflow: {activeWorkflowId}</span>
-                {pusherConnected && (
+            
+            {/* Workflow Status */}
+            <div className="flex items-center space-x-4 mt-1">
+              {workflowLoading && (
+                <div className="flex items-center space-x-2 text-sm text-blue-600 dark:text-blue-400">
+                  <div className="animate-spin w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                  <span>Loading workflow...</span>
+                </div>
+              )}
+              
+              {workflowError && (
+                <div className="text-sm text-red-600 dark:text-red-400">
+                  <span>⚠️ {workflowError.message}</span>
+                </div>
+              )}
+              
+              {activeWorkflowId && (
+                <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
+                  <span>Active Workflow: {activeWorkflowId}</span>
+                  {pusherConnected && (
                   <span className="flex items-center text-green-600 dark:text-green-400">
                     <div className="w-2 h-2 bg-green-500 rounded-full mr-1 animate-pulse"></div>
                     Live
                   </span>
                 )}
-              </div>
-            )}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* View Mode Controls */}
@@ -174,13 +178,8 @@ export default function EnhancedChatWindow({ className = '', initialTemplate }) 
 
             {activeWorkflowId && (
               <button
-                onClick={() => {
-                  setActiveWorkflowId(null);
-                  setShowVisualization(false);
-                  setShowAgentChat(false);
-                  setViewMode('agent-chat');
-                }}
-                className="px-3 py-1 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-300 dark:border-gray-600 rounded"
+                onClick={handleCloseWorkspace}
+                className="px-3 py-1 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-300 dark:border-gray-600 rounded hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
               >
                 ✕ Close Workflow
               </button>
@@ -350,6 +349,19 @@ export default function EnhancedChatWindow({ className = '', initialTemplate }) 
           </div>
         </div>
       )}
+
+      {/* Close Workflow Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showCloseConfirmation}
+        onClose={cancelCloseWorkspace}
+        onConfirm={confirmCloseWorkspace}
+        title="Close Workspace"
+        message="Are you sure you want to close this workspace? Any unsaved changes or ongoing agent conversations will be lost. This action cannot be undone."
+        confirmText="Close Workspace"
+        cancelText="Keep Working"
+        variant="warning"
+        icon={LogOut}
+      />
     </div>
   );
 }
