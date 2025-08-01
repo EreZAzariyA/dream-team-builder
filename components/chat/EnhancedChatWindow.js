@@ -23,9 +23,11 @@ export default function EnhancedChatWindow({ className = '', initialTemplate }) 
   const {
     activeWorkflowId,
     currentWorkflow,
+    activeWorkflows,
     loading: workflowLoading,
     error: workflowError,
     closeWorkflow,
+    switchToWorkflow,
     setActiveWorkflowId
   } = useWorkflow(initialTemplate);
   
@@ -112,92 +114,105 @@ export default function EnhancedChatWindow({ className = '', initialTemplate }) 
   };
 
   return (
-    <div className={`h-full flex flex-col ${className}`}>
-      {/* Header Controls */}
-      <div className="border-b bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-              Dream Team Chat
-            </h2>
-            
-            {/* Workflow Status */}
-            <div className="flex items-center space-x-4 mt-1">
-              {workflowLoading && (
-                <div className="flex items-center space-x-2 text-sm text-blue-600 dark:text-blue-400">
-                  <div className="animate-spin w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full"></div>
-                  <span>Loading workflow...</span>
-                </div>
-              )}
-              
-              {workflowError && (
-                <div className="text-sm text-red-600 dark:text-red-400">
-                  <span>⚠️ {workflowError.message}</span>
-                </div>
-              )}
-              
-              {activeWorkflowId && (
-                <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
-                  <span>Active Workflow: {activeWorkflowId}</span>
-                  {pusherConnected && (
-                  <span className="flex items-center text-green-600 dark:text-green-400">
-                    <div className="w-2 h-2 bg-green-500 rounded-full mr-1 animate-pulse"></div>
-                    Live
-                  </span>
-                )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* View Mode Controls */}
-          <div className="flex items-center space-x-2">
-            <div className="flex space-x-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-              {[
-                { mode: 'agent-chat', label: 'Agents', icon: '🤖' },
-                { mode: 'traditional-chat', label: 'Chat', icon: '💬' },
-                ...(activeWorkflowId ? [
-                  { mode: 'split', label: 'Split', icon: '📊' },
-                  { mode: 'visualization', label: 'Viz', icon: '🔍' }
-                ] : [])
-              ].map(({ mode, label, icon }) => (
-                <button
-                  key={mode}
-                  onClick={() => handleViewModeChange(mode)}
-                  className={`px-3 py-1 text-sm rounded-md transition-colors flex items-center space-x-1 ${
-                    viewMode === mode
-                      ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
-                      : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
-                  }`}
-                >
-                  <span>{icon}</span>
-                  <span>{label}</span>
-                </button>
-              ))}
-            </div>
-
-            {activeWorkflowId && (
-              <button
-                onClick={handleCloseWorkspace}
-                className="px-3 py-1 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white border border-gray-300 dark:border-gray-600 rounded hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
-              >
-                ✕ Close Workflow
-              </button>
-            )}
-          </div>
+    <div className={`h-full flex flex-col relative ${className}`}>
+      {/* Floating View Mode Controls - Only show when workflow is active */}
+      {activeWorkflowId && (
+        <div className="absolute top-4 right-4 z-10 flex items-center space-x-2">
+        <div className="flex space-x-1 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-lg p-1 shadow-lg border border-gray-200 dark:border-gray-700">
+          {[
+            { mode: 'agent-chat', label: 'Agents', icon: '🤖' },
+            { mode: 'traditional-chat', label: 'Chat', icon: '💬' },
+            ...(activeWorkflowId ? [
+              { mode: 'split', label: 'Split', icon: '📊' },
+              { mode: 'visualization', label: 'Viz', icon: '🔍' }
+            ] : [])
+          ].map(({ mode, label, icon }) => (
+            <button
+              key={mode}
+              onClick={() => handleViewModeChange(mode)}
+              className={`px-2 py-1 text-xs rounded-md transition-colors flex items-center space-x-1 ${
+                viewMode === mode
+                  ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 shadow-sm'
+                  : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
+              }`}
+              title={label}
+            >
+              <span>{icon}</span>
+              <span className="hidden sm:inline">{label}</span>
+            </button>
+          ))}
         </div>
-      </div>
+
+        {activeWorkflowId && (
+          <button
+            onClick={handleCloseWorkspace}
+            className="px-2 py-1 text-xs text-white bg-red-500 hover:bg-red-600 rounded-md transition-colors shadow-lg"
+            title="Close Workflow"
+          >
+            ✕
+          </button>
+        )}
+        </div>
+      )}
 
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden">
-        {viewMode === 'agent-chat' ? (
+        {!activeWorkflowId ? (
+          /* No Workflow Lock Screen */
+          <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+            <div className="text-center max-w-md mx-auto p-8">
+              <div className="mb-8">
+                <div className="w-24 h-24 mx-auto mb-6 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center">
+                  <div className="text-4xl">🔒</div>
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+                  Workflow Required
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
+                  To start chatting with AI agents, you need an active workflow. 
+                  Workflows provide context and structure for meaningful conversations with your AI team.
+                </p>
+              </div>
+              
+              <div className="space-y-4">
+                <button
+                  onClick={() => window.location.href = '/workflows'}
+                  className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center space-x-2"
+                >
+                  <span>🚀</span>
+                  <span>Browse Workflows</span>
+                </button>
+                
+                <button
+                  onClick={() => window.location.href = '/workflows/new'}
+                  className="w-full px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors font-medium flex items-center justify-center space-x-2"
+                >
+                  <span>✨</span>
+                  <span>Create New Workflow</span>
+                </button>
+              </div>
+              
+              <div className="mt-8 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                <div className="flex items-start space-x-3">
+                  <div className="text-blue-500 mt-0.5">💡</div>
+                  <div className="text-sm text-blue-800 dark:text-blue-200">
+                    <p className="font-medium mb-1">What are workflows?</p>
+                    <p>Workflows define your project goals, team structure, and agent responsibilities. They help AI agents understand their roles and collaborate effectively on your projects.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : viewMode === 'agent-chat' ? (
           /* Agent Chat Mode with Agents List */
           <div className="flex-1 flex">
             <div className="flex-1">
               <AgentChatInterface
-                workflowId={activeWorkflowId || 'default-workflow'}
+                workflowId={activeWorkflowId}
                 agents={agents}
+                activeWorkflows={activeWorkflows}
                 className="h-full"
+                onWorkflowSwitch={switchToWorkflow}
               />
             </div>
           </div>
@@ -249,7 +264,9 @@ export default function EnhancedChatWindow({ className = '', initialTemplate }) 
                 <AgentChatInterface
                   workflowId={activeWorkflowId}
                   agents={agents}
+                  activeWorkflows={activeWorkflows}
                   className="h-full"
+                  onWorkflowSwitch={switchToWorkflow}
                 />
               </div>
             </div>
@@ -344,7 +361,9 @@ export default function EnhancedChatWindow({ className = '', initialTemplate }) 
             <AgentChatInterface
               workflowId={activeWorkflowId}
               agents={agents}
+              activeWorkflows={activeWorkflows}
               className="h-full"
+              onWorkflowSwitch={switchToWorkflow}
             />
           </div>
         </div>
