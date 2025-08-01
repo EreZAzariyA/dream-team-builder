@@ -5,4 +5,5 @@ import { authOptions } from '../../../../lib/auth/config.js';
 const handler = NextAuth(authOptions);
 
 // Export named exports for each HTTP method (required in App Router)
-export { handler as GET, handler as POST };
+export const GET = handler;
+export const POST = handler;
