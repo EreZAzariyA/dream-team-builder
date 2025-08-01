@@ -1,0 +1,83 @@
+{
+  "id": "test-full-stack-workflow",
+  "name": "Test Full-Stack Application",
+  "description": "Complete full-stack application development workflow for testing",
+  "template": "FULL_STACK",
+  "sequence": [
+    {
+      "agentId": "test-pm",
+      "name": "Project Manager",
+      "role": "Project Management",
+      "order": 1,
+      "dependencies": [],
+      "expectedOutputs": ["prd", "timeline", "resource-plan"],
+      "timeout": 30000
+    },
+    {
+      "agentId": "test-architect", 
+      "name": "System Architect",
+      "role": "System Architecture",
+      "order": 2,
+      "dependencies": ["test-pm"],
+      "expectedOutputs": ["architecture-doc", "tech-stack", "database-schema"],
+      "timeout": 45000
+    },
+    {
+      "agentId": "test-developer",
+      "name": "Developer",
+      "role": "Software Development", 
+      "order": 3,
+      "dependencies": ["test-architect"],
+      "expectedOutputs": ["source-code", "tests", "documentation"],
+      "timeout": 60000
+    }
+  ],
+  "estimatedDuration": 900000,
+  "complexity": "intermediate",
+  "tags": ["full-stack", "web-application", "test"],
+  "userPrompt": "Create a modern web application with user authentication, dashboard, and data management capabilities",
+  "expectedArtifacts": [
+    {
+      "type": "DOCUMENT",
+      "name": "project-requirements.md",
+      "agentId": "test-pm"
+    },
+    {
+      "type": "DOCUMENT", 
+      "name": "system-architecture.md",
+      "agentId": "test-architect"
+    },
+    {
+      "type": "CODE",
+      "name": "main-application.js",
+      "agentId": "test-developer"
+    },
+    {
+      "type": "TEST",
+      "name": "integration-tests.js",
+      "agentId": "test-developer"
+    }
+  ],
+  "testScenarios": [
+    {
+      "name": "successful_completion",
+      "description": "All agents complete successfully in sequence",
+      "expectedStatus": "COMPLETED",
+      "expectedDuration": "< 15 minutes"
+    },
+    {
+      "name": "agent_failure_recovery",
+      "description": "Handle agent failure and recovery mechanisms",
+      "simulateFailure": "test-architect",
+      "expectedStatus": "ERROR",
+      "expectedRecovery": true
+    },
+    {
+      "name": "timeout_handling",
+      "description": "Handle agent timeout scenarios",
+      "simulateTimeout": "test-developer",
+      "expectedStatus": "ERROR",
+      "expectedTimeout": true
+    }
+  ]
+}

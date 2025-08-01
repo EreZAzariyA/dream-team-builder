@@ -6,7 +6,16 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "npx jest",
+    "test:watch": "npx jest --watch",
+    "test:coverage": "npx jest --coverage",
+    "test:unit": "npx jest tests/unit",
+    "test:integration": "npx jest tests/integration",
+    "test:api": "npx jest tests/api",
+    "test:e2e": "npx jest tests/e2e",
+    "test:performance": "npx jest tests/performance",
+    "test:ci": "npx jest --coverage --watchAll=false"
   },
   "dependencies": {
     "@auth/mongodb-adapter": "^3.10.0",
@@ -41,10 +50,24 @@
     "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
+    "@babel/core": "^7.28.0",
+    "@babel/preset-env": "^7.28.0",
     "@eslint/eslintrc": "^3",
+    "@faker-js/faker": "^8.3.1",
     "@tailwindcss/postcss": "^4",
+    "@testing-library/jest-dom": "^6.1.5",
+    "@testing-library/react": "^14.1.2",
+    "@testing-library/user-event": "^14.5.1",
+    "artillery": "^2.0.4",
+    "babel-jest": "^30.0.5",
     "eslint": "^9",
     "eslint-config-next": "15.4.5",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "mongodb-memory-server": "^9.1.3",
+    "nock": "^13.4.0",
+    "sinon": "^17.0.1",
+    "supertest": "^6.3.4",
     "tailwindcss": "^4"
   }
 }

@@ -1,0 +1,74 @@
+name: "Test PRD Template"
+description: "Project Requirements Document template for testing"
+version: "1.0.0"
+category: "project-management"
+
+sections:
+  - name: "Project Overview"
+    type: "paragraphs"
+    required: true
+    content_type: "overview"
+    subsections:
+      - name: "Project Goals"
+        type: "bullet_list"
+        items: 3
+      - name: "Success Criteria"
+        type: "bullet_list"
+        items: 5
+
+  - name: "Requirements"
+    type: "structured"
+    required: true
+    subsections:
+      - name: "Functional Requirements"
+        type: "numbered_list"
+        items: 8
+      - name: "Non-Functional Requirements"
+        type: "numbered_list"
+        items: 5
+
+  - name: "Technical Considerations"
+    type: "paragraphs"
+    required: true
+    subsections:
+      - name: "Technology Stack"
+        type: "table"
+        columns: ["Component", "Technology", "Justification"]
+        rows: 4
+      - name: "Architecture Requirements"
+        type: "bullet_list"
+        items: 6
+
+  - name: "Timeline and Milestones"
+    type: "structured"
+    required: true
+    subsections:
+      - name: "Project Phases"
+        type: "table"
+        columns: ["Phase", "Duration", "Key Deliverables"]
+        rows: 4
+      - name: "Critical Path"
+        type: "bullet_list"
+        items: 5
+
+  - name: "Risk Assessment"
+    type: "structured"
+    required: false
+    subsections:
+      - name: "Identified Risks"
+        type: "table"
+        columns: ["Risk", "Impact", "Probability", "Mitigation"]
+        rows: 5
+
+variables:
+  project_name: "{{PROJECT_NAME}}"
+  client_name: "{{CLIENT_NAME}}"
+  timeline_weeks: "{{TIMELINE_WEEKS}}"
+  team_size: "{{TEAM_SIZE}}"
+  budget_range: "{{BUDGET_RANGE}}"
+
+metadata:
+  agent_id: "test-pm"
+  output_format: "markdown"
+  estimated_length: 2000
+  review_required: true
