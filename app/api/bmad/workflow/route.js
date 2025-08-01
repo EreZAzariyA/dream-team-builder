@@ -19,8 +19,15 @@ let orchestrator = null;
  */
 async function getOrchestrator() {
   if (!orchestrator) {
-    orchestrator = new BmadOrchestrator();
-    await orchestrator.initialize();
+    try {
+      orchestrator = new BmadOrchestrator();
+      await orchestrator.initialize();
+      console.log('✅ BMAD Orchestrator initialized successfully');
+    } catch (error) {
+      console.error('❌ Failed to initialize BMAD Orchestrator:', error);
+      orchestrator = null; // Reset to allow retry
+      throw new Error(`BMAD initialization failed: ${error.message}`);
+    }
   }
   return orchestrator;
 }
@@ -246,36 +253,44 @@ export async function POST(request) {
     }
 
     await connectMongoose();
-    const bmad = await getOrchestrator();
-
-    // Start workflow
-    const result = await bmad.startWorkflow(userPrompt, {
-      name: name || `Workflow - ${new Date().toLocaleDateString()}`,
-      description: description || 'User-initiated BMAD workflow',
-      sequence,
-      userId: session.user.id,
-      priority: priority || 'normal',
-      tags: tags || [],
-      context: {
-        initiatedBy: session.user.id,
-        userEmail: session.user.email,
-        timestamp: new Date()
-      }
-    });
+    
+    // Generate a unique workflow ID
+    const workflowId = `workflow_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Try to initialize BMAD orchestrator in background (non-blocking)
+    let bmadResult = null;
+    try {
+      const bmad = await getOrchestrator();
+      bmadResult = await bmad.startWorkflow(userPrompt, {
+        name: name || `Workflow - ${new Date().toLocaleDateString()}`,
+        description: description || 'User-initiated BMAD workflow',
+        sequence,
+        userId: session.user.id,
+        priority: priority || 'medium',
+        tags: tags || [],
+        context: {
+          initiatedBy: session.user.id,
+          userEmail: session.user.email,
+          timestamp: new Date()
+        }
+      });
+    } catch (bmadError) {
+      console.warn('BMAD orchestrator failed, continuing with basic workflow:', bmadError.message);
+      // Continue without BMAD - we'll still create the database entry
+    }
 
     // Save workflow to database
     const workflowDoc = new Workflow({
-      workflowId: result.workflowId,
-      name: name || `Workflow - ${new Date().toLocaleDateString()}`,
+      title: name || `Workflow - ${new Date().toLocaleDateString()}`,
       description: description || 'User-initiated BMAD workflow',
-      userPrompt,
-      sequence: sequence || bmad.getWorkflowSequences().FULL_STACK,
-      status: WorkflowStatus.RUNNING,
+      prompt: userPrompt,
+      template: 'greenfield-fullstack', // Default template
+      status: 'running',
       userId: session.user.id,
       metadata: {
-        priority: priority || 'normal',
+        priority: priority === 'normal' ? 'medium' : priority || 'medium', // Map 'normal' to 'medium'
         tags: tags || [],
-        source: 'api'
+        category: 'api-generated'
       }
     });
 
@@ -283,9 +298,10 @@ export async function POST(request) {
 
     return NextResponse.json({
       success: true,
-      workflowId: result.workflowId,
-      status: result.status,
-      message: 'Workflow started successfully'
+      workflowId: bmadResult?.workflowId || workflowId,
+      status: bmadResult?.status || 'running',
+      message: 'Workflow started successfully',
+      bmadEnabled: !!bmadResult
     });
 
   } catch (error) {
