@@ -8,16 +8,20 @@ let mongoServer
 
 // Setup in-memory MongoDB for API tests
 beforeAll(async () => {
-  mongoServer = await MongoMemoryServer.create()
-  const mongoUri = mongoServer.getUri()
-  
-  await mongoose.connect(mongoUri, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
-  
-  console.log('🔌 API test MongoDB setup complete')
-})
+  // Only setup if not already connected (avoid conflicts with integration tests)
+  if (mongoose.connection.readyState === 0) {
+    mongoServer = await MongoMemoryServer.create()
+    const mongoUri = mongoServer.getUri()
+    
+    await mongoose.connect(mongoUri, {
+      maxPoolSize: 1,
+      serverSelectionTimeoutMS: 1000,
+      socketTimeoutMS: 1000,
+    })
+    
+    console.log('🔌 API test MongoDB setup complete')
+  }
+}, 30000)
 
 // Clean database between tests
 beforeEach(async () => {
@@ -29,16 +33,20 @@ beforeEach(async () => {
 
 // Cleanup after all tests
 afterAll(async () => {
-  if (mongoose.connection.readyState !== 0) {
-    await mongoose.connection.close()
+  try {
+    if (mongoose.connection.readyState !== 0) {
+      await mongoose.connection.close()
+    }
+
+    if (mongoServer) {
+      await mongoServer.stop()
+    }
+    
+    console.log('🔌 API test cleanup complete')
+  } catch (error) {
+    console.warn('API cleanup warning:', error.message)
   }
-  
-  if (mongoServer) {
-    await mongoServer.stop()
-  }
-  
-  console.log('🔌 API test cleanup complete')
-})
+}, 10000)
 
 // API test utilities
 global.apiTestUtils = {
@@ -89,6 +97,9 @@ global.apiTestUtils = {
     return JSON.parse(res._getData())
   },
   
+  // Get Mongoose connection
+  getMongooseConnection: () => mongoose.connection,
+
   // Common API response assertions
   expectSuccess: (res, expectedData = null) => {
     expect(res.statusCode).toBe(200)

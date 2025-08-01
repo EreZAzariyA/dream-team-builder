@@ -4,7 +4,7 @@ const { faker } = require('@faker-js/faker')
 class MockAIService {
   constructor() {
     this.isInitialized = true
-    this.responseDelay = 100 // Configurable delay for testing
+    this.responseDelay = 10 // Configurable delay for testing
     this.shouldFail = false
     this.failureRate = 0
     this.responses = new Map()
@@ -12,7 +12,7 @@ class MockAIService {
   
   // Configure mock behavior
   configure(options = {}) {
-    this.responseDelay = options.delay || 100
+    this.responseDelay = options.delay || 10
     this.shouldFail = options.shouldFail || false
     this.failureRate = options.failureRate || 0
   }

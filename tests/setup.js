@@ -1,6 +1,11 @@
 // Global test setup
 require('@testing-library/jest-dom')
 
+// Mock the activityLogger to prevent database issues in tests
+jest.mock('../lib/utils/activityLogger.js', () => ({
+  logUserActivity: jest.fn().mockResolvedValue(true)
+}))
+
 // Mock environment variables
 process.env.NODE_ENV = 'test'
 process.env.NEXTAUTH_SECRET = 'test-secret'
@@ -51,19 +56,25 @@ global.testUtils = {
 // Suppress specific warnings in tests
 const originalWarn = console.warn
 beforeAll(() => {
-  console.warn = (...args) => {
-    if (
-      typeof args[0] === 'string' &&
-      args[0].includes('ReactDOM.render is no longer supported')
-    ) {
-      return
+  // Only override if console.warn is not already a mock
+  if (!jest.isMockFunction(console.warn)) {
+    console.warn = (...args) => {
+      if (
+        typeof args[0] === 'string' &&
+        args[0].includes('ReactDOM.render is no longer supported')
+      ) {
+        return
+      }
+      originalWarn.call(console, ...args)
     }
-    originalWarn.call(console, ...args)
   }
 })
 
 afterAll(() => {
-  console.warn = originalWarn
+  // Only restore if we overrode it and it's not a mock
+  if (!jest.isMockFunction(console.warn)) {
+    console.warn = originalWarn
+  }
 })
 
 // Clean up after each test

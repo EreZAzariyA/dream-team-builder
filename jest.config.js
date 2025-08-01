@@ -8,7 +8,10 @@ const createJestConfig = nextJest({
 // Add any custom config to be passed to Jest
 const customJestConfig = {
   // Add more setup options before each test is run
-  // setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
+  setupFilesAfterEnv: [
+    '<rootDir>/tests/setup.js',
+    '<rootDir>/tests/api.setup.js'
+  ],
   
   // Test environment
   // testEnvironment: 'jest-environment-jsdom',
@@ -63,7 +66,7 @@ const customJestConfig = {
   testTimeout: 30000,
   
   // Setup files
-  // setupFiles: ['<rootDir>/tests/env.setup.js'],
+  setupFiles: ['<rootDir>/tests/env.setup.js'],
   
   // Transform configuration
   transform: {

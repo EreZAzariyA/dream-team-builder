@@ -25,10 +25,9 @@ describe('Basic Jest Functionality', () => {
   })
 
   test('should handle async/await', async () => {
+    // Simple async test without setTimeout to avoid timer conflicts
     const asyncFunction = async () => {
-      return new Promise(resolve => {
-        setTimeout(() => resolve('success'), 10)
-      })
+      return Promise.resolve('success')
     }
     
     const result = await asyncFunction()
