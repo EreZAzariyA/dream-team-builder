@@ -12,8 +12,10 @@ export default function AgentChatInterface({
   workflowId, 
   agents = [], 
   className = '',
+  activeWorkflows = [],
   onMessageSent = () => {},
-  onAgentSelected = () => {} 
+  onAgentSelected = () => {},
+  onWorkflowSwitch = () => {}
 }) {
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [agentMessages, setAgentMessages] = useState({}); // Store messages per agent
@@ -217,12 +219,11 @@ export default function AgentChatInterface({
   return (
     <div className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col ${className}`}>
       {/* Header */}
-      <div className="border-b border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-700">
-        <div className="flex items-center justify-between">
+      <div className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700">
+        <div className="flex items-center justify-between p-4">
           <div>
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Agent Chat</h3>
             <div className="flex items-center space-x-2 mt-1 text-sm text-gray-500 dark:text-gray-400">
-              <span>Workflow: {workflowId}</span>
               <span className={`flex items-center ${
                 pusherConnected ? 'text-green-600 dark:text-green-400' : 
                 pusherConnecting ? 'text-yellow-600 dark:text-yellow-400' : 
@@ -245,6 +246,43 @@ export default function AgentChatInterface({
             {onlineAgents.size} agents online
           </div>
         </div>
+
+        {/* Workflow Tabs */}
+        {activeWorkflows.length > 0 && (
+          <div className="px-4 pb-3">
+            <div className="flex items-center space-x-1 text-xs">
+              <span className="text-gray-500 dark:text-gray-400 mr-2">Active Workflows:</span>
+              <div className="flex flex-wrap gap-1">
+                {activeWorkflows.slice(0, 4).map((workflow) => {
+                  const wId = workflow.id || workflow._id;
+                  const isActive = wId === workflowId;
+                  return (
+                    <button
+                      key={wId}
+                      onClick={() => onWorkflowSwitch(wId)}
+                      className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                        isActive
+                          ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700'
+                          : 'bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-500'
+                      }`}
+                      title={workflow.name || workflow.title || wId}
+                    >
+                      <span className="flex items-center space-x-1">
+                        <span>{workflow.name || workflow.title || 'Workflow'}</span>
+                        {isActive && <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>}
+                      </span>
+                    </button>
+                  );
+                })}
+                {activeWorkflows.length > 4 && (
+                  <span className="px-2 py-1 text-gray-400 text-xs">
+                    +{activeWorkflows.length - 4} more
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-1 overflow-hidden">
@@ -254,45 +292,37 @@ export default function AgentChatInterface({
             <h4 className="font-medium text-gray-900 dark:text-white text-sm">Agents</h4>
           </div>
           
-          <div className="flex-1 overflow-y-auto p-2 space-y-1">
-            {/* All Agents Option */}
-            <button
-              onClick={() => setSelectedAgent(null)}
-              className={`w-full text-left p-2 rounded text-sm transition-colors ${
-                !selectedAgent
-                  ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
-                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
-              }`}
-            >
-              <div className="flex items-center">
-                <div className="w-2 h-2 bg-gray-400 rounded-full mr-2"></div>
-                All Agents
-              </div>
-            </button>
-
-            {/* Individual Agents */}
-            {agents.map((agent) => (
-              <button
-                key={agent.id}
-                onClick={() => handleAgentSelect(agent)}
-                className={`w-full text-left p-2 rounded text-sm transition-colors ${
-                  selectedAgent?.id === agent.id
-                    ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
-                }`}
-              >
-                <div className="flex items-center">
-                  <div className={`w-2 h-2 rounded-full mr-2 ${
-                    onlineAgents.has(agent.id) ? 'bg-green-500' : 'bg-gray-400'
-                  }`}></div>
-                  <span className="mr-1">{agent.icon || '🤖'}</span>
-                  <span className="truncate">{agent.name || agent.id}</span>
-                </div>
-                <div className="text-xs text-gray-500 mt-1 ml-4">
-                  {agent.title}
-                </div>
-              </button>
-            ))}
+          <div className="flex-1 overflow-y-auto">
+            {/* Section Title */}
+            <div className="px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              All Agents ({agents.length})
+            </div>
+            
+            <div className="px-2 pb-2 space-y-1">
+              {/* Individual Agents */}
+              {agents.map((agent) => (
+                <button
+                  key={agent.id}
+                  onClick={() => handleAgentSelect(agent)}
+                  className={`w-full text-left p-2 rounded text-sm transition-colors ${
+                    selectedAgent?.id === agent.id
+                      ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  <div className="flex items-center">
+                    <div className={`w-2 h-2 rounded-full mr-2 ${
+                      onlineAgents.has(agent.id) ? 'bg-green-500' : 'bg-gray-400'
+                    }`}></div>
+                    <span className="mr-1">{agent.icon || '🤖'}</span>
+                    <span className="truncate">{agent.name || agent.id}</span>
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1 ml-4">
+                    {agent.title}
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -301,24 +331,19 @@ export default function AgentChatInterface({
           {/* Chat Header */}
           <div className="p-3 border-b border-gray-200 dark:border-gray-700 bg-blue-50/50 dark:bg-blue-900/15">
             <div className="flex items-center">
-              <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                {selectedAgent ? (
-                  <>
-                    <span className="mr-1">{selectedAgent.icon || '🤖'}</span>
-                    {selectedAgent.name || selectedAgent.id}
-                    <span className="ml-2 text-xs bg-blue-100 dark:bg-blue-800 px-2 py-1 rounded-full">
-                      {getCurrentMessages().length} messages
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    💬 All Agents
-                    <span className="ml-2 text-xs bg-blue-100 dark:bg-blue-800 px-2 py-1 rounded-full">
-                      {getCurrentMessages().length} messages
-                    </span>
-                  </>
-                )}
-              </span>
+              {selectedAgent ? (
+                <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                  <span className="mr-1">{selectedAgent.icon || '🤖'}</span>
+                  {selectedAgent.name || selectedAgent.id}
+                  <span className="ml-2 text-xs bg-blue-100 dark:bg-blue-800 px-2 py-1 rounded-full">
+                    {getCurrentMessages().length} messages
+                  </span>
+                </span>
+              ) : (
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  Select an agent to start chatting
+                </span>
+              )}
               {selectedAgent && onlineAgents.has(selectedAgent.id) && (
                 <span className="ml-2 flex items-center text-xs text-green-600">
                   <div className="w-1.5 h-1.5 bg-green-500 rounded-full mr-1"></div>
@@ -330,15 +355,20 @@ export default function AgentChatInterface({
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            {getCurrentMessages().length === 0 ? (
+            {!selectedAgent ? (
+              <div className="text-center text-gray-500 py-16">
+                <div className="text-6xl mb-4">🤖</div>
+                <div className="text-lg font-medium mb-2">Choose an Agent</div>
+                <div className="text-sm">
+                  Select an agent from the list to start a conversation
+                </div>
+              </div>
+            ) : getCurrentMessages().length === 0 ? (
               <div className="text-center text-gray-500 py-8">
                 <div className="text-4xl mb-2">💬</div>
                 <div>No messages yet</div>
                 <div className="text-sm">
-                  {selectedAgent 
-                    ? `Start a conversation with ${selectedAgent.name || selectedAgent.id}` 
-                    : "Start a conversation with the agents"
-                  }
+                  Start a conversation with {selectedAgent.name || selectedAgent.id}
                 </div>
               </div>
             ) : (
@@ -365,14 +395,14 @@ export default function AgentChatInterface({
                 placeholder={
                   selectedAgent 
                     ? `Message ${selectedAgent.name || selectedAgent.id}...`
-                    : "Message all agents..."
+                    : "Select an agent to start chatting..."
                 }
-                className="flex-1 border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                disabled={!pusherConnected}
+                className="flex-1 border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 dark:disabled:bg-gray-700"
+                disabled={!selectedAgent || !pusherConnected}
               />
               <button
                 onClick={handleSendMessage}
-                disabled={!newMessage.trim() || !pusherConnected}
+                disabled={!selectedAgent || !newMessage.trim() || !pusherConnected}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Send
