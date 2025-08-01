@@ -21,6 +21,56 @@ export default function EnhancedChatWindow({ className = '', initialTemplate }) 
   const [viewMode, setViewMode] = useState('agent-chat'); // agent-chat, traditional-chat, split, visualization
   const [agents, setAgents] = useState([]);
 
+  // Auto-start workflow if template is provided
+  useEffect(() => {
+    if (initialTemplate && !activeWorkflowId) {
+      // Parse URL parameters to get template details
+      const urlParams = new URLSearchParams(window.location.search);
+      const templateName = urlParams.get('name') || 'Template Workflow';
+      const templateCategory = urlParams.get('category') || 'development';
+      const templateAgents = urlParams.get('agents')?.split(',') || ['pm', 'architect', 'dev'];
+      
+      // Create a workflow initiation message
+      const workflowMessage = `Start ${templateName} workflow for ${templateCategory} project using agents: ${templateAgents.join(', ')}`;
+      
+      // Auto-start the workflow
+      startTemplateWorkflow(templateName, workflowMessage);
+    }
+  }, [initialTemplate, activeWorkflowId]);
+
+  // Function to start workflow from template
+  const startTemplateWorkflow = async (templateName, workflowMessage) => {
+    try {
+      const response = await fetch('/api/bmad/workflow', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userPrompt: workflowMessage,
+          name: templateName,
+          description: `Template-based workflow: ${templateName}`,
+          sequence: 'FULL_STACK', // Default to full-stack sequence
+          priority: 'medium',
+          tags: ['template', initialTemplate]
+        })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const workflowId = data.workflowId;
+        console.log('Template workflow started:', workflowId);
+        handleWorkflowStarted(workflowId);
+      } else {
+        console.error('Failed to start workflow:', await response.text());
+        throw new Error('API request failed');
+      }
+    } catch (error) {
+      console.error('Failed to start template workflow:', error);
+      // Fallback to default workflow ID based on template
+      const fallbackWorkflowId = `${initialTemplate}-${Date.now()}`;
+      handleWorkflowStarted(fallbackWorkflowId);
+    }
+  };
+
   // Load available agents
   const { data: agentsData } = useQuery({
     queryKey: ['bmad-agents'],
