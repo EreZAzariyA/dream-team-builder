@@ -16,12 +16,32 @@ export default function AgentChatInterface({
   onAgentSelected = () => {} 
 }) {
   const [selectedAgent, setSelectedAgent] = useState(null);
-  const [messages, setMessages] = useState([]);
+  const [agentMessages, setAgentMessages] = useState({}); // Store messages per agent
   const [newMessage, setNewMessage] = useState('');
   
   const [onlineAgents] = useState(new Set());
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+
+  // Get messages for current agent (or all agents if none selected)
+  const getCurrentMessages = () => {
+    const agentKey = selectedAgent?.id || 'all';
+    return agentMessages[agentKey] || [];
+  };
+
+  // Add message to specific agent's conversation
+  const addMessageToAgent = (message, targetAgentId = null) => {
+    const agentKey = targetAgentId || selectedAgent?.id || 'all';
+    console.log('Adding message to agent:', agentKey, message);
+    setAgentMessages(prev => {
+      const updated = {
+        ...prev,
+        [agentKey]: [...(prev[agentKey] || []), message]
+      };
+      console.log('Updated agentMessages:', updated);
+      return updated;
+    });
+  };
 
   // Pusher connection for real-time chat
   const { connected: pusherConnected, connecting: pusherConnecting, error: pusherError, subscribeToWorkflow, sendMessage, pusher } = usePusherSimple();
@@ -34,7 +54,7 @@ export default function AgentChatInterface({
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [agentMessages, selectedAgent]);
 
   // Pusher event handlers
   useEffect(() => {
@@ -50,10 +70,13 @@ export default function AgentChatInterface({
             from: data.agentId || 'agent',
             to: 'user',
             content: data.content || 'Agent response',
-            timestamp: new Date().toISOString(),
-            type: 'agent'
+            timestamp: data.timestamp || new Date().toISOString(),
+            type: 'agent',
+            agentName: data.agentName,
+            provider: data.provider
           };
-          setMessages(prev => [...prev, message]);
+          // Add message to the specific agent's conversation
+          addMessageToAgent(message, data.agentId);
         });
 
         // Also listen for user messages (for testing)
@@ -89,14 +112,15 @@ export default function AgentChatInterface({
       type: 'user'
     };
 
-    // Add to local messages immediately
-    setMessages(prev => [...prev, message]);
+    // Add to local messages immediately for the current agent
+    addMessageToAgent(message);
 
     // Send via Pusher API
     try {
       const success = await sendMessage(newMessage, {
         type: 'workflow',
-        id: workflowId
+        id: workflowId,
+        targetAgent: selectedAgent?.id // Send the selected agent ID
       });
       
       if (success) {
@@ -210,9 +234,17 @@ export default function AgentChatInterface({
                   <>
                     <span className="mr-1">{selectedAgent.icon || '🤖'}</span>
                     {selectedAgent.name || selectedAgent.id}
+                    <span className="ml-2 text-xs bg-blue-100 dark:bg-blue-800 px-2 py-1 rounded-full">
+                      {getCurrentMessages().length} messages
+                    </span>
                   </>
                 ) : (
-                  '💬 All Agents'
+                  <>
+                    💬 All Agents
+                    <span className="ml-2 text-xs bg-blue-100 dark:bg-blue-800 px-2 py-1 rounded-full">
+                      {getCurrentMessages().length} messages
+                    </span>
+                  </>
                 )}
               </span>
               {selectedAgent && onlineAgents.has(selectedAgent.id) && (
@@ -226,14 +258,19 @@ export default function AgentChatInterface({
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            {messages.length === 0 ? (
+            {getCurrentMessages().length === 0 ? (
               <div className="text-center text-gray-500 py-8">
                 <div className="text-4xl mb-2">💬</div>
                 <div>No messages yet</div>
-                <div className="text-sm">Start a conversation with the agents</div>
+                <div className="text-sm">
+                  {selectedAgent 
+                    ? `Start a conversation with ${selectedAgent.name || selectedAgent.id}` 
+                    : "Start a conversation with the agents"
+                  }
+                </div>
               </div>
             ) : (
-              messages.map((message) => (
+              getCurrentMessages().map((message) => (
                 <AgentChatMessage
                   key={message.id}
                   message={message}
@@ -303,7 +340,17 @@ function AgentChatMessage({ message, agents }) {
     }
   };
 
-  const getAgentInfo = (agentId) => {
+  const getAgentInfo = (agentId, message = null) => {
+    // First try to get agent info from message if provided
+    if (message && message.agentName) {
+      return { 
+        id: agentId, 
+        name: message.agentName, 
+        icon: '🤖' // Could enhance this later
+      };
+    }
+    
+    // Fall back to agents array lookup
     const agent = agents.find(a => a.id === agentId);
     return agent || { id: agentId, name: agentId, icon: '🤖' };
   };
@@ -323,10 +370,10 @@ function AgentChatMessage({ message, agents }) {
           {message.from !== 'system' && (
             <>
               <span className="text-sm">
-                {message.from === 'user' ? '👤' : getAgentInfo(message.from).icon}
+                {message.from === 'user' ? '👤' : getAgentInfo(message.from, message).icon}
               </span>
               <span className="text-sm font-medium">
-                {message.from === 'user' ? 'You' : getAgentInfo(message.from).name}
+                {message.from === 'user' ? 'You' : getAgentInfo(message.from, message).name}
               </span>
             </>
           )}
@@ -335,10 +382,10 @@ function AgentChatMessage({ message, agents }) {
             <>
               <span className="text-xs text-gray-500">→</span>
               <span className="text-sm">
-                {getAgentInfo(message.to).icon}
+                {getAgentInfo(message.to, message).icon}
               </span>
               <span className="text-sm text-gray-600">
-                {getAgentInfo(message.to).name}
+                {getAgentInfo(message.to, message).name}
               </span>
             </>
           )}
