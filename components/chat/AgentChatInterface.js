@@ -33,15 +33,10 @@ export default function AgentChatInterface({
   // Add message to specific agent's conversation
   const addMessageToAgent = (message, targetAgentId = null) => {
     const agentKey = targetAgentId || selectedAgent?.id || 'all';
-    console.log('Adding message to agent:', agentKey, message);
-    setAgentMessages(prev => {
-      const updated = {
-        ...prev,
-        [agentKey]: [...(prev[agentKey] || []), message]
-      };
-      console.log('Updated agentMessages:', updated);
-      return updated;
-    });
+    setAgentMessages(prev => ({
+      ...prev,
+      [agentKey]: [...(prev[agentKey] || []), message]
+    }));
   };
 
   // Load existing messages for the workflow
@@ -50,7 +45,6 @@ export default function AgentChatInterface({
     
     setLoadingMessages(true);
     try {
-      console.log('🔍 Loading existing messages for workflow:', workflowId);
       const response = await fetch(`/api/chat/messages?workflowId=${workflowId}`, {
         credentials: 'include'
       });
@@ -58,7 +52,6 @@ export default function AgentChatInterface({
       if (response.ok) {
         const data = await response.json();
         const messages = data.messages || [];
-        console.log('📋 Loaded', messages.length, 'existing messages');
         
         // Group messages by agent
         const messagesByAgent = {};
@@ -77,13 +70,6 @@ export default function AgentChatInterface({
             agentKey = msg.fromAgent || msg.toAgent || 'all';
           }
           
-          console.log('Grouping message:', {
-            fromAgent: msg.fromAgent,
-            toAgent: msg.toAgent,
-            messageType: msg.messageType,
-            assignedKey: agentKey,
-            content: msg.content?.text?.substring(0, 50) + '...'
-          });
           
           if (!messagesByAgent[agentKey]) {
             messagesByAgent[agentKey] = [];
@@ -114,12 +100,9 @@ export default function AgentChatInterface({
         });
         
         setAgentMessages(messagesByAgent);
-        console.log('✅ Messages loaded and grouped by agent:', messagesByAgent);
-      } else {
-        console.warn('Failed to load messages:', response.status);
       }
     } catch (error) {
-      console.error('Error loading messages:', error);
+      // Silently handle error - messages will remain empty
     } finally {
       setLoadingMessages(false);
     }
