@@ -404,9 +404,22 @@ export async function PUT(request) {
       case 'cancel':
         result = await bmad.cancelWorkflow(workflowId);
         break;
+      case 'rollback':
+        const { checkpointId } = body;
+        if (!checkpointId) {
+          return NextResponse.json(
+            { error: 'checkpointId is required for rollback action' },
+            { status: 400 }
+          );
+        }
+        result = await bmad.rollbackToCheckpoint(workflowId, checkpointId);
+        break;
+      case 'resume_rollback':
+        result = await bmad.resumeFromRollback(workflowId);
+        break;
       default:
         return NextResponse.json(
-          { error: 'Invalid action. Must be pause, resume, or cancel' },
+          { error: 'Invalid action. Must be pause, resume, cancel, rollback, or resume_rollback' },
           { status: 400 }
         );
     }

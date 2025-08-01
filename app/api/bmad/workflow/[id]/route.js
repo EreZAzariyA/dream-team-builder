@@ -68,12 +68,16 @@ export async function GET(request, { params }) {
     // Get message history
     const messages = bmad.communicator.getMessageHistory(workflowId, { limit: 100 });
 
+    // Get workflow checkpoints
+    const checkpoints = await bmad.getWorkflowCheckpoints(workflowId);
+
     return NextResponse.json({
       success: true,
       workflow: {
         ...workflowStatus,
         artifacts,
         messages,
+        checkpoints,
         database: workflowDoc ? {
           id: workflowDoc._id,
           createdAt: workflowDoc.createdAt,
