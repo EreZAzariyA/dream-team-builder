@@ -24,8 +24,27 @@ const AuthForm = ({ mode = 'signin' }) => {
   // Redirect logged-in users away from auth pages
   useEffect(() => {
     if (status === 'loading') return; // Still loading
-    if (session) {
-      router.push('/dashboard');
+    
+    // Only redirect if we have a valid, authenticated session
+    // And we're not already on an auth page due to expiry/logout
+    if (session && status === 'authenticated') {
+      // Check if we arrived here from an auth callback or directly
+      const urlParams = new URLSearchParams(window.location.search);
+      const callbackUrl = urlParams.get('callbackUrl');
+      
+      if (callbackUrl) {
+        // Redirect to the callback URL (where user came from)
+        const timer = setTimeout(() => {
+          router.push(decodeURIComponent(callbackUrl));
+        }, 100);
+        return () => clearTimeout(timer);
+      } else {
+        // No callback URL, redirect to dashboard
+        const timer = setTimeout(() => {
+          router.push('/dashboard');
+        }, 100);
+        return () => clearTimeout(timer);
+      }
     }
   }, [session, status, router]);
 
@@ -145,8 +164,8 @@ const AuthForm = ({ mode = 'signin' }) => {
     );
   }
 
-  // If user is logged in, don't render the form (will redirect)
-  if (session) {
+  // If user is authenticated, show redirect message
+  if (session && status === 'authenticated') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
         <div className="text-center">
