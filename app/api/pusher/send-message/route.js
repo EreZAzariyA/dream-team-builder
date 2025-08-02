@@ -68,7 +68,7 @@ function determineTargetAgent(content, availableAgents = []) {
 /**
  * Process user message with BMAD agents using AI
  */
-async function processUserMessageWithAgents(orchestrator, content, workflowId, targetAgentId = null) {
+async function processUserMessageWithAgents(orchestrator, content, workflowId, targetAgentId = null, userId = null) {
   try {
     // Check if this is a workflow initiation request
     const isWorkflowTrigger = [
@@ -109,7 +109,8 @@ async function processUserMessageWithAgents(orchestrator, content, workflowId, t
             content: aiResponse.content,
             agentId: aiResponse.agentId,
             agentName: aiResponse.agentName,
-            provider: aiResponse.provider
+            provider: aiResponse.provider,
+            structured: aiResponse.structured
           };
         } catch (aiError) {
           console.error('AI service error:', aiError);
@@ -166,7 +167,10 @@ async function saveMessageToDatabase(messageData, messageType = 'response', from
         data: {
           timestamp: messageData.timestamp,
           userId: messageData.userId,
-          target: messageData.target
+          target: messageData.target,
+          structured: messageData.structured,
+          agentName: messageData.agentName,
+          provider: messageData.provider
         }
       },
       priority: 'medium',
@@ -247,7 +251,7 @@ async function handler(request) {
         await orchestrator.initialize();
 
         // Process the message as a user input to agents
-        const response = await processUserMessageWithAgents(orchestrator, content, target.id, target.targetAgent);
+        const response = await processUserMessageWithAgents(orchestrator, content, target.id, target.targetAgent, userId);
         
         // Send agent response via Pusher
         setTimeout(async () => {
@@ -261,6 +265,7 @@ async function handler(request) {
             userId: 'system',
             timestamp: new Date().toISOString(),
             workflowId: target.id,
+            structured: response.structured,
           };
 
           await pusherServer.trigger(
