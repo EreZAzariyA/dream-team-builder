@@ -7,6 +7,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { usePusherSimple } from '../../lib/pusher/SimplePusherClient';
+import ChatMessage from './ChatMessage';
 
 export default function AgentChatInterface({ 
   workflowId, 
@@ -87,8 +88,9 @@ export default function AgentChatInterface({
               : msg.content?.text || JSON.stringify(msg.content),
             timestamp: msg.timestamp || msg.createdAt,
             type: msg.fromAgent === 'user' ? 'user' : 'agent',
-            agentName: msg.fromAgent !== 'user' ? msg.fromAgent : null,
-            provider: msg.provider
+            agentName: msg.content?.data?.agentName || (msg.fromAgent !== 'user' ? msg.fromAgent : null),
+            provider: msg.content?.data?.provider || msg.provider,
+            structured: msg.content?.data?.structured
           };
           
           messagesByAgent[agentKey].push(transformedMessage);
@@ -147,7 +149,8 @@ export default function AgentChatInterface({
             timestamp: data.timestamp || new Date().toISOString(),
             type: 'agent',
             agentName: data.agentName,
-            provider: data.provider
+            provider: data.provider,
+            structured: data.structured
           };
           // Add message to the specific agent's conversation
           addMessageToAgent(message, data.agentId);
@@ -373,11 +376,15 @@ export default function AgentChatInterface({
               </div>
             ) : (
               getCurrentMessages().map((message) => (
-                <AgentChatMessage
-                  key={message.id}
-                  message={message}
-                  agents={agents}
-                />
+                <div key={message.id} className={`flex w-full ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <ChatMessage
+                    message={{
+                      ...message,
+                      sender: message.type === 'user' ? 'User' : (message.agentName || 'Agent'),
+                      timestamp: new Date(message.timestamp).toLocaleTimeString()
+                    }}
+                  />
+                </div>
               ))
             )}
             <div ref={messagesEndRef} />
@@ -418,92 +425,6 @@ export default function AgentChatInterface({
             )}
           </div>
         </div>
-      </div>
-    </div>
-  );
-}
-
-// Individual Chat Message Component
-function AgentChatMessage({ message, agents }) {
-  const getMessageStyle = () => {
-    switch (message.type) {
-      case 'user':
-        return 'bg-blue-100 text-blue-900 ml-12';
-      case 'agent':
-        return 'bg-gray-100 text-gray-900 mr-12';
-      case 'system':
-        return 'bg-yellow-50 text-yellow-800 mx-8';
-      case 'status':
-        return 'bg-green-50 text-green-800 mx-8 text-center';
-      case 'inter-agent':
-        return 'bg-purple-50 text-purple-800 mx-8';
-      default:
-        return 'bg-gray-100 text-gray-900';
-    }
-  };
-
-  const getAgentInfo = (agentId, message = null) => {
-    // First try to get agent info from message if provided
-    if (message && message.agentName) {
-      return { 
-        id: agentId, 
-        name: message.agentName, 
-        icon: '🤖' // Could enhance this later
-      };
-    }
-    
-    // Fall back to agents array lookup
-    const agent = agents.find(a => a.id === agentId);
-    return agent || { id: agentId, name: agentId, icon: '🤖' };
-  };
-
-  const formatTime = (timestamp) => {
-    return new Date(timestamp).toLocaleTimeString([], { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    });
-  };
-
-  return (
-    <div className={`p-3 rounded-lg ${getMessageStyle()}`}>
-      {/* Message Header */}
-      <div className="flex items-center justify-between mb-1">
-        <div className="flex items-center space-x-2">
-          {message.from !== 'system' && (
-            <>
-              <span className="text-sm">
-                {message.from === 'user' ? '👤' : getAgentInfo(message.from, message).icon}
-              </span>
-              <span className="text-sm font-medium">
-                {message.from === 'user' ? 'You' : getAgentInfo(message.from, message).name}
-              </span>
-            </>
-          )}
-          
-          {message.to && message.to !== 'all' && message.to !== 'user' && (
-            <>
-              <span className="text-xs text-gray-500">→</span>
-              <span className="text-sm">
-                {getAgentInfo(message.to, message).icon}
-              </span>
-              <span className="text-sm text-gray-600">
-                {getAgentInfo(message.to, message).name}
-              </span>
-            </>
-          )}
-        </div>
-        
-        <span className="text-xs text-gray-500">
-          {formatTime(message.timestamp)}
-        </span>
-      </div>
-
-      {/* Message Content */}
-      <div className="text-sm">
-        {typeof message.content === 'string' 
-          ? message.content 
-          : message.content?.text || JSON.stringify(message.content)
-        }
       </div>
     </div>
   );
