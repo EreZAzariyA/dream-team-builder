@@ -4,7 +4,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { compose, withMethods, withAuth, withErrorHandling } from '../../../../lib/api/middleware.js';
+import { compose, withMethods, withAuth, withErrorHandling, withRateLimit, withSecurityHeaders } from '../../../../lib/api/middleware.js';
 import { aiService } from '../../../../lib/ai/AIService.js';
 
 /**
@@ -92,8 +92,9 @@ async function PATCH(req) {
   }
 }
 
-// Apply middleware  
-const authenticatedPOST = compose(withMethods(['POST']), withAuth, withErrorHandling)(POST);
-const authenticatedPATCH = compose(withMethods(['PATCH']), withAuth, withErrorHandling)(PATCH);
+// Apply middleware with rate limiting and security headers
+const rateLimitedGET = compose(withMethods(['GET']), withRateLimit('general'), withSecurityHeaders, withErrorHandling)(GET);
+const authenticatedPOST = compose(withMethods(['POST']), withAuth, withRateLimit('general'), withSecurityHeaders, withErrorHandling)(POST);
+const authenticatedPATCH = compose(withMethods(['PATCH']), withAuth, withRateLimit('expensive'), withSecurityHeaders, withErrorHandling)(PATCH);
 
-export { GET, authenticatedPOST as POST, authenticatedPATCH as PATCH };
+export { rateLimitedGET as GET, authenticatedPOST as POST, authenticatedPATCH as PATCH };

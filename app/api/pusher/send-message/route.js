@@ -9,6 +9,7 @@ import BmadOrchestrator from '../../../../lib/bmad/BmadOrchestrator.js';
 import { aiService } from '../../../../lib/ai/AIService.js';
 import { connectMongoose } from '../../../../lib/database/mongodb.js';
 import AgentMessage from '../../../../lib/database/models/AgentMessage.js';
+import { compose, withMethods, withRateLimit, withAIRateLimit, withSecurityHeaders, withErrorHandling } from '../../../../lib/api/middleware.js';
 
 /**
  * Load agent definition from file
@@ -101,7 +102,7 @@ async function processUserMessageWithAgents(orchestrator, content, workflowId, t
             agentDefinition, 
             content,
             [], // TODO: Add conversation history
-            messageData.userId || 'anonymous'
+            userId || 'anonymous'
           );
           
           return {
@@ -194,7 +195,7 @@ async function saveMessageToDatabase(messageData, messageType = 'response', from
   }
 }
 
-export async function POST(request) {
+async function handler(request) {
   try {
     const { content, target, userId, timestamp } = await request.json();
 
@@ -320,3 +321,11 @@ export async function POST(request) {
     );
   }
 }
+
+// Apply AI rate limiting and security headers to POST endpoint
+export const POST = compose(
+  withMethods(['POST']),
+  withAIRateLimit,
+  withSecurityHeaders,
+  withErrorHandling
+)(handler);
