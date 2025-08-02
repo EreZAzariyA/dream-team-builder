@@ -3,6 +3,7 @@
 import { useSession } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
 import { Bell, UserCircle, Sun, Moon } from 'lucide-react';
+import AIProviderStatus from '../system/AIProviderStatus';
 
 // A placeholder for a theme toggle hook
 const useTheme = () => {
@@ -36,6 +37,9 @@ const Header = () => {
         <h2 className="text-h3 font-semibold text-professional">{getPageTitle()}</h2>
       </div>
       <div className="flex items-center space-x-4">
+        {/* AI Provider Status Indicator */}
+        <AIProviderStatus />
+        
         <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="btn-ghost p-2 rounded-full">
           {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
         </button>
