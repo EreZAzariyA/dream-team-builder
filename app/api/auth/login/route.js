@@ -80,7 +80,7 @@ const handler = async (req) => {
 export const POST = compose(
   withMethods(['POST']),
   withDatabase,
-  withRateLimit(15 * 60 * 1000, 10), // 10 login attempts per 15 minutes
+  withRateLimit('auth'), // 5 login attempts per 15 minutes in production
   withValidation(loginSchema),
   withErrorHandling
 )(handler);

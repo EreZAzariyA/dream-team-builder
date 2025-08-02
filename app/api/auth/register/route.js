@@ -190,7 +190,7 @@ const handler = async (req) => {
 export const POST = compose(
   withMethods(['POST']),
   withDatabase,
-  withRateLimit(15 * 60 * 1000, 5), // 5 registrations per 15 minutes
+  withRateLimit('auth'), // 5 auth attempts per 15 minutes in production
   withValidation(registrationSchema),
   withErrorHandling
 )(handler);
