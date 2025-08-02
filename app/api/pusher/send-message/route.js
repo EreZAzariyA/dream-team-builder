@@ -5,7 +5,7 @@
 
 import { NextResponse } from 'next/server';
 import { pusherServer, CHANNELS, EVENTS } from '../../../../lib/pusher/config';
-import { BmadOrchestrator } from '../../../../lib/bmad/BmadOrchestrator.js';
+import BmadOrchestrator from '../../../../lib/bmad/BmadOrchestrator.js';
 import { aiService } from '../../../../lib/ai/AIService.js';
 import { connectMongoose } from '../../../../lib/database/mongodb.js';
 import AgentMessage from '../../../../lib/database/models/AgentMessage.js';
@@ -100,7 +100,8 @@ async function processUserMessageWithAgents(orchestrator, content, workflowId, t
           const aiResponse = await aiService.generateAgentResponse(
             agentDefinition, 
             content,
-            [] // TODO: Add conversation history
+            [], // TODO: Add conversation history
+            messageData.userId || 'anonymous'
           );
           
           return {
@@ -253,6 +254,9 @@ export async function POST(request) {
             id: `agent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             content: response.content,
             agentId: response.agentId || 'bmad-orchestrator',
+            agentName: response.agentName,
+            provider: response.provider || 'unknown',
+            usage: response.usage,
             userId: 'system',
             timestamp: new Date().toISOString(),
             workflowId: target.id,
