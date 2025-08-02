@@ -30,6 +30,8 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.1",
+    "express-rate-limit": "^8.0.1",
+    "express-slow-down": "^2.1.0",
     "framer-motion": "^12.23.12",
     "glob": "^11.0.3",
     "js-yaml": "^4.1.0",
