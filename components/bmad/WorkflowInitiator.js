@@ -8,6 +8,7 @@
 import { useState, useCallback } from 'react';
 import { useDispatch } from 'react-redux';
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 
 export default function WorkflowInitiator({ onWorkflowStarted, className = '' }) {
   const [userPrompt, setUserPrompt] = useState('');
@@ -16,6 +17,7 @@ export default function WorkflowInitiator({ onWorkflowStarted, className = '' })
   const [showAdvanced, setShowAdvanced] = useState(false);
   
   const dispatch = useDispatch();
+  const router = useRouter();
 
   // Fetch available agents and sequences
   const { data: agentsData, isLoading: loadingAgents } = useQuery({
@@ -53,7 +55,7 @@ export default function WorkflowInitiator({ onWorkflowStarted, className = '' })
       dispatch({
         type: 'workflow/started',
         payload: {
-          workflowId: data.workflowId,
+          workflowId: data.workflowInstanceId,
           status: data.status,
           timestamp: new Date()
         }
@@ -71,6 +73,9 @@ export default function WorkflowInitiator({ onWorkflowStarted, className = '' })
           duration: 5000
         }
       });
+
+      // Navigate to the live workflow page
+      router.push(`/dashboard/workflows/live/${data.workflowInstanceId}`);
     },
     onError: (error) => {
       dispatch({
