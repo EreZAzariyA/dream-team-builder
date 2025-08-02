@@ -2,7 +2,32 @@
 const nextConfig = {
   // Server external packages (moved from experimental)
   serverExternalPackages: ['mongoose', 'mongodb', '@mongodb-js/zstd', 'mongodb-client-encryption'],
-  
+
+  async rewrites() {
+    return [
+      {
+        source: '/admin/settings',
+        destination: '/settings',
+      },
+      {
+        source: '/admin/profile',
+        destination: '/profile',
+      },
+      {
+        source: '/admin/agents',
+        destination: '/agents',
+      },
+      {
+        source: '/admin/analytics',
+        destination: '/analytics',
+      },
+      {
+        source: '/admin/monitoring',
+        destination: '/monitoring',
+      },
+    ];
+  },
+
   // Webpack configuration
   webpack: (config, { isServer }) => {
     // Handle MongoDB and native modules
