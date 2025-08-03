@@ -10,9 +10,6 @@ import { useSession } from 'next-auth/react';
 import { useQuery } from '@tanstack/react-query';
 import { LogOut } from 'lucide-react';
 import ChatWindow from './ChatWindow';
-import LiveWorkflowVisualization from '../workflow/LiveWorkflowVisualization';
-import AgentChatInterface from './AgentChatInterface';
-import ConfirmationModal from '../common/ConfirmationModal';
 import { usePusherSimple } from '../../lib/pusher/SimplePusherClient';
 import { useWorkflow } from '../../lib/hooks/useWorkflow';
 
@@ -204,16 +201,18 @@ export default function EnhancedChatWindow({ className = '', initialTemplate }) 
             </div>
           </div>
         ) : viewMode === 'agent-chat' ? (
-          /* Agent Chat Mode with Agents List */
-          <div className="flex-1 flex">
-            <div className="flex-1">
-              <AgentChatInterface
-                workflowId={activeWorkflowId}
-                agents={agents}
-                activeWorkflows={activeWorkflows}
-                className="h-full"
-                onWorkflowSwitch={switchToWorkflow}
-              />
+          /* Agent Chat Mode - Component Removed */
+          <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+            <div className="text-center text-gray-500 dark:text-gray-400">
+              <div className="text-6xl mb-4">🚧</div>
+              <h3 className="text-xl font-semibold mb-2">Agent Chat Interface</h3>
+              <p className="text-sm">Component removed during cleanup</p>
+              <button
+                onClick={() => setViewMode('traditional-chat')}
+                className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+              >
+                Switch to Traditional Chat
+              </button>
             </div>
           </div>
         ) : viewMode === 'traditional-chat' ? (
@@ -228,12 +227,19 @@ export default function EnhancedChatWindow({ className = '', initialTemplate }) 
             />
           </div>
         ) : viewMode === 'visualization' ? (
-          /* Full Visualization Mode */
-          <div className="flex-1 p-4">
-            <LiveWorkflowVisualization 
-              workflowId={activeWorkflowId}
-              className="h-full"
-            />
+          /* Full Visualization Mode - Component Removed */
+          <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+            <div className="text-center text-gray-500 dark:text-gray-400">
+              <div className="text-6xl mb-4">🚧</div>
+              <h3 className="text-xl font-semibold mb-2">Live Workflow Visualization</h3>
+              <p className="text-sm">Component removed during cleanup</p>
+              <button
+                onClick={() => setViewMode('traditional-chat')}
+                className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+              >
+                Switch to Traditional Chat
+              </button>
+            </div>
           </div>
         ) : viewMode === 'split' ? (
           /* Split View Mode */
@@ -249,25 +255,18 @@ export default function EnhancedChatWindow({ className = '', initialTemplate }) 
               />
             </div>
 
-            {/* Right Panel - Visualization and Agent Chat */}
-            <div className="flex-1 flex flex-col">
-              {/* Top - Visualization */}
-              <div className="flex-1 p-4">
-                <LiveWorkflowVisualization 
-                  workflowId={activeWorkflowId}
-                  className="h-full"
-                />
-              </div>
-
-              {/* Bottom - Agent Chat */}
-              <div className="h-80 border-t">
-                <AgentChatInterface
-                  workflowId={activeWorkflowId}
-                  agents={agents}
-                  activeWorkflows={activeWorkflows}
-                  className="h-full"
-                  onWorkflowSwitch={switchToWorkflow}
-                />
+            {/* Right Panel - Components Removed */}
+            <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+              <div className="text-center text-gray-500 dark:text-gray-400">
+                <div className="text-6xl mb-4">🚧</div>
+                <h3 className="text-xl font-semibold mb-2">Split View Components</h3>
+                <p className="text-sm mb-4">Visualization and Agent Chat components removed during cleanup</p>
+                <button
+                  onClick={() => setViewMode('traditional-chat')}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                >
+                  Switch to Traditional Chat
+                </button>
               </div>
             </div>
           </div>
@@ -337,11 +336,11 @@ export default function EnhancedChatWindow({ className = '', initialTemplate }) 
               ✕
             </button>
           </div>
-          <div className="h-80">
-            <LiveWorkflowVisualization 
-              workflowId={activeWorkflowId}
-              className="h-full"
-            />
+          <div className="h-80 flex items-center justify-center bg-gray-50">
+            <div className="text-center text-gray-500">
+              <div className="text-4xl mb-2">🚧</div>
+              <p>Component removed</p>
+            </div>
           </div>
         </div>
       )}
@@ -357,30 +356,40 @@ export default function EnhancedChatWindow({ className = '', initialTemplate }) 
               ✕
             </button>
           </div>
-          <div className="h-80">
-            <AgentChatInterface
-              workflowId={activeWorkflowId}
-              agents={agents}
-              activeWorkflows={activeWorkflows}
-              className="h-full"
-              onWorkflowSwitch={switchToWorkflow}
-            />
+          <div className="h-80 flex items-center justify-center bg-gray-50">
+            <div className="text-center text-gray-500">
+              <div className="text-4xl mb-2">🚧</div>
+              <p>Component removed</p>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Close Workflow Confirmation Modal */}
-      <ConfirmationModal
-        isOpen={showCloseConfirmation}
-        onClose={cancelCloseWorkspace}
-        onConfirm={confirmCloseWorkspace}
-        title="Close Workspace"
-        message="Are you sure you want to close this workspace? Any unsaved changes or ongoing agent conversations will be lost. This action cannot be undone."
-        confirmText="Close Workspace"
-        cancelText="Keep Working"
-        variant="warning"
-        icon={LogOut}
-      />
+      {/* Close Workflow Confirmation Modal - Component Removed */}
+      {showCloseConfirmation && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Close Workspace</h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+              Are you sure you want to close this workspace? Any unsaved changes or ongoing agent conversations will be lost.
+            </p>
+            <div className="flex space-x-3">
+              <button
+                onClick={confirmCloseWorkspace}
+                className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+              >
+                Close Workspace
+              </button>
+              <button
+                onClick={cancelCloseWorkspace}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Keep Working
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

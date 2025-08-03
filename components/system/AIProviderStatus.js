@@ -5,7 +5,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { 
   Brain, 
@@ -18,6 +18,7 @@ import {
   Settings,
   TrendingUp
 } from 'lucide-react';
+import Link from 'next/link';
 
 const AIProviderStatus = ({ className = '' }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -33,6 +34,35 @@ const AIProviderStatus = ({ className = '' }) => {
     },
     refetchInterval: 30000, // Check every 30 seconds
     retry: 2
+  });
+
+  // Fetch user-specific usage statistics
+  const { data: userUsage, isLoading: isUsageLoading } = useQuery({
+    queryKey: ['ai-user-usage'],
+    queryFn: async () => {
+      const response = await fetch('/api/ai/usage', {
+        credentials: 'include' // Include session cookies
+      });
+      if (!response.ok) {
+        if (response.status === 401) {
+          // User not authenticated, return empty stats
+          return {
+            user: {
+              stats: { requests: 0, tokens: 0, cost: 0, providers: {} }
+            },
+            limits: { dailyRequests: 1000, dailyCost: 10 }
+          };
+        }
+        throw new Error('Failed to fetch user usage');
+      }
+      return response.json();
+    },
+    refetchInterval: 60000, // Check every minute
+    retry: (failureCount, error) => {
+      // Don't retry auth errors
+      if (error?.message?.includes('401')) return false;
+      return failureCount < 2;
+    }
   });
 
   // Provider configurations with icons and colors
@@ -61,8 +91,21 @@ const AIProviderStatus = ({ className = '' }) => {
   };
 
   // Get status color and icon based on health
-  const getStatusIndicator = (isHealthy, circuitBreakerState) => {
-    if (!isHealthy || circuitBreakerState === 'OPEN') {
+  const getStatusIndicator = (isHealthy, circuitBreakerState, errorMessage) => {
+    // Check for quota/API key issues first
+    if (errorMessage?.includes('quota') || errorMessage?.includes('exceeded') || 
+        errorMessage?.includes('API key') || errorMessage?.includes('authentication')) {
+      return { 
+        icon: AlertTriangle, 
+        color: 'text-red-500', 
+        label: 'API Key Required',
+        needsApiKey: true 
+      };
+    }
+    
+    if (circuitBreakerState === 'OPEN') {
+      return { icon: XCircle, color: 'text-red-500', label: 'Rate Limited' };
+    } else if (!isHealthy) {
       return { icon: XCircle, color: 'text-red-500', label: 'Failed' };
     } else if (circuitBreakerState === 'HALF_OPEN') {
       return { icon: AlertTriangle, color: 'text-yellow-500', label: 'Recovering' };
@@ -85,12 +128,37 @@ const AIProviderStatus = ({ className = '' }) => {
     return primaryProvider || healthStatus.healthyProviders[0];
   };
 
+  const handleNavigationLink = () => {
+    setIsDropdownOpen(false);
+  }
+
   const currentProvider = getCurrentProvider();
   const currentConfig = currentProvider ? providerConfig[currentProvider] : null;
   const StatusIcon = currentConfig?.icon || Brain;
 
+  // Check if any provider needs API key or if service specifically needs user keys
+  const needsApiKey = healthStatus?.needsUserApiKeys || 
+    (healthStatus?.status === 'needs_api_keys') ||
+    (healthStatus?.providers && Object.values(healthStatus.providers).some(provider => {
+      const circuitBreaker = healthStatus.circuitBreakers?.[Object.keys(healthStatus.providers).find(key => healthStatus.providers[key] === provider)];
+      const status = getStatusIndicator(provider.healthy, circuitBreaker?.state, provider.lastError);
+      return status.needsApiKey;
+    }));
+
+  // Check for quota issues
+  const hasQuotaIssues = healthStatus?.status === 'quota_limited' ||
+    (healthStatus?.circuitBreakers && Object.values(healthStatus.circuitBreakers).some(cb => cb.state === 'OPEN')) ||
+    (healthStatus?.providers && Object.values(healthStatus.providers).some(provider => provider.quotaExhausted));
+
+  // Calculate provider counts
+  const totalProviders = Object.keys(healthStatus?.providers || {}).length;
+  const healthyCount = healthStatus?.healthyProviders?.filter(p => p !== 'fallback').length || 0;
+
+  // Show green status if we have at least one working provider (even if degraded)
+  const hasWorkingProvider = healthyCount > 0 && !needsApiKey;
+
   // Loading state
-  if (isLoading) {
+  if (isLoading || isUsageLoading) {
     return (
       <div className={`flex items-center space-x-2 ${className}`}>
         <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-300 border-t-blue-500"></div>
@@ -109,9 +177,6 @@ const AIProviderStatus = ({ className = '' }) => {
     );
   }
 
-  const totalProviders = Object.keys(healthStatus.providers || {}).length;
-  const healthyCount = healthStatus.healthyProviders?.filter(p => p !== 'fallback').length || 0;
-
   return (
     <div className={`relative ${className}`}>
       {/* Main Status Button */}
@@ -128,17 +193,19 @@ const AIProviderStatus = ({ className = '' }) => {
           </>
         ) : (
           <>
-            <AlertTriangle className="w-4 h-4 text-red-500" />
-            <span className="text-body-small font-medium text-red-600 dark:text-red-400">
-              No AI Provider
+            <AlertTriangle className={`w-4 h-4 ${hasQuotaIssues ? 'text-orange-500' : 'text-red-500'}`} />
+            <span className={`text-body-small font-medium ${hasQuotaIssues ? 'text-orange-600 dark:text-orange-400' : 'text-red-600 dark:text-red-400'}`}>
+              {needsApiKey ? 'API Keys Required' : 
+               hasQuotaIssues ? 'Quota Exceeded' : 
+               'No AI Provider'}
             </span>
           </>
         )}
         
-        {/* Health indicator dot */}
+        {/* Health indicator dot - green if any provider works, red if API keys needed */}
         <div className={`w-2 h-2 rounded-full ${
-          healthStatus.status === 'healthy' ? 'bg-green-500' :
-          healthStatus.status === 'degraded' ? 'bg-yellow-500' : 'bg-red-500'
+          needsApiKey || healthStatus.status === 'needs_api_keys' ? 'bg-red-500 animate-pulse' :
+          healthyCount > 0 ? 'bg-green-500' : 'bg-red-500'
         }`} />
         
         <ChevronDown className={`w-3 h-3 text-gray-500 transition-transform ${
@@ -161,6 +228,38 @@ const AIProviderStatus = ({ className = '' }) => {
               </button>
             </div>
 
+            {/* API Key Required Alert */}
+            {needsApiKey && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex items-center space-x-2 mb-2">
+                  <AlertTriangle className="w-4 h-4 text-red-500" />
+                  <span className="text-sm font-medium text-red-800">API Keys Required</span>
+                </div>
+                <p className="text-xs text-red-700 mb-3">
+                  AI providers have reached quota limits. Please add your own API keys to continue using AI features.
+                </p>
+                <button
+                  onClick={() => window.open('/settings', '_blank')}
+                  className="w-full px-3 py-2 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 transition-colors"
+                >
+                  Add API Keys in Settings
+                </button>
+              </div>
+            )}
+
+            {/* Quota Limited Alert */}
+            {healthStatus.status === 'quota_limited' && !needsApiKey && (
+              <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                <div className="flex items-center space-x-2 mb-2">
+                  <AlertTriangle className="w-4 h-4 text-orange-500" />
+                  <span className="text-sm font-medium text-orange-800">Quota Limited</span>
+                </div>
+                <p className="text-xs text-orange-700">
+                  Your API keys are configured but have hit quota limits. AI features will automatically recover when quotas reset.
+                </p>
+              </div>
+            )}
+
             {/* Summary Stats */}
             <div className="grid grid-cols-3 gap-3 mb-4">
               <div className="text-center p-2 bg-gray-50 rounded">
@@ -169,29 +268,31 @@ const AIProviderStatus = ({ className = '' }) => {
               </div>
               <div className="text-center p-2 bg-gray-50 rounded">
                 <div className="text-h4 font-bold text-green-600">
-                  {healthStatus.usageStats?.requests || 0}
+                  {userUsage?.user?.stats?.requests || 0}
                 </div>
-                <div className="text-caption text-gray-500">Requests</div>
+                <div className="text-caption text-gray-500">My Requests</div>
               </div>
               <div className="text-center p-2 bg-gray-50 rounded">
                 <div className="text-h4 font-bold text-blue-600">
-                  ${(healthStatus.usageStats?.cost || 0).toFixed(3)}
+                  ${(userUsage?.user?.stats?.cost || 0).toFixed(3)}
                 </div>
-                <div className="text-caption text-gray-500">Cost</div>
+                <div className="text-caption text-gray-500">My Cost</div>
               </div>
             </div>
+
 
             {/* Provider List */}
             <div className="space-y-2">
               {Object.entries(healthStatus.providers || {}).map(([provider, stats]) => {
                 const config = providerConfig[provider];
                 const circuitBreaker = healthStatus.circuitBreakers?.[provider];
-                const status = getStatusIndicator(stats.healthy, circuitBreaker?.state);
+                const status = getStatusIndicator(stats.healthy, circuitBreaker?.state, stats.lastError);
                 const Icon = config?.icon || Brain;
                 const StatusIndicatorIcon = status.icon;
 
                 return (
                   <div key={provider} className={`p-3 rounded-lg border ${
+                    status.needsApiKey ? 'border-red-200 bg-red-50' :
                     provider === currentProvider ? config?.borderColor + ' ' + config?.bgColor : 'border-gray-100 bg-gray-50'
                   }`}>
                     <div className="flex items-center justify-between">
@@ -224,19 +325,34 @@ const AIProviderStatus = ({ className = '' }) => {
                     </div>
 
                     {/* Detailed Stats (when expanded) */}
-                    {showDetails && circuitBreaker && (
-                      <div className="mt-2 pt-2 border-t border-gray-200">
-                        <div className="grid grid-cols-3 gap-2 text-caption text-gray-600">
-                          <div>
-                            <span className="font-medium">State:</span> {circuitBreaker.state}
+                    {showDetails && (
+                      <div className="mt-2 pt-2 border-t border-gray-200 space-y-2">
+                        {/* Circuit Breaker Stats */}
+                        {circuitBreaker && (
+                          <div className="grid grid-cols-3 gap-2 text-caption text-gray-600">
+                            <div>
+                              <span className="font-medium">State:</span> {circuitBreaker.state}
+                            </div>
+                            <div>
+                              <span className="font-medium">Failures:</span> {circuitBreaker.failureCount}
+                            </div>
+                            <div>
+                              <span className="font-medium">Successes:</span> {circuitBreaker.successCount}
+                            </div>
                           </div>
-                          <div>
-                            <span className="font-medium">Failures:</span> {circuitBreaker.failureCount}
+                        )}
+                        
+                        {/* User Usage Stats for this provider */}
+                        {userUsage?.user?.stats?.providers?.[provider] && (
+                          <div className="grid grid-cols-2 gap-2 text-caption text-gray-600">
+                            <div>
+                              <span className="font-medium">My Requests:</span> {userUsage.user.stats.providers[provider].requests || 0}
+                            </div>
+                            <div>
+                              <span className="font-medium">My Cost:</span> ${(userUsage.user.stats.providers[provider].cost || 0).toFixed(4)}
+                            </div>
                           </div>
-                          <div>
-                            <span className="font-medium">Successes:</span> {circuitBreaker.successCount}
-                          </div>
-                        </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -246,20 +362,22 @@ const AIProviderStatus = ({ className = '' }) => {
 
             {/* Footer Actions */}
             <div className="mt-4 pt-3 border-t border-gray-200 flex justify-between">
-              <button 
-                onClick={() => window.open('/dashboard/settings', '_blank')}
+              <Link
+                href={'/settings'}
+                onClick={handleNavigationLink}
                 className="flex items-center space-x-1 text-body-small text-gray-600 hover:text-gray-800"
               >
                 <Settings className="w-3 h-3" />
                 <span>Settings</span>
-              </button>
-              <button 
-                onClick={() => window.open('/dashboard/analytics', '_blank')}
+              </Link>
+              <Link
+                href={'/analytics'}
+                onClick={handleNavigationLink}
                 className="flex items-center space-x-1 text-body-small text-blue-600 hover:text-blue-700"
               >
                 <TrendingUp className="w-3 h-3" />
                 <span>Analytics</span>
-              </button>
+              </Link>
             </div>
           </div>
         </div>
