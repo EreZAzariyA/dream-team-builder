@@ -20,9 +20,14 @@ let orchestrator = null;
 async function getOrchestrator() {
   if (!orchestrator) {
     try {
-      orchestrator = new BmadOrchestrator();
+      // Check for mock mode via environment variable
+      const mockMode = process.env.BMAD_MOCK_MODE === 'true';
+      
+      orchestrator = new BmadOrchestrator(null, { mockMode });
       await orchestrator.initialize();
-      console.log('✅ BMAD Orchestrator initialized successfully');
+      
+      const modeText = mockMode ? ' (MOCK MODE)' : '';
+      console.log(`✅ BMAD Orchestrator initialized successfully${modeText}`);
     } catch (error) {
       console.error('❌ Failed to initialize BMAD Orchestrator:', error);
       orchestrator = null; // Reset to allow retry

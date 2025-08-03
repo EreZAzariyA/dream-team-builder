@@ -45,28 +45,98 @@ export async function POST(request, { params }) {
     // Start BMAD orchestrator asynchronously (don't wait for completion)
     const startWorkflowAsync = async () => {
       try {
+        console.log(`🚀 Starting BMAD workflow ${finalWorkflowInstanceId}...`);
         const orchestrator = new BmadOrchestrator();
         await orchestrator.initialize();
+        console.log(`✅ BMAD orchestrator initialized for ${finalWorkflowInstanceId}`);
         
-        await orchestrator.startWorkflow(userPrompt || `Execute ${workflowId} workflow`, {
-          workflowId: finalWorkflowInstanceId, // Use the same ID as the database record
-          name: name || `${workflowId} Workflow`,
-          description: description || `Automated execution of ${workflowId} workflow`,
-          sequence: workflowId.toUpperCase(),
-          userId: session.user.id,
-          priority: 'medium',
-          context: {
-            initiatedBy: session.user.id,
-            userEmail: session.user.email,
-            timestamp: new Date(),
-            workflowInstanceId: finalWorkflowInstanceId
-          }
+        // Send immediate test event to verify Pusher connection
+        await pusherServer.trigger(`workflow-${finalWorkflowInstanceId}`, 'agent-activated', {
+          agentId: 'test-agent',
+          status: 'active',
+          message: 'Test agent activation for debugging',
+          timestamp: new Date().toISOString()
         });
-        console.log(`✅ Workflow ${finalWorkflowInstanceId} completed successfully`);
+        console.log(`🧪 Test agent activation event sent for ${finalWorkflowInstanceId}`);
+        
+        // Demo workflow with mock agents when AI services are down
+        const demoAgents = ['pm', 'architect', 'ux-expert', 'developer', 'qa'];
+        let agentIndex = 0;
+        
+        const runMockWorkflow = async () => {
+          for (const agentId of demoAgents) {
+            // Agent activation
+            await pusherServer.trigger(`workflow-${finalWorkflowInstanceId}`, 'agent-activated', {
+              agentId,
+              status: 'active',
+              message: `${agentId.toUpperCase()} agent is now working on: ${userPrompt}`,
+              timestamp: new Date().toISOString()
+            });
+            console.log(`🤖 Mock agent ${agentId} activated`);
+            
+            // Simulate work time
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // Agent message
+            await pusherServer.trigger(`workflow-${finalWorkflowInstanceId}`, 'agent-message', {
+              id: `msg-${Date.now()}-${agentId}`,
+              content: `Hello! I'm the ${agentId.toUpperCase()} agent. I've analyzed your request: "${userPrompt}". My recommendations will be integrated into the final solution.`,
+              agentId,
+              agentName: agentId.toUpperCase(),
+              provider: 'mock-ai',
+              userId: 'system',
+              timestamp: new Date().toISOString(),
+              workflowId: finalWorkflowInstanceId
+            });
+            console.log(`💬 Mock message sent from ${agentId}`);
+            
+            // Agent completion
+            await pusherServer.trigger(`workflow-${finalWorkflowInstanceId}`, 'agent-completed', {
+              agentId,
+              status: 'completed',
+              message: `${agentId.toUpperCase()} agent completed analysis successfully`,
+              timestamp: new Date().toISOString()
+            });
+            console.log(`✅ Mock agent ${agentId} completed`);
+            
+            agentIndex++;
+          }
+          
+          // Final workflow completion
+          await pusherServer.trigger(`workflow-${finalWorkflowInstanceId}`, 'workflow-update', {
+            workflowId: finalWorkflowInstanceId,
+            status: 'completed',
+            message: 'Mock workflow completed successfully! All agents have provided their analysis.',
+            timestamp: new Date().toISOString()
+          });
+          console.log(`🎉 Mock workflow ${finalWorkflowInstanceId} completed`);
+        };
+        
+        // Run real BMAD workflow with AI agents
+        const workflowResult = await orchestrator.startWorkflow(userPrompt, {
+          workflowId: finalWorkflowInstanceId,
+          name: name || `${workflowId} Project`,
+          description: description || `AI-generated project using ${workflowId} workflow`,
+          userId: session.user.id
+        });
+        console.log(`✅ Real BMAD workflow ${finalWorkflowInstanceId} started:`, workflowResult.workflowId);
       } catch (bmadError) {
         console.error(`❌ BMAD workflow ${finalWorkflowInstanceId} failed:`, bmadError.message);
+        console.error('Full error details:', bmadError);
         // Update workflow status to error
         await Workflow.findByIdAndUpdate(finalWorkflowInstanceId, { status: 'error' });
+        
+        // Send error event via Pusher
+        try {
+          await pusherServer.trigger(`workflow-${finalWorkflowInstanceId}`, 'workflow-update', {
+            workflowId: finalWorkflowInstanceId,
+            status: 'error',
+            message: `Workflow failed: ${bmadError.message}`,
+            timestamp: new Date().toISOString()
+          });
+        } catch (pusherError) {
+          console.error('Failed to send error event via Pusher:', pusherError);
+        }
       }
     };
 
