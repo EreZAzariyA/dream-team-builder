@@ -4,6 +4,8 @@
  */
 
 import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '../../../../lib/auth/config.js';
 import { compose, withMethods, withAuth, withErrorHandling, withRateLimit, withSecurityHeaders } from '../../../../lib/api/middleware.js';
 import { aiService } from '../../../../lib/ai/AIService.js';
 
@@ -13,6 +15,14 @@ import { aiService } from '../../../../lib/ai/AIService.js';
  */
 async function GET(req) {
   try {
+    const session = await getServerSession(authOptions);
+    const userId = session?.user?.id || null;
+    
+    // Ensure AI service is initialized with user context
+    if (!aiService.initialized) {
+      await aiService.initialize(null, userId);
+    }
+    
     const healthStatus = await aiService.healthCheck();
     const systemStatus = aiService.getSystemStatus();
     

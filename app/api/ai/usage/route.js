@@ -4,7 +4,9 @@
  */
 
 import { NextResponse } from 'next/server';
-import { compose, withMethods, withAuth, withErrorHandling } from '../../../../lib/api/middleware.js';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '../../../../lib/auth/config.js';
+import { compose, withMethods, withErrorHandling, withRateLimit, withSecurityHeaders } from '../../../../lib/api/middleware.js';
 import { aiService } from '../../../../lib/ai/AIService.js';
 
 /**
@@ -13,7 +15,16 @@ import { aiService } from '../../../../lib/ai/AIService.js';
  */
 async function GET(req) {
   try {
-    const userId = req.user.id;
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user?.id) {
+      return NextResponse.json({
+        error: 'Authentication required',
+        timestamp: new Date().toISOString()
+      }, { status: 401 });
+    }
+    
+    const userId = session.user.id;
     const userStats = aiService.getUserUsageStats(userId);
     const globalStats = aiService.usageTracker.getGlobalStats();
     
@@ -64,7 +75,7 @@ async function checkLimits(req) {
   }
 }
 
-// Apply middleware
-const authenticatedGET = compose(withMethods(['GET']), withAuth, withErrorHandling)(GET);
+// Apply middleware - no withAuth needed since we handle session manually
+const rateLimitedGET = compose(withMethods(['GET']), withRateLimit('general'), withSecurityHeaders, withErrorHandling)(GET);
 
-export { authenticatedGET as GET };
+export { rateLimitedGET as GET };
