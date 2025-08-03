@@ -3,10 +3,13 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/common/Card';
 import { Badge } from '../../../../components/common/Badge';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2, MessageSquare, Send, CheckCircle, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
+import { usePusherSimple } from '../../../../lib/pusher/SimplePusherClient';
+import { CHANNELS, EVENTS } from '../../../../lib/pusher/config';
 
 const WorkflowDetailPage = () => {
   const [workflow, setWorkflow] = useState(null);
@@ -16,8 +19,17 @@ const WorkflowDetailPage = () => {
   const [userPrompt, setUserPrompt] = useState('');
   const [projectName, setProjectName] = useState('');
   const [description, setDescription] = useState('');
+  const [workflowInstanceId, setWorkflowInstanceId] = useState(null);
+  const [realTimeMessages, setRealTimeMessages] = useState([]);
+  const [showTestMessage, setShowTestMessage] = useState(false);
+  const [testMessage, setTestMessage] = useState('');
+  const [autoNavCountdown, setAutoNavCountdown] = useState(0);
   const { workflowId } = useParams();
   const router = useRouter();
+  const { data: session } = useSession();
+  
+  // Pusher integration for real-time updates
+  const { connected: pusherConnected, pusher: pusherClient, sendMessage } = usePusherSimple();
 
   useEffect(() => {
     if (workflowId) {
@@ -39,6 +51,77 @@ const WorkflowDetailPage = () => {
       fetchWorkflow();
     }
   }, [workflowId]);
+
+  // Auto-navigate to live monitoring when workflow instance is created
+  useEffect(() => {
+    if (!workflowInstanceId) return;
+
+    console.log('🚀 Workflow instance created, starting auto-navigation countdown');
+    setAutoNavCountdown(5);
+    
+    const countdownInterval = setInterval(() => {
+      setAutoNavCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(countdownInterval);
+          console.log('🚀 Auto-navigating to live monitoring...');
+          router.push(`/workflows/live/${workflowInstanceId}`);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => {
+      clearInterval(countdownInterval);
+    };
+  }, [workflowInstanceId, router]);
+
+  // Subscribe to workflow updates when instance is created
+  useEffect(() => {
+    if (!workflowInstanceId || !pusherClient || !pusherConnected) return;
+
+    console.log('🔌 Subscribing to workflow instance:', workflowInstanceId);
+    const channelName = CHANNELS.WORKFLOW(workflowInstanceId);
+    const channel = pusherClient.subscribe(channelName);
+
+    // Handle incoming messages
+    channel.bind(EVENTS.AGENT_MESSAGE, (data) => {
+      console.log('🤖 Received agent message:', data);
+      setRealTimeMessages(prev => [{
+        id: data.id || `msg-${Date.now()}`,
+        from: data.agentName || data.agentId || 'Agent',
+        content: data.content,
+        timestamp: data.timestamp,
+        type: 'agent'
+      }, ...prev].slice(0, 20));
+    });
+
+    channel.bind(EVENTS.USER_MESSAGE, (data) => {
+      console.log('👤 Received user message:', data);
+      setRealTimeMessages(prev => [{
+        id: data.id || `msg-${Date.now()}`,
+        from: 'User',
+        content: data.content,
+        timestamp: data.timestamp,
+        type: 'user'
+      }, ...prev].slice(0, 20));
+    });
+
+    channel.bind(EVENTS.WORKFLOW_UPDATE, (data) => {
+      console.log('🔄 Workflow update:', data);
+      if (data.status) {
+        setLaunchStatus(prev => `${prev} • Status: ${data.status}`);
+      }
+    });
+
+    return () => {
+      console.log('🧹 Unsubscribing from workflow:', workflowInstanceId);
+      if (channel) {
+        channel.unbind_all();
+        pusherClient.unsubscribe(channelName);
+      }
+    };
+  }, [workflowInstanceId, pusherClient, pusherConnected]);
 
   const handleLaunch = async () => {
     if (!userPrompt.trim()) {
@@ -93,18 +176,63 @@ const WorkflowDetailPage = () => {
       }
       
       console.log('🎉 Workflow launched successfully:', result);
+      setWorkflowInstanceId(result.workflowInstanceId);
       setLaunchStatus(`Workflow started successfully! Instance ID: ${result.workflowInstanceId}`);
-      setIsLaunching(false); // Important: Reset launching state
+      setIsLaunching(false);
+      setShowTestMessage(true); // Show test message interface
       
-      console.log('🚀 Redirecting to live monitoring:', `/workflows/live/${result.workflowInstanceId}`);
-      setTimeout(() => {
-        router.push(`/workflows/live/${result.workflowInstanceId}`);
-      }, 1500);
+      console.log('🚀 Workflow instance created:', result.workflowInstanceId);
+      
+      // Test sending a message via Pusher after a brief delay
+      setTimeout(async () => {
+        await sendTestMessage(result.workflowInstanceId);
+      }, 2000);
       
     } catch (error) {
       console.error('❌ Launch error:', error);
       setLaunchStatus(`Error: ${error.message}`);
       setIsLaunching(false);
+    }
+  };
+
+  // Test Pusher message sending
+  const sendTestMessage = async (workflowInstanceId, message = 'Test message from workflow launch page') => {
+    try {
+      const response = await fetch('/api/pusher/send-message', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content: message,
+          target: {
+            type: 'workflow',
+            id: workflowInstanceId
+          },
+          userId: session?.user?.id // Use actual authenticated user ID
+        })
+      });
+      
+      if (response.ok) {
+        console.log('✅ Test message sent successfully');
+        return true;
+      } else {
+        console.error('❌ Failed to send test message');
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Error sending test message:', error);
+      return false;
+    }
+  };
+
+  // Handle custom test message
+  const handleSendTestMessage = async () => {
+    if (!testMessage.trim() || !workflowInstanceId) return;
+    
+    const success = await sendTestMessage(workflowInstanceId, testMessage.trim());
+    if (success) {
+      setTestMessage('');
     }
   };
 
@@ -214,21 +342,41 @@ const WorkflowDetailPage = () => {
               {launchStatus}
             </p>
             {launchStatus.includes('Instance ID:') && (
-              <button 
-                onClick={() => {
-                  const instanceId = launchStatus.match(/Instance ID: (\w+)/)?.[1];
-                  if (instanceId) {
-                    router.push(`/workflows/live/${instanceId}`);
-                  }
-                }}
-                className="mt-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors text-sm"
-              >
-                View Live Progress →
-              </button>
+              <div className="mt-3 space-y-2">
+                {autoNavCountdown > 0 && (
+                  <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+                    <span className="text-sm text-blue-700 dark:text-blue-300">
+                      Auto-navigating to live monitoring in {autoNavCountdown} seconds...
+                    </span>
+                    <button
+                      onClick={() => {
+                        setAutoNavCountdown(0);
+                        router.push(`/workflows/live/${workflowInstanceId}`);
+                      }}
+                      className="px-3 py-1 bg-blue-600 text-white text-xs rounded-md hover:bg-blue-700 transition-colors"
+                    >
+                      Go Now
+                    </button>
+                  </div>
+                )}
+                <button 
+                  onClick={() => {
+                    const instanceId = launchStatus.match(/Instance ID: (\w+)/)?.[1];
+                    if (instanceId) {
+                      router.push(`/workflows/live/${instanceId}`);
+                    }
+                  }}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors text-sm flex items-center"
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  View Live Progress →
+                </button>
+              </div>
             )}
           </div>
         )}
       </div>
+
     </div>
   );
 };

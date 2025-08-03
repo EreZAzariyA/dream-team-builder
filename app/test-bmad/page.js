@@ -8,7 +8,6 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import ChatWindow from '../../components/chat/ChatWindow';
-import BmadChatDemo from '../../components/examples/BmadChatDemo';
 
 const TestBmadPage = () => {
   const [testMode, setTestMode] = useState('basic');
@@ -222,7 +221,20 @@ const TestBmadPage = () => {
         )}
 
         {testMode === 'demo' && (
-          <BmadChatDemo />
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+            <div className="text-center">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Demo Component Removed</h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-4">
+                The BmadChatDemo component has been removed as part of cleanup. Use the basic test mode instead.
+              </p>
+              <button
+                onClick={() => setTestMode('basic')}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+              >
+                Switch to Basic Test
+              </button>
+            </div>
+          </div>
         )}
 
         {testMode === 'automated' && (

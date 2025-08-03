@@ -3,7 +3,7 @@
 ## ✅ **Frontend UI Tests** (No API Required)
 
 ### **Test 1: Enhanced ChatWindow Interface**
-Navigate to: `http://localhost:3001/workflow-visualization`
+Navigate to: `http://localhost:3000/chat`
 
 **What to Look For:**
 - [ ] ChatWindow loads without errors
@@ -196,4 +196,4 @@ Ready for Production: Yes/No
 
 ---
 
-**Start testing at:** `http://localhost:3001/workflow-visualization`
+**Start testing at:** `http://localhost:3000/chat`

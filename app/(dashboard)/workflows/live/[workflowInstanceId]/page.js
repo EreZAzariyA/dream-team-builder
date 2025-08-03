@@ -20,7 +20,8 @@ import {
   Wifi,
   WifiOff
 } from 'lucide-react';
-import { pusherClient, CHANNELS, EVENTS } from '../../../../../lib/pusher/config';
+import { CHANNELS, EVENTS } from '../../../../../lib/pusher/config';
+import { usePusherSimple } from '../../../../../lib/pusher/SimplePusherClient';
 
 const LiveWorkflowPage = () => {
   const [workflowInstance, setWorkflowInstance] = useState(null);
@@ -36,6 +37,9 @@ const LiveWorkflowPage = () => {
   const [elicitationPrompt, setElicitationPrompt] = useState(null);
   const [elicitationResponse, setElicitationResponse] = useState('');
   const { workflowInstanceId } = useParams();
+  
+  // Use SimplePusherClient hook
+  const { connected: pusherConnected, pusher: pusherClient, error: pusherError } = usePusherSimple();
 
   // Agent role colors based on design system
   const getAgentColor = (agentId) => {
@@ -52,41 +56,32 @@ const LiveWorkflowPage = () => {
 
   // Initialize Pusher connection for real-time updates
   useEffect(() => {
-    if (!workflowInstanceId) return;
+    if (!workflowInstanceId || !pusherClient || !pusherConnected) return;
 
     console.log('🔌 Initializing Pusher connection for workflow:', workflowInstanceId);
-    console.log('🔑 Pusher client config:', {
-      key: process.env.NEXT_PUBLIC_PUSHER_KEY ? 'configured' : 'missing',
-      cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER || 'mt1'
-    });
     
     const channelName = CHANNELS.WORKFLOW(workflowInstanceId);
     console.log('📺 Subscribing to channel:', channelName);
     const channel = pusherClient.subscribe(channelName);
     
-    // Connection state handlers
-    pusherClient.connection.bind('connected', () => {
-      setRealTimeData(prev => ({ 
-        ...prev, 
-        isConnected: true,
-        lastUpdate: new Date().toISOString()
-      }));
-      console.log('✅ Connected to Pusher for workflow:', workflowInstanceId);
-    });
+    // Update connection state
+    setRealTimeData(prev => ({ 
+      ...prev, 
+      isConnected: pusherConnected,
+      lastUpdate: new Date().toISOString()
+    }));
+    console.log('✅ Connected to Pusher for workflow:', workflowInstanceId);
 
-    pusherClient.connection.bind('disconnected', () => {
-      setRealTimeData(prev => ({ ...prev, isConnected: false }));
-      console.log('❌ Disconnected from Pusher');
+    // Workflow event handlers with enhanced debugging
+    console.log('🔗 Binding to events:', Object.values(EVENTS));
+    
+    // Add a catch-all event listener for debugging
+    channel.bind_global((eventName, data) => {
+      console.log('📨 RECEIVED ANY EVENT:', eventName, data);
     });
-
-    pusherClient.connection.bind('error', (error) => {
-      console.error('❌ Pusher connection error:', error);
-      setRealTimeData(prev => ({ ...prev, isConnected: false }));
-    });
-
-    // Workflow event handlers
+    
     channel.bind(EVENTS.AGENT_ACTIVATED, (data) => {
-      console.log('🤖 Agent activated:', data);
+      console.log('📨 RECEIVED AGENT_ACTIVATED:', data);
       setRealTimeData(prev => ({
         ...prev,
         currentAgent: data.agentId,
@@ -100,7 +95,7 @@ const LiveWorkflowPage = () => {
     });
 
     channel.bind(EVENTS.AGENT_COMPLETED, (data) => {
-      console.log('✅ Agent completed:', data);
+      console.log('📨 RECEIVED AGENT_COMPLETED:', data);
       setRealTimeData(prev => ({
         ...prev,
         lastUpdate: data.timestamp,
@@ -150,13 +145,59 @@ const LiveWorkflowPage = () => {
       }));
     });
 
+    // Handle agent messages
+    channel.bind(EVENTS.AGENT_MESSAGE, (data) => {
+      console.log('🤖 Agent message:', data);
+      setRealTimeData(prev => ({
+        ...prev,
+        lastUpdate: data.timestamp,
+        messages: [{
+          id: data.id || `agent-msg-${Date.now()}`,
+          from: data.agentName || data.agentId || 'Agent',
+          to: 'User',
+          content: data.content,
+          timestamp: data.timestamp
+        }, ...prev.messages].slice(0, 50)
+      }));
+    });
+
+    // Handle user messages
+    channel.bind(EVENTS.USER_MESSAGE, (data) => {
+      console.log('👤 User message:', data);
+      setRealTimeData(prev => ({
+        ...prev,
+        lastUpdate: data.timestamp,
+        messages: [{
+          id: data.id || `user-msg-${Date.now()}`,
+          from: 'User',
+          to: data.target?.targetAgent || 'System',
+          content: data.content,
+          timestamp: data.timestamp
+        }, ...prev.messages].slice(0, 50)
+      }));
+    });
+
     // Cleanup function
     return () => {
       console.log('🧹 Cleaning up Pusher connection');
-      channel.unbind_all();
-      pusherClient.unsubscribe(CHANNELS.WORKFLOW(workflowInstanceId));
+      if (channel) {
+        channel.unbind_all();
+        pusherClient.unsubscribe(channelName);
+      }
     };
-  }, [workflowInstanceId]);
+  }, [workflowInstanceId, pusherClient, pusherConnected]);
+
+  // Update connection state when pusher connection changes
+  useEffect(() => {
+    setRealTimeData(prev => ({ 
+      ...prev, 
+      isConnected: pusherConnected
+    }));
+    
+    if (pusherError) {
+      console.error('❌ Pusher connection error:', pusherError);
+    }
+  }, [pusherConnected, pusherError]);
 
   // Fetch initial workflow data
   useEffect(() => {

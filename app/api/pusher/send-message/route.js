@@ -253,62 +253,59 @@ async function handler(request) {
         // Process the message as a user input to agents
         const response = await processUserMessageWithAgents(orchestrator, content, target.id, target.targetAgent, userId);
         
-        // Send agent response via Pusher
-        setTimeout(async () => {
-          const agentResponse = {
-            id: `agent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            content: response.content,
-            agentId: response.agentId || 'bmad-orchestrator',
-            agentName: response.agentName,
-            provider: response.provider || 'unknown',
-            usage: response.usage,
-            userId: 'system',
-            timestamp: new Date().toISOString(),
-            workflowId: target.id,
-            structured: response.structured,
-          };
+        // Send agent response via Pusher immediately
+        const agentResponse = {
+          id: `agent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          content: response.content,
+          agentId: response.agentId || 'bmad-orchestrator',
+          agentName: response.agentName,
+          provider: response.provider || 'unknown',
+          usage: response.usage,
+          userId: 'system',
+          timestamp: new Date().toISOString(),
+          workflowId: target.id,
+          structured: response.structured,
+        };
 
-          await pusherServer.trigger(
-            channelName,
-            EVENTS.AGENT_MESSAGE,
-            agentResponse
-          );
+        await pusherServer.trigger(
+          channelName,
+          EVENTS.AGENT_MESSAGE,
+          agentResponse
+        );
 
-          // Save agent response to database
-          await saveMessageToDatabase(
-            { ...agentResponse, target }, 
-            'response', 
-            response.agentId || 'bmad-orchestrator', 
-            'user'
-          );
-        }, 1000);
+        // Save agent response to database
+        await saveMessageToDatabase(
+          { ...agentResponse, target }, 
+          'response', 
+          response.agentId || 'bmad-orchestrator', 
+          'user'
+        );
       } catch (error) {
         console.error('BMAD processing error:', error);
-        // Fallback to simple response
-        setTimeout(async () => {
-          const fallbackResponse = {
-            id: `agent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            content: `I received your message: "${content}". Let me help you with that!`,
-            agentId: 'bmad-assistant',
-            userId: 'system',
-            timestamp: new Date().toISOString(),
-            workflowId: target.id,
-          };
+        // Fallback to simple response immediately
+        const fallbackResponse = {
+          id: `agent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          content: `I received your message: "${content}". I'm currently experiencing technical issues, but I'm here to help you with that!`,
+          agentId: 'bmad-assistant',
+          userId: 'system',
+          timestamp: new Date().toISOString(),
+          workflowId: target.id,
+          error: error.message
+        };
 
-          await pusherServer.trigger(
-            channelName,
-            EVENTS.AGENT_MESSAGE,
-            fallbackResponse
-          );
+        await pusherServer.trigger(
+          channelName,
+          EVENTS.AGENT_MESSAGE,
+          fallbackResponse
+        );
 
-          // Save fallback response to database
-          await saveMessageToDatabase(
-            { ...fallbackResponse, target }, 
-            'response', 
-            'bmad-assistant', 
-            'user'
-          );
-        }, 1000);
+        // Save fallback response to database
+        await saveMessageToDatabase(
+          { ...fallbackResponse, target }, 
+          'response', 
+          'bmad-assistant', 
+          'user'
+        );
       }
     }
 

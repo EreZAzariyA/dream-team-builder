@@ -1,8 +1,14 @@
 import { NextResponse } from 'next/server';
-import { aiService } from '../../../lib/ai/AIService.js';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '../../../lib/auth/config.js';
+import { aiService, Logger } from '../../../lib/ai/AIService.js';
+import { compose, withMethods, withAuth, withRateLimit, withErrorHandling } from '../../../lib/api/middleware.js';
 
-export async function POST(request) {
+async function POST(request) {
   try {
+    const session = await getServerSession(authOptions);
+    const userId = session?.user?.id || 'anonymous';
+    
     const { message } = await request.json();
     
     if (!message) {
@@ -37,29 +43,38 @@ export async function POST(request) {
       }
     };
 
-    // Generate response
+    // Generate response with proper user context
     const response = await aiService.generateAgentResponse(
       testAgentDefinition,
       message,
-      []
+      [],
+      userId
     );
 
     return NextResponse.json({
       success: true,
       healthStatus,
       response,
-      environment: {
-        hasGeminiKey: !!process.env.GEMINI_API_KEY,
-        keyLength: process.env.GEMINI_API_KEY?.length || 0
+      meta: {
+        userId: userId,
+        timestamp: new Date().toISOString()
       }
     });
 
   } catch (error) {
-    console.error('Test AI error:', error);
+    Logger.error('Test AI error:', error);
     return NextResponse.json({
       success: false,
-      error: error.message,
-      stack: error.stack
+      error: error.message
     }, { status: 500 });
   }
 }
+
+// Apply middleware for rate limiting and security
+export const { POST: rateLimitedPOST } = compose(
+  withMethods(['POST']),
+  withRateLimit('general'),
+  withErrorHandling
+)(POST);
+
+export { rateLimitedPOST as POST };

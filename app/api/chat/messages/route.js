@@ -5,6 +5,7 @@
 import { NextResponse } from 'next/server';
 import { connectMongoose } from '../../../../lib/database/mongodb.js';
 import AgentMessage from '../../../../lib/database/models/AgentMessage.js';
+import { Logger } from '../../../../lib/ai/AIService.js';
 
 export async function GET(request) {
   try {
@@ -42,7 +43,7 @@ export async function GET(request) {
     });
     
   } catch (error) {
-    console.error('Error retrieving messages:', error);
+    Logger.error('Error retrieving messages:', error);
     return NextResponse.json(
       { error: 'Failed to retrieve messages', details: error.message },
       { status: 500 }

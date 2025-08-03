@@ -9,8 +9,6 @@ import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useQuery } from '@tanstack/react-query';
 import EnhancedChatWindow from '../../components/chat/EnhancedChatWindow';
-import LiveWorkflowVisualization from '../../components/workflow/LiveWorkflowVisualization';
-import AgentChatInterface from '../../components/chat/AgentChatInterface';
 import { usePusherSimple } from '../../lib/pusher/SimplePusherClient';
 
 export default function RealtimeTestPage() {
@@ -255,11 +253,12 @@ export default function RealtimeTestPage() {
                   Story 7.2: Live Workflow Visualization
                 </h3>
               </div>
-              <div style={{ height: '400px' }}>
-                <LiveWorkflowVisualization 
-                  workflowId={testWorkflowId}
-                  className="h-full"
-                />
+              <div style={{ height: '400px' }} className="flex items-center justify-center bg-gray-50 dark:bg-gray-800">
+                <div className="text-center text-gray-500 dark:text-gray-400">
+                  <div className="text-4xl mb-2">🚧</div>
+                  <p>Live Workflow Visualization</p>
+                  <p className="text-sm">Component removed during cleanup</p>
+                </div>
               </div>
             </div>
 
@@ -270,17 +269,12 @@ export default function RealtimeTestPage() {
                   Story 7.3: Agent Chat Interface
                 </h3>
               </div>
-              <div style={{ height: '400px' }}>
-                <AgentChatInterface
-                  workflowId={testWorkflowId}
-                  agents={[
-                    { id: 'pm', name: 'John', title: 'Product Manager', icon: '📋' },
-                    { id: 'architect', name: 'Winston', title: 'Architect', icon: '🏗️' },
-                    { id: 'dev', name: 'James', title: 'Developer', icon: '💻' },
-                    { id: 'qa', name: 'Quinn', title: 'QA Engineer', icon: '🧪' }
-                  ]}
-                  className="h-full"
-                />
+              <div style={{ height: '400px' }} className="flex items-center justify-center bg-gray-50 dark:bg-gray-800">
+                <div className="text-center text-gray-500 dark:text-gray-400">
+                  <div className="text-4xl mb-2">🚧</div>
+                  <p>Agent Chat Interface</p>
+                  <p className="text-sm">Component removed during cleanup</p>
+                </div>
               </div>
             </div>
           </div>
