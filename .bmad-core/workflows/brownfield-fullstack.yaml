@@ -14,7 +14,7 @@ workflow:
   sequence:
     - step: enhancement_classification
       agent: analyst
-      action: classify enhancement scope
+      action: elicit
       notes: |
         Determine enhancement complexity to route to appropriate path:
         - Single story (< 4 hours) → Use brownfield-create-story task
@@ -66,7 +66,7 @@ workflow:
         SAVE OUTPUT: Copy final prd.md to your project's docs/ folder.
 
     - step: architecture_decision
-      agent: pm/architect
+      agent: pm
       action: determine if architecture document needed
       condition: after_prd_creation
       notes: |
@@ -88,10 +88,10 @@ workflow:
       uses: po-master-checklist
       notes: "Validates all documents for integration safety and completeness. May require updates to any document."
 
-    - agent: various
+    - agent: pm
       updates: any_flagged_documents
       condition: po_checklist_issues
-      notes: "If PO finds issues, return to relevant agent to fix and re-export updated documents to docs/ folder."
+      notes: "If PO finds issues, return to PM to coordinate fixes and re-export updated documents to docs/ folder."
 
     - agent: po
       action: shard_documents
@@ -116,7 +116,7 @@ workflow:
         - Story starts in "Draft" status
         - May require additional context gathering for brownfield
 
-    - agent: analyst/pm
+    - agent: pm
       action: review_draft_story
       updates: story.md
       requires: story.md
@@ -159,11 +159,13 @@ workflow:
         - Dev Agent (New Chat): Address remaining items
         - Return to QA for final approval
 
-    - repeat_development_cycle:
-      action: continue_for_all_stories
+    - agent: sm
+      action: repeat_development_cycle
       notes: |
         Repeat story cycle (SM → Dev → QA) for all epic stories
         Continue until all stories in PRD are complete
+        - Create next story from PRD/documentation
+        - Continue development cycle until all stories implemented
 
     - agent: po
       action: epic_retrospective
@@ -176,7 +178,7 @@ workflow:
         - Validate epic was completed correctly
         - Document learnings and improvements
 
-    - workflow_end:
+    - agent: po
       action: project_complete
       notes: |
         All stories implemented and reviewed!

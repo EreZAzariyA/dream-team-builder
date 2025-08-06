@@ -6,21 +6,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../../../lib/auth/config.js';
-import BmadOrchestrator from '../../../../lib/bmad/BmadOrchestrator.js';
-
-// Global orchestrator instance
-let orchestrator = null;
-
-/**
- * Initialize orchestrator if not already done
- */
-async function getOrchestrator() {
-  if (!orchestrator) {
-    orchestrator = new BmadOrchestrator();
-    await orchestrator.initialize();
-  }
-  return orchestrator;
-}
+import { getOrchestrator } from '../../../../lib/bmad/BmadOrchestrator.js';
 
 /**
  * GET /api/bmad/agents - Get all available agents
@@ -64,7 +50,7 @@ export async function GET() {
     });
 
   } catch (error) {
-    console.error('Error fetching agents:', error);
+    logger.error('Error fetching agents:', error);
     return NextResponse.json(
       { error: 'Failed to fetch agents', details: error.message },
       { status: 500 }

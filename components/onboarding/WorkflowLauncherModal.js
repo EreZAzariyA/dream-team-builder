@@ -52,7 +52,6 @@ export default function WorkflowLauncherModal({ isOpen, onClose, onSelectTemplat
   });
 
   const templates = templatesData?.data || [];
-  const agents = agentsData?.agents || [];
 
   // Predefined workflow templates for demonstration
   const predefinedTemplates = [

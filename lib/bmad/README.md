@@ -47,7 +47,7 @@ const result = await orchestrator.startWorkflow(
   }
 );
 
-console.log(`Workflow started: ${result.workflowId}`);
+logger.info(`Workflow started: ${result.workflowId}`);
 ```
 
 ### 3. Monitor Progress
@@ -55,15 +55,15 @@ console.log(`Workflow started: ${result.workflowId}`);
 ```javascript
 // Subscribe to real-time updates
 const unsubscribe = orchestrator.subscribeToWorkflow(workflowId, {
-  onAgentActivated: (data) => console.log(`Agent ${data.agentId} activated`),
-  onAgentCompleted: (data) => console.log(`Agent ${data.agentId} completed`),
-  onMessage: (message) => console.log(`New message:`, message),
+  onAgentActivated: (data) => logger.info(`Agent ${data.agentId} activated`),
+  onAgentCompleted: (data) => logger.info(`Agent ${data.agentId} completed`),
+  onMessage: (message) => logger.info(`New message:`, message),
   onError: (error) => console.error(`Workflow error:`, error)
 });
 
 // Get current status
 const status = orchestrator.getWorkflowStatus(workflowId);
-console.log(`Status: ${status.status}, Step: ${status.currentStep}/${status.totalSteps}`);
+logger.info(`Status: ${status.status}, Step: ${status.currentStep}/${status.totalSteps}`);
 ```
 
 ## 📋 Available Agents
@@ -151,7 +151,7 @@ import WorkflowInitiator from '../components/bmad/WorkflowInitiator';
 
 function MyApp() {
   const handleWorkflowStarted = (workflow) => {
-    console.log('Workflow started:', workflow.workflowId);
+    logger.info('Workflow started:', workflow.workflowId);
     // Navigate to workflow page or update UI
   };
 
@@ -220,7 +220,7 @@ dependencies:
 ### System Health
 ```javascript
 const health = orchestrator.getSystemHealth();
-console.log({
+logger.info({
   initialized: health.initialized,
   agentsLoaded: health.agentsLoaded,
   activeWorkflows: health.activeWorkflows,
@@ -231,7 +231,7 @@ console.log({
 ### Workflow Statistics
 ```javascript
 const stats = orchestrator.communicator.getStatistics(workflowId);
-console.log({
+logger.info({
   totalMessages: stats.totalMessages,
   messagesByType: stats.messagesByType,
   communicationFlow: stats.communicationFlow
@@ -241,7 +241,7 @@ console.log({
 ### Execution History
 ```javascript
 const history = orchestrator.getExecutionHistory(50);
-console.log(`Total executions: ${history.length}`);
+logger.info(`Total executions: ${history.length}`);
 ```
 
 ## 🎮 Integration with Existing Chat System

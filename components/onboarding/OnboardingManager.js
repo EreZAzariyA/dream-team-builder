@@ -92,7 +92,7 @@ export default function OnboardingManager({ children }) {
 
   // Handle workflow launcher actions
   const handleSelectTemplate = (template) => {
-    console.log('Selected template:', template);
+    logger.info('Selected template:', template);
     setOnboardingState(prev => ({
       ...prev,
       showWorkflowLauncher: false
@@ -220,7 +220,7 @@ export function OnboardingManagerWithEvents({ children }) {
 
   // Handle workflow launcher actions
   const handleSelectTemplate = (template) => {
-    console.log('Selected template:', template);
+    logger.info('Selected template:', template);
     setOnboardingState(prev => ({
       ...prev,
       showWorkflowLauncher: false

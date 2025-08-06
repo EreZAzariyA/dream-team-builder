@@ -18,7 +18,7 @@ export async function GET(request, { params }) {
 
     return NextResponse.json(data.workflow);
   } catch (error) {
-    console.error(`Error fetching workflow:`, error);
+    logger.error(`Error fetching workflow:`, error);
     return NextResponse.json({ error: 'Failed to fetch workflow' }, { status: 500 });
   }
 }

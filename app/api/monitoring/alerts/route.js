@@ -38,7 +38,7 @@ async function getHandler(request) {
       data: alerts.slice(0, limit)
     });
   } catch (error) {
-    console.error('Error fetching alerts:', error);
+    logger.error('Error fetching alerts:', error);
     return NextResponse.json(
       { error: 'Failed to fetch alerts', details: error.message },
       { status: 500 }
@@ -80,7 +80,7 @@ async function postHandler(request) {
       data: alert[0]
     }, { status: 201 });
   } catch (error) {
-    console.error('Error creating alert:', error);
+    logger.error('Error creating alert:', error);
     return NextResponse.json(
       { error: 'Failed to create alert', details: error.message },
       { status: 500 }

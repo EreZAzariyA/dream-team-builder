@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../../../lib/auth/config.js';
-import { aiService, Logger } from '../../../lib/ai/AIService.js';
-import { compose, withMethods, withAuth, withRateLimit, withErrorHandling } from '../../../lib/api/middleware.js';
+import { aiService } from '../../../lib/ai/AIService.js';
+import { compose, withMethods, withRateLimit, withErrorHandling } from '../../../lib/api/middleware.js';
+import logger from '@/lib/utils/logger.js';
 
 async function POST(request) {
   try {
@@ -20,7 +21,7 @@ async function POST(request) {
 
     // Test health check first
     const healthStatus = await aiService.healthCheck();
-    console.log('Health check result:', healthStatus);
+        logger.info('Health check result:', healthStatus);
 
     // Create a simple agent definition for testing
     const testAgentDefinition = {
@@ -43,11 +44,16 @@ async function POST(request) {
       }
     };
 
-    // Generate response with proper user context
-    const response = await aiService.generateAgentResponse(
-      testAgentDefinition,
-      message,
-      [],
+    // Generate response with proper user context using the correct method
+    const response = await aiService.call(
+      `Acting as ${testAgentDefinition.agent.name} (${testAgentDefinition.agent.title}): ${testAgentDefinition.persona.identity}. 
+      
+User message: ${message}
+
+Please respond in character as the test agent, following these principles: ${testAgentDefinition.persona.core_principles.join(', ')}.`,
+      testAgentDefinition.agent,
+      1, // complexity
+      { persona: testAgentDefinition.persona },
       userId
     );
 
@@ -62,7 +68,7 @@ async function POST(request) {
     });
 
   } catch (error) {
-    Logger.error('Test AI error:', error);
+    logger.error('Test AI error:', error);
     return NextResponse.json({
       success: false,
       error: error.message

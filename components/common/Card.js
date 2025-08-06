@@ -23,4 +23,10 @@ const CardContent = ({ children, className = '' }) => (
   </div>
 );
 
-export { Card, CardHeader, CardTitle, CardContent };
+const CardFooter = ({ children, className = '' }) => (
+  <div className={`p-6 border-t border-gray-200 dark:border-gray-700 ${className}`}>
+    {children}
+  </div>
+);
+
+export { Card, CardHeader, CardTitle, CardContent, CardFooter };

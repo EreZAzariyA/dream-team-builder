@@ -10,7 +10,7 @@ import {
   tokenUtils 
 } from '../../../../lib/api/middleware.js';
 import { NextResponse } from 'next/server';
-import { logUserActivity } from '../../../../lib/utils/activityLogger.js';
+import { logUserActivity } from '@/lib/utils/activityLogger.js';
 
 // Validation schema for user login
 const loginSchema = {
@@ -71,7 +71,7 @@ const handler = async (req) => {
     );
     
   } catch (error) {
-    console.error('Login error:', error);
+    logger.error('Login error:', error);
     throw error; // Will be caught by error handling middleware
   }
 };

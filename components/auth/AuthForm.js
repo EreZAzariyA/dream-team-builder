@@ -137,7 +137,7 @@ const AuthForm = ({ mode = 'signin' }) => {
       await signIn('google', {
         callbackUrl: '/dashboard',
       });
-    } catch (error) {
+    } catch {
       setError('Google sign in failed');
       setIsLoading(false);
     }
@@ -149,7 +149,7 @@ const AuthForm = ({ mode = 'signin' }) => {
       await signIn('github', {
         callbackUrl: '/dashboard',
       });
-    } catch (e) {
+    } catch {
       setError('GitHub sign in failed');
       setIsLoading(false);
     }

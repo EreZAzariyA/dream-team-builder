@@ -5,12 +5,11 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { 
   Brain, 
   Zap, 
-  Shield, 
   AlertTriangle, 
   CheckCircle, 
   XCircle,
@@ -20,7 +19,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
-const AIProviderStatus = ({ className = '' }) => {
+const AIProviderStatus = React.memo(({ className = '' }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
 
@@ -32,20 +31,25 @@ const AIProviderStatus = ({ className = '' }) => {
       if (!response.ok) throw new Error('Failed to fetch AI health');
       return response.json();
     },
-    refetchInterval: 30000, // Check every 30 seconds
-    retry: 2
+    refetchInterval: false, // Disable automatic refetching
+    retry: 1,
+    staleTime: Infinity, // Data never goes stale
+    cacheTime: 30000, // Keep in cache for 30 seconds
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+    notifyOnChangeProps: ['data', 'isLoading'] // Only re-render when these specific props change
   });
 
-  // Fetch user-specific usage statistics
+  // Fetch user-specific usage statistics  
   const { data: userUsage, isLoading: isUsageLoading } = useQuery({
     queryKey: ['ai-user-usage'],
     queryFn: async () => {
       const response = await fetch('/api/ai/usage', {
-        credentials: 'include' // Include session cookies
+        credentials: 'include'
       });
       if (!response.ok) {
         if (response.status === 401) {
-          // User not authenticated, return empty stats
           return {
             user: {
               stats: { requests: 0, tokens: 0, cost: 0, providers: {} }
@@ -57,16 +61,18 @@ const AIProviderStatus = ({ className = '' }) => {
       }
       return response.json();
     },
-    refetchInterval: 60000, // Check every minute
-    retry: (failureCount, error) => {
-      // Don't retry auth errors
-      if (error?.message?.includes('401')) return false;
-      return failureCount < 2;
-    }
+    refetchInterval: false, // Disable automatic refetching
+    retry: 1,
+    staleTime: Infinity,
+    cacheTime: 60000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+    notifyOnChangeProps: ['data', 'isLoading']
   });
 
-  // Provider configurations with icons and colors
-  const providerConfig = {
+  // Provider configurations with icons and colors (memoized)
+  const providerConfig = useMemo(() => ({
     gemini: {
       name: 'Gemini',
       icon: Zap,
@@ -80,18 +86,11 @@ const AIProviderStatus = ({ className = '' }) => {
       color: 'text-green-500',
       bgColor: 'bg-green-50',
       borderColor: 'border-green-200'
-    },
-    anthropic: {
-      name: 'Claude',
-      icon: Shield,
-      color: 'text-orange-500',
-      bgColor: 'bg-orange-50',
-      borderColor: 'border-orange-200'
     }
-  };
+  }), []);
 
-  // Get status color and icon based on health
-  const getStatusIndicator = (isHealthy, circuitBreakerState, errorMessage) => {
+  // Get status color and icon based on health (memoized)
+  const getStatusIndicator = useCallback((isHealthy, circuitBreakerState, errorMessage) => {
     // Check for quota/API key issues first
     if (errorMessage?.includes('quota') || errorMessage?.includes('exceeded') || 
         errorMessage?.includes('API key') || errorMessage?.includes('authentication')) {
@@ -112,10 +111,10 @@ const AIProviderStatus = ({ className = '' }) => {
     } else {
       return { icon: CheckCircle, color: 'text-green-500', label: 'Healthy' };
     }
-  };
+  }, []);
 
-  // Get current primary provider
-  const getCurrentProvider = () => {
+  // Memoized calculations to prevent unnecessary re-renders
+  const currentProvider = useMemo(() => {
     if (!healthStatus?.healthyProviders || healthStatus.healthyProviders.length === 0) {
       return null;
     }
@@ -126,36 +125,42 @@ const AIProviderStatus = ({ className = '' }) => {
     );
     
     return primaryProvider || healthStatus.healthyProviders[0];
-  };
+  }, [healthStatus?.healthyProviders, healthStatus?.providerPriority]);
 
-  const handleNavigationLink = () => {
-    setIsDropdownOpen(false);
-  }
+  const currentConfig = useMemo(() => 
+    currentProvider ? providerConfig[currentProvider] : null, 
+    [currentProvider]
+  );
 
-  const currentProvider = getCurrentProvider();
-  const currentConfig = currentProvider ? providerConfig[currentProvider] : null;
   const StatusIcon = currentConfig?.icon || Brain;
 
-  // Check if any provider needs API key or if service specifically needs user keys
-  const needsApiKey = healthStatus?.needsUserApiKeys || 
-    (healthStatus?.status === 'needs_api_keys') ||
-    (healthStatus?.providers && Object.values(healthStatus.providers).some(provider => {
-      const circuitBreaker = healthStatus.circuitBreakers?.[Object.keys(healthStatus.providers).find(key => healthStatus.providers[key] === provider)];
-      const status = getStatusIndicator(provider.healthy, circuitBreaker?.state, provider.lastError);
-      return status.needsApiKey;
-    }));
+  // Memoized API key check
+  const needsApiKey = useMemo(() => {
+    return healthStatus?.needsUserApiKeys || 
+      (healthStatus?.status === 'needs_api_keys') ||
+      (healthStatus?.providers && Object.values(healthStatus.providers).some(provider => {
+        const circuitBreaker = healthStatus.circuitBreakers?.[Object.keys(healthStatus.providers).find(key => healthStatus.providers[key] === provider)];
+        const status = getStatusIndicator(provider.healthy, circuitBreaker?.state, provider.lastError);
+        return status.needsApiKey;
+      }));
+  }, [healthStatus?.needsUserApiKeys, healthStatus?.status, healthStatus?.providers, healthStatus?.circuitBreakers]);
 
-  // Check for quota issues
-  const hasQuotaIssues = healthStatus?.status === 'quota_limited' ||
-    (healthStatus?.circuitBreakers && Object.values(healthStatus.circuitBreakers).some(cb => cb.state === 'OPEN')) ||
-    (healthStatus?.providers && Object.values(healthStatus.providers).some(provider => provider.quotaExhausted));
+  // Memoized quota issues check
+  const hasQuotaIssues = useMemo(() => {
+    return healthStatus?.status === 'quota_limited' ||
+      (healthStatus?.circuitBreakers && Object.values(healthStatus.circuitBreakers).some(cb => cb.state === 'OPEN')) ||
+      (healthStatus?.providers && Object.values(healthStatus.providers).some(provider => provider.quotaExhausted));
+  }, [healthStatus?.status, healthStatus?.circuitBreakers, healthStatus?.providers]);
 
-  // Calculate provider counts
-  const totalProviders = Object.keys(healthStatus?.providers || {}).length;
-  const healthyCount = healthStatus?.healthyProviders?.filter(p => p !== 'fallback').length || 0;
+  // Memoized provider counts
+  const { totalProviders, healthyCount } = useMemo(() => ({
+    totalProviders: Object.keys(healthStatus?.providers || {}).length,
+    healthyCount: healthStatus?.healthyProviders?.filter(p => p !== 'fallback').length || 0
+  }), [healthStatus?.providers, healthStatus?.healthyProviders]);
 
-  // Show green status if we have at least one working provider (even if degraded)
-  const hasWorkingProvider = healthyCount > 0 && !needsApiKey;
+  const handleNavigationLink = useCallback(() => {
+    setIsDropdownOpen(false);
+  }, []);
 
   // Loading state
   if (isLoading || isUsageLoading) {
@@ -392,6 +397,8 @@ const AIProviderStatus = ({ className = '' }) => {
       )}
     </div>
   );
-};
+});
+
+AIProviderStatus.displayName = 'AIProviderStatus';
 
 export default AIProviderStatus;

@@ -68,7 +68,7 @@ export async function GET(request) {
     });
 
   } catch (error) {
-    console.error('Error fetching workflows from database:', error);
+    logger.error('Error fetching workflows from database:', error);
     return NextResponse.json(
       { error: 'Failed to fetch workflows', details: error.message },
       { status: 500 }

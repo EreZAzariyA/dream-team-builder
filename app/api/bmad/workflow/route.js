@@ -6,36 +6,9 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../../../lib/auth/config.js';
-import BmadOrchestrator from '../../../../lib/bmad/BmadOrchestrator.js';
-import { WorkflowStatus } from '../../../../lib/bmad/types.js';
+import { getOrchestrator } from '../../../../lib/bmad/BmadOrchestrator.js';
 import { connectMongoose } from '../../../../lib/database/mongodb.js';
 import Workflow from '../../../../lib/database/models/Workflow.js';
-
-// Global orchestrator instance
-let orchestrator = null;
-
-/**
- * Initialize orchestrator if not already done
- */
-async function getOrchestrator() {
-  if (!orchestrator) {
-    try {
-      // Check for mock mode via environment variable
-      const mockMode = process.env.BMAD_MOCK_MODE === 'true';
-      
-      orchestrator = new BmadOrchestrator(null, { mockMode });
-      await orchestrator.initialize();
-      
-      const modeText = mockMode ? ' (MOCK MODE)' : '';
-      console.log(`✅ BMAD Orchestrator initialized successfully${modeText}`);
-    } catch (error) {
-      console.error('❌ Failed to initialize BMAD Orchestrator:', error);
-      orchestrator = null; // Reset to allow retry
-      throw new Error(`BMAD initialization failed: ${error.message}`);
-    }
-  }
-  return orchestrator;
-}
 
 /**
  * @swagger
@@ -161,7 +134,7 @@ export async function GET(request) {
     });
 
   } catch (error) {
-    console.error('Error fetching workflows:', error);
+    logger.error('Error fetching workflows:', error);
     return NextResponse.json(
       { error: 'Failed to fetch workflows', details: error.message },
       { status: 500 }
@@ -280,7 +253,7 @@ export async function POST(request) {
         }
       });
     } catch (bmadError) {
-      console.warn('BMAD orchestrator failed, continuing with basic workflow:', bmadError.message);
+      logger.warn('BMAD orchestrator failed, continuing with basic workflow:', bmadError.message);
       // Continue without BMAD - we'll still create the database entry
     }
 
@@ -310,7 +283,7 @@ export async function POST(request) {
     });
 
   } catch (error) {
-    console.error('Error starting workflow:', error);
+    logger.error('Error starting workflow:', error);
     return NextResponse.json(
       { error: 'Failed to start workflow', details: error.message },
       { status: 500 }
@@ -447,7 +420,7 @@ export async function PUT(request) {
     });
 
   } catch (error) {
-    console.error(`Error updating workflow:`, error);
+    logger.error(`Error updating workflow:`, error);
     return NextResponse.json(
       { error: 'Failed to update workflow', details: error.message },
       { status: 500 }

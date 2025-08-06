@@ -1,4 +1,5 @@
 // Integration test setup
+const logger = require('@/lib/utils/logger')
 const { MongoMemoryServer } = require('mongodb-memory-server')
 const mongoose = require('mongoose')
 
@@ -16,7 +17,7 @@ beforeAll(async () => {
     useUnifiedTopology: true,
   })
   
-  console.log('🧪 Integration test MongoDB setup complete')
+  logger.info('🧪 Integration test MongoDB setup complete')
 })
 
 // Clean up database between tests
@@ -39,7 +40,7 @@ afterAll(async () => {
     await mongoServer.stop()
   }
   
-  console.log('🧪 Integration test cleanup complete')
+  logger.info('🧪 Integration test cleanup complete')
 })
 
 // Test utilities for integration tests

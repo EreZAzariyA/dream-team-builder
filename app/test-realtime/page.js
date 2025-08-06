@@ -5,9 +5,9 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useSession } from 'next-auth/react';
-import { useQuery } from '@tanstack/react-query';
+
 import EnhancedChatWindow from '../../components/chat/EnhancedChatWindow';
 import { usePusherSimple } from '../../lib/pusher/SimplePusherClient';
 
@@ -17,7 +17,7 @@ export default function RealtimeTestPage() {
   const [testResults, setTestResults] = useState([]);
 
   // Use Pusher instead of WebSocket
-  const { connected: pusherConnected, connecting: pusherConnecting, error: pusherError } = usePusherSimple();
+  const { connected: pusherConnected, connecting: pusherConnecting } = usePusherSimple();
 
   // Test Pusher connection
   const testPusherConnection = () => {

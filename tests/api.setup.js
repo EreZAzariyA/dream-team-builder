@@ -3,6 +3,7 @@ import { MongoMemoryServer } from 'mongodb-memory-server'
 import mongoose from 'mongoose'
 import { createMocks } from 'node-mocks-http'
 import jwt from 'jsonwebtoken'
+import logger from '@/lib/utils/logger'
 
 let mongoServer
 
@@ -19,7 +20,7 @@ beforeAll(async () => {
       socketTimeoutMS: 1000,
     })
     
-    console.log('🔌 API test MongoDB setup complete')
+    logger.info(`🔌 API test MongoDB setup complete ${mongoose.connections[0].name}`);
   }
 }, 30000)
 
@@ -42,7 +43,7 @@ afterAll(async () => {
       await mongoServer.stop()
     }
     
-    console.log('🔌 API test cleanup complete')
+    logger.info('🔌 API test cleanup complete')
   } catch (error) {
     console.warn('API cleanup warning:', error.message)
   }

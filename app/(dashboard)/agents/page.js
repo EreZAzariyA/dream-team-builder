@@ -70,8 +70,6 @@ const mockAgentInstances = [
 ];
 
 const AgentsPage = () => {
-  const [selectedAgent, setSelectedAgent] = useState(null);
-
   const getStatusIcon = (status) => {
     switch (status) {
       case 'active': return <CheckCircle className="w-4 h-4 text-green-500" />;

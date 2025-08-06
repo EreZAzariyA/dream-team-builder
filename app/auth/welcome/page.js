@@ -3,6 +3,7 @@
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 
 export default function WelcomePage() {
@@ -50,10 +51,12 @@ export default function WelcomePage() {
           <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
             <div className="flex items-center space-x-4">
               {session.user.image ? (
-                <img
+                <Image
                   className="h-12 w-12 rounded-full"
                   src={session.user.image}
                   alt={session.user.name || 'User avatar'}
+                  width={48} // Corresponds to w-12 (12 * 4 = 48px)
+                  height={48} // Corresponds to h-12 (12 * 4 = 48px)
                 />
               ) : (
                 <div className="h-12 w-12 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">

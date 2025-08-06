@@ -13,14 +13,14 @@ export async function GET() {
       const filePath = path.join(docsDirectory, file);
       const content = fs.readFileSync(filePath, 'utf8');
       return NextResponse.json({ content });
-    } catch (e) {
+    } catch {
       return NextResponse.json({ error: 'Failed to read file' }, { status: 500 });
     }
   } else {
     try {
       const files = fs.readdirSync(docsDirectory).filter(f => f.endsWith('.md'));
       return NextResponse.json({ files });
-    } catch (e) {
+    } catch {
       return NextResponse.json({ error: 'Failed to read directory' }, { status: 500 });
     }
   }

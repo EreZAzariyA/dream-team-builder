@@ -22,7 +22,7 @@ export async function GET(request) {
     
     return NextResponse.redirect(linkingUrl);
   } catch (error) {
-    console.error('Account linking error:', error);
+    logger.error('Account linking error:', error);
     return NextResponse.json(
       { error: 'Failed to initiate account linking' },
       { status: 500 }

@@ -18,8 +18,8 @@ export default function DashboardRedirect() {
         router.replace('/admin/dashboard');
       } else {
         // Redirect regular users to their main dashboard page
-        // Assuming /workflows-new is a good default for regular users
-        router.replace('/workflows-new'); 
+        // Redirect regular users to workflows page
+        router.replace('/workflows'); 
       }
     } else {
       // If not authenticated, redirect to sign-in page

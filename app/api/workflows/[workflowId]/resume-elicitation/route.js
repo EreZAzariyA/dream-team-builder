@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../../../../lib/auth/config.js';
-import BmadOrchestrator from '../../../../../lib/bmad/BmadOrchestrator.js';
+import { getOrchestrator } from '../../../../../lib/bmad/BmadOrchestrator.js';
+import logger from '../../../../../lib/utils/logger.js';
 
 export async function POST(request, { params }) {
-  const { workflowId } = params;
+  const { workflowId } = await params;
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
@@ -12,20 +13,21 @@ export async function POST(request, { params }) {
     }
 
     const body = await request.json();
-    const { elicitationResponse } = body;
+    const { elicitationResponse, agentId } = body;
 
     if (!elicitationResponse) {
       return NextResponse.json({ error: 'Elicitation response is required' }, { status: 400 });
     }
 
-    const orchestrator = new BmadOrchestrator();
-    await orchestrator.initialize(); // Ensure orchestrator is initialized
+    logger.info('Resume elicitation request', { workflowId, agentId });
+    
 
-    const result = await orchestrator.resumeWorkflowWithElicitation(workflowId, elicitationResponse);
+    const orchestrator = await getOrchestrator(); // Use singleton orchestrator
+    const result = await orchestrator.resumeWorkflowWithElicitation(workflowId, elicitationResponse, agentId);
 
     return NextResponse.json(result, { status: 200 });
   } catch (error) {
-    console.error(`Error resuming workflow ${workflowId} with elicitation:`, error);
+    logger.error(`Error resuming workflow ${workflowId} with elicitation:`, error);
     return NextResponse.json(
       {
         error: 'Failed to resume workflow with elicitation',

@@ -33,7 +33,7 @@ export async function GET() {
 
     return NextResponse.json({ success: true, data: stats });
   } catch (error) {
-    console.error('Error fetching workflow analytics:', error);
+    logger.error('Error fetching workflow analytics:', error);
     return NextResponse.json(
       { error: 'Failed to fetch workflow analytics', details: error.message },
       { status: 500 }

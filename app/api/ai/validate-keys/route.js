@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import OpenAI from 'openai';
-import { ApiKeyValidator, Logger } from '../../../../lib/ai/AIService.js';
+import { ApiKeyValidator } from '../../../../lib/ai/AIService.js';
+import logger from '@/lib/utils/logger.js';
 
 /**
  * POST /api/ai/validate-keys - Validate user-provided API keys
@@ -98,7 +99,7 @@ export async function POST(request) {
     });
 
   } catch (error) {
-    Logger.error('API key validation error:', error);
+    logger.error('API key validation error:', error);
     return NextResponse.json(
       { error: 'Internal server error during validation' },
       { status: 500 }

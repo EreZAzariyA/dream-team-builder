@@ -4,7 +4,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import BmadOrchestrator from '../../../../lib/bmad/BmadOrchestrator.js';
+import { BmadOrchestrator } from '../../../../lib/bmad/BmadOrchestrator.js';
 
 // Global orchestrator instance for testing
 let testOrchestrator = null;
@@ -18,7 +18,7 @@ async function getTestOrchestrator() {
     try {
       await testOrchestrator.initialize();
     } catch (error) {
-      console.error('Test orchestrator initialization failed:', error);
+      logger.error('Test orchestrator initialization failed:', error);
       // Continue with limited functionality
     }
   }
@@ -70,7 +70,7 @@ export async function GET() {
     });
 
   } catch (error) {
-    console.error('BMAD test endpoint error:', error);
+    logger.error('BMAD test endpoint error:', error);
     return NextResponse.json({
       success: false,
       error: 'BMAD test failed',

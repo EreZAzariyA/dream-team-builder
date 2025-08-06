@@ -2,9 +2,10 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../../../../lib/auth/config.js';
-import BmadOrchestrator from '../../../../../lib/bmad/BmadOrchestrator.js';
+import { getOrchestrator } from '../../../../../lib/bmad/BmadOrchestrator.js';
 import { connectMongoose } from '../../../../../lib/database/mongodb.js';
 import Workflow from '../../../../../lib/database/models/Workflow.js';
+import logger from '@/lib/utils/logger.js';
 
 export async function GET(request, { params }) {
   try {
@@ -22,21 +23,20 @@ export async function GET(request, { params }) {
     let workflowDoc = null;
     try {
       workflowDoc = await Workflow.findById(workflowInstanceId);
-    } catch (dbError) {
+    } catch {
       // If not a valid ObjectId, try finding by workflowId field
       workflowDoc = await Workflow.findOne({ workflowId: workflowInstanceId });
     }
 
-    // Initialize BMAD orchestrator
+    // Get singleton BMAD orchestrator to maintain workflow state
     let orchestrator = null;
     let bmadWorkflowState = null;
     
     try {
-      orchestrator = new BmadOrchestrator();
-      await orchestrator.initialize();
-      bmadWorkflowState = orchestrator.getWorkflowStatus(workflowInstanceId);
+      orchestrator = await getOrchestrator();
+      bmadWorkflowState = await orchestrator.getWorkflowStatus(workflowInstanceId);
     } catch (bmadError) {
-      console.warn('BMAD orchestrator not available:', bmadError.message);
+      logger.warn('BMAD orchestrator not available:', bmadError.message);
     }
 
     // If no workflow found in either source
@@ -52,7 +52,10 @@ export async function GET(request, { params }) {
         name: workflowDoc?.title || bmadWorkflowState?.name || `Workflow ${workflowInstanceId}`,
         description: workflowDoc?.description || bmadWorkflowState?.description || 'AI-powered workflow execution',
         template: workflowDoc?.template || 'default',
-        agents: bmadWorkflowState?.sequence?.steps || ['pm', 'architect', 'ux-expert', 'developer', 'qa']
+        agents: bmadWorkflowState?.sequence ? 
+          // Extract unique agents from workflow sequence steps
+          [...new Set(bmadWorkflowState.sequence.map(step => step.agentId || step.agent).filter(Boolean))] :
+          []
       },
       metadata: {
         initiatedBy: workflowDoc?.userId || session.user.id,
@@ -63,7 +66,7 @@ export async function GET(request, { params }) {
       },
       progress: {
         currentStep: bmadWorkflowState?.currentStep || 0,
-        totalSteps: bmadWorkflowState?.sequence?.steps?.length || 5,
+        totalSteps: bmadWorkflowState?.sequence?.length || 5,
         percentage: bmadWorkflowState?.progress || 0
       },
       communication: bmadWorkflowState?.communication || {
@@ -73,8 +76,18 @@ export async function GET(request, { params }) {
       },
       agents: bmadWorkflowState?.agents || {},
       artifacts: bmadWorkflowState?.artifacts || [],
-      checkpoints: bmadWorkflowState?.checkpoints || []
+      checkpoints: bmadWorkflowState?.checkpoints || [],
+      elicitationDetails: bmadWorkflowState?.elicitationDetails || workflowDoc?.elicitationDetails || null,
+      currentAgent: bmadWorkflowState?.currentAgent || workflowDoc?.currentAgent?.agentId || null
     };
+
+    // logger.info('🔍 [API DEBUG] Workflow status sources:', {
+    //   bmadStatus: bmadWorkflowState?.status,
+    //   dbStatus: workflowDoc?.status,
+    //   bmadElicitation: bmadWorkflowState?.elicitationDetails,
+    //   dbElicitation: workflowDoc?.elicitationDetails,
+    //   finalElicitation: workflowInstance.elicitationDetails
+    // });
 
     // Add real-time channel information
     workflowInstance.realTime = {
@@ -86,7 +99,7 @@ export async function GET(request, { params }) {
     return NextResponse.json(workflowInstance);
 
   } catch (error) {
-    console.error(`Error fetching workflow instance ${workflowInstanceId}:`, error);
+    logger.error(`Error fetching workflow instance ${workflowInstanceId}:`, error);
     return NextResponse.json(
       { 
         error: 'Failed to fetch workflow instance', 

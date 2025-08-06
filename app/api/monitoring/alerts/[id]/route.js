@@ -29,7 +29,7 @@ async function patchHandler(request, { params }) {
       );
     }
   } catch (error) {
-    console.error('Error updating alert:', error);
+    logger.error('Error updating alert:', error);
     
     if (error.message === 'Alert not found') {
       return NextResponse.json({ error: 'Alert not found' }, { status: 404 });

@@ -170,11 +170,11 @@ describe('BMAD Orchestration Integration - Real API', () => {
   let orchestrator
 
   beforeAll(async () => {
-    console.log('🧪 BMAD Integration test setup (mocked for performance)')
+    logger.info('🧪 BMAD Integration test setup (mocked for performance)')
   }, 10000)
 
   afterAll(async () => {
-    console.log('🧪 BMAD Integration test cleanup complete')
+    logger.info('🧪 BMAD Integration test cleanup complete')
   }, 5000)
 
   beforeEach(async () => {

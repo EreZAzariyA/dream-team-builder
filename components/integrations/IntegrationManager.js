@@ -185,7 +185,7 @@ export default function IntegrationManager() {
         // Check if we have account linking data in localStorage
         const linkingData = localStorage.getItem('accountLinking');
         if (linkingData) {
-          const { existingUserId, provider, timestamp } = JSON.parse(linkingData);
+          const { provider, timestamp } = JSON.parse(linkingData);
           
           // Check if the linking data is recent (within 5 minutes)
           if (Date.now() - timestamp < 5 * 60 * 1000 && provider === 'github') {

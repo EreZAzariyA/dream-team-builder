@@ -83,7 +83,7 @@ export async function POST(request, { params }) {
       data: result
     });
   } catch (error) {
-    console.error('Error executing integration action:', error?.message || JSON.stringify(error));
+    logger.error('Error executing integration action:', error?.message || JSON.stringify(error));
     
     // Check for token expiration specifically
     if (error.message === 'GITHUB_TOKEN_EXPIRED') {

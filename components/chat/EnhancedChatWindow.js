@@ -8,10 +8,12 @@
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useQuery } from '@tanstack/react-query';
-import { LogOut } from 'lucide-react';
+
 import ChatWindow from './ChatWindow';
 import { usePusherSimple } from '../../lib/pusher/SimplePusherClient';
 import { useWorkflow } from '../../lib/hooks/useWorkflow';
+import { WorkflowErrorWrapper } from '../common/WorkflowErrorBoundary';
+import { WorkflowId } from '../../lib/utils/workflowId';
 
 export default function EnhancedChatWindow({ className = '', initialTemplate }) {
   const { data: session } = useSession();
@@ -19,12 +21,7 @@ export default function EnhancedChatWindow({ className = '', initialTemplate }) 
   // Use the workflow hook for all workflow management
   const {
     activeWorkflowId,
-    currentWorkflow,
-    activeWorkflows,
-    loading: workflowLoading,
-    error: workflowError,
     closeWorkflow,
-    switchToWorkflow,
     setActiveWorkflowId
   } = useWorkflow(initialTemplate);
   
@@ -71,22 +68,42 @@ export default function EnhancedChatWindow({ className = '', initialTemplate }) 
   // Pusher connection for system-wide updates
   const { connected: pusherConnected, pusher: pusherClient } = usePusherSimple();
 
-  // Handle workflow start from regular chat
+  // Handle workflow start from regular chat with validation
   const handleWorkflowStarted = (workflowId) => {
-    setActiveWorkflowId(workflowId);
+    const validatedId = WorkflowId.extract(workflowId);
+    if (!validatedId) {
+      console.error('Invalid workflow ID provided:', workflowId);
+      return;
+    }
+    
+    setActiveWorkflowId(validatedId);
     setShowVisualization(true);
     setShowAgentChat(true);
   };
   
-  // Handle workflow state changes and Pusher subscriptions
+  // Handle workflow state changes and Pusher subscriptions with error handling
   useEffect(() => {
     if (activeWorkflowId && pusherClient && pusherConnected) {
-      const channelName = `workflow-${activeWorkflowId}`;
-      pusherClient.subscribe(channelName);
+      const channelName = WorkflowId.toChannelName(activeWorkflowId);
       
-      return () => {
-        pusherClient.unsubscribe(channelName);
-      };
+      if (!channelName) {
+        console.error('Failed to create channel name for workflow:', activeWorkflowId);
+        return;
+      }
+      
+      try {
+        pusherClient.subscribe(channelName);
+        
+        return () => {
+          try {
+            pusherClient.unsubscribe(channelName);
+          } catch (error) {
+            console.warn('Error unsubscribing from Pusher channel:', error);
+          }
+        };
+      } catch (error) {
+        console.error('Error subscribing to Pusher channel:', error);
+      }
     }
   }, [activeWorkflowId, pusherClient, pusherConnected]);
 
@@ -111,7 +128,19 @@ export default function EnhancedChatWindow({ className = '', initialTemplate }) 
   };
 
   return (
-    <div className={`h-full flex flex-col relative ${className}`}>
+    <WorkflowErrorWrapper 
+      title="Chat interface encountered an error"
+      onError={(error, errorInfo) => {
+        console.error('EnhancedChatWindow error:', error, errorInfo);
+      }}
+      onReset={() => {
+        // Reset local state on error recovery
+        setShowVisualization(false);
+        setShowAgentChat(false);
+        setViewMode('traditional-chat');
+      }}
+    >
+      <div className={`h-full flex flex-col relative ${className}`}>
       {/* Floating View Mode Controls - Only show when workflow is active */}
       {activeWorkflowId && (
         <div className="absolute top-4 right-4 z-10 flex items-center space-x-2">
@@ -390,6 +419,7 @@ export default function EnhancedChatWindow({ className = '', initialTemplate }) 
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </WorkflowErrorWrapper>
   );
 }
