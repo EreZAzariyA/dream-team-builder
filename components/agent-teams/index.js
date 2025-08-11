@@ -7,4 +7,5 @@ export { default as WorkflowList } from './components/WorkflowList';
 export { default as LoadingState } from './components/LoadingState';
 export { default as ErrorState } from './components/ErrorState';
 export { default as PageHeader } from './components/PageHeader';
+export { default as WorkflowSelectionModal } from './components/WorkflowSelectionModal';
 export { useAgentTeamsData } from './hooks/useAgentTeamsData';

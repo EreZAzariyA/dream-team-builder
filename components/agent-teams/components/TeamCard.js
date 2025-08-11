@@ -1,7 +1,8 @@
 import AgentList from './AgentList';
 import WorkflowList from './WorkflowList';
+import { ArrowRight, Zap } from 'lucide-react';
 
-const TeamCard = ({ team }) => {
+const TeamCard = ({ team, onSelectWorkflow }) => {
   return (
     <div
       className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm border-2 ${team.borderColor} p-6 hover:shadow-md transition-shadow`}
@@ -28,9 +29,29 @@ const TeamCard = ({ team }) => {
         <WorkflowList workflows={team.workflows} />
 
         <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-          <button className={`w-full px-4 py-2 rounded-lg border-2 ${team.borderColor} ${team.color} ${team.bgColor} hover:opacity-80 transition-opacity font-medium text-center`}>
-            Deploy {team.name}
-          </button>
+          {team.workflows && team.workflows.length > 0 ? (
+            <button 
+              onClick={() => onSelectWorkflow(team)}
+              className={`w-full px-4 py-2 rounded-lg border-2 ${team.borderColor} ${team.color} ${team.bgColor} hover:opacity-80 transition-all font-medium text-center flex items-center justify-center space-x-2`}
+            >
+              <span>Choose Process & Deploy</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center justify-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+                <Zap className="w-4 h-4" />
+                <span>Story-Driven Development</span>
+              </div>
+              <button 
+                onClick={() => onSelectWorkflow(team)}
+                className={`w-full px-4 py-2 rounded-lg border-2 ${team.borderColor} ${team.color} ${team.bgColor} hover:opacity-80 transition-all font-medium text-center flex items-center justify-center space-x-2`}
+              >
+                <span>Deploy for Stories</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
