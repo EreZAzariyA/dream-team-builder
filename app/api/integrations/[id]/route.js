@@ -29,7 +29,7 @@ export async function GET(request, { params }) {
       data: integration
     });
   } catch (error) {
-    console.error('Error fetching integration:', error);
+    logger.error('Error fetching integration:', error);
     return NextResponse.json(
       { error: 'Failed to fetch integration', details: error.message },
       { status: 500 }
@@ -86,7 +86,7 @@ export async function PUT(request, { params }) {
       data: integration
     });
   } catch (error) {
-    console.error('Error updating integration:', error);
+    logger.error('Error updating integration:', error);
     return NextResponse.json(
       { error: 'Failed to update integration', details: error.message },
       { status: 500 }
@@ -118,7 +118,7 @@ export async function DELETE(request, { params }) {
       message: 'Integration deleted successfully'
     });
   } catch (error) {
-    console.error('Error deleting integration:', error);
+    logger.error('Error deleting integration:', error);
     return NextResponse.json(
       { error: 'Failed to delete integration', details: error.message },
       { status: 500 }

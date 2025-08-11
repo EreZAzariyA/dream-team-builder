@@ -26,7 +26,7 @@ export async function GET(request) {
 
     return NextResponse.redirect(githubAuthUrl.toString());
   } catch (error) {
-    console.error('GitHub linking error:', error);
+    logger.error('GitHub linking error:', error);
     return NextResponse.json(
       { error: 'Failed to initiate GitHub linking' },
       { status: 500 }

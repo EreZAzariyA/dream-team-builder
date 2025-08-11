@@ -78,7 +78,7 @@ export async function GET(request) {
     });
 
   } catch (error) {
-    console.error('Error fetching checkpoints:', error);
+    logger.error('Error fetching checkpoints:', error);
     return NextResponse.json(
       { 
         success: false, 

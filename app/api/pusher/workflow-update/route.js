@@ -49,7 +49,7 @@ export async function POST(request) {
 
     await pusherServer.trigger(channelName, eventName, updateData);
 
-    console.log(`🔄 Workflow update sent to ${channelName}:`, eventName);
+    logger.info(`🔄 Workflow update sent to ${channelName}:`, eventName);
 
     return NextResponse.json({
       success: true,
@@ -59,7 +59,7 @@ export async function POST(request) {
     });
 
   } catch (error) {
-    console.error('Error sending workflow update:', error);
+    logger.error('Error sending workflow update:', error);
     return NextResponse.json(
       { error: 'Failed to send workflow update' },
       { status: 500 }
@@ -104,7 +104,7 @@ export async function GET(request) {
     });
 
   } catch (error) {
-    console.error('Error triggering demo events:', error);
+    logger.error('Error triggering demo events:', error);
     return NextResponse.json(
       { error: 'Failed to trigger demo events' },
       { status: 500 }

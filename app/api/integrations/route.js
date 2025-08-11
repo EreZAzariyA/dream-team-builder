@@ -7,6 +7,7 @@ import { pluginManager } from '../../../lib/integrations/plugin-architecture.js'
 import GitHubPlugin from '../../../lib/integrations/github-plugin.js';
 import SlackPlugin from '../../../lib/integrations/slack-plugin.js';
 import JiraPlugin from '../../../lib/integrations/jira-plugin.js';
+import logger from '@/lib/utils/logger.js';
 
 // Initialize plugins
 if (!pluginManager.getPlugin('github')) {
@@ -42,7 +43,7 @@ export async function GET() {
       }
     });
   } catch (error) {
-    console.error('Error fetching integrations:', error.message, error.stack);
+    logger.error('Error fetching integrations:', error.message, error.stack);
     return NextResponse.json(
       { error: 'Failed to fetch integrations', details: error.message, stack: error.stack },
       { status: 500 }
@@ -117,7 +118,7 @@ export async function POST(request) {
       data: integration
     }, { status: 201 });
   } catch (error) {
-    console.error('Error creating integration:', error);
+    logger.error('Error creating integration:', error);
     return NextResponse.json(
       { error: 'Failed to create integration', details: error.message },
       { status: 500 }

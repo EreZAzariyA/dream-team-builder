@@ -13,7 +13,7 @@ import { aiService } from '../../../../lib/ai/AIService.js';
  * GET /api/ai/health
  * Get comprehensive AI service health status
  */
-async function GET(req) {
+async function GET() {
   try {
     const session = await getServerSession(authOptions);
     const userId = session?.user?.id || null;
@@ -44,7 +44,7 @@ async function GET(req) {
  * POST /api/ai/health
  * Perform health check and update provider status
  */
-async function POST(req) {
+async function POST() {
   try {
     // Force a fresh health check
     await aiService.performHealthChecks();

@@ -57,7 +57,7 @@ export async function GET() {
     }, { status: httpStatus });
     
   } catch (error) {
-    console.error('Health check error:', error);
+    logger.error('Health check error:', error);
     
     return NextResponse.json({
       success: false,

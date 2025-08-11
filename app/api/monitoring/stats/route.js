@@ -76,7 +76,7 @@ async function handler(request) {
       }
     });
   } catch (error) {
-    console.error('Error fetching monitoring stats:', error);
+    logger.error('Error fetching monitoring stats:', error);
     return NextResponse.json(
       { error: 'Failed to fetch monitoring statistics', details: error.message },
       { status: 500 }

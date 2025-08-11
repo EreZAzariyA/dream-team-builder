@@ -67,7 +67,7 @@ export async function POST(request) {
     });
 
   } catch (error) {
-    console.error('Error creating test checkpoint:', error);
+    logger.error('Error creating test checkpoint:', error);
     return NextResponse.json(
       { 
         success: false, 
@@ -82,7 +82,7 @@ export async function POST(request) {
 /**
  * DELETE /api/monitoring/checkpoints/test - Clean up test checkpoints
  */
-export async function DELETE(request) {
+export async function DELETE() {
   try {
     await connectMongoose();
 
@@ -102,7 +102,7 @@ export async function DELETE(request) {
     });
 
   } catch (error) {
-    console.error('Error cleaning up test checkpoints:', error);
+    logger.error('Error cleaning up test checkpoints:', error);
     return NextResponse.json(
       { 
         success: false, 

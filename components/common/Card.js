@@ -1,6 +1,6 @@
 
-const Card = ({ children, className = '' }) => (
-  <div className={`bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden ${className}`}>
+const Card = ({ children, className = '', onClick }) => (
+  <div onClick={onClick} className={`bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden ${className}`}>
     {children}
   </div>
 );
@@ -23,4 +23,10 @@ const CardContent = ({ children, className = '' }) => (
   </div>
 );
 
-export { Card, CardHeader, CardTitle, CardContent };
+const CardFooter = ({ children, className = '' }) => (
+  <div className={`p-6 border-t border-gray-200 dark:border-gray-700 ${className}`}>
+    {children}
+  </div>
+);
+
+export { Card, CardHeader, CardTitle, CardContent, CardFooter };

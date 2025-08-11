@@ -136,7 +136,7 @@ const nextConfig = {
   
   // Compression
   compress: true,
-  
+  reactStrictMode: false,
   // Security headers
   async headers() {
     return [

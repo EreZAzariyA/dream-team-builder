@@ -3,7 +3,8 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../../../../lib/auth/config.js';
 import { connectMongoose } from '../../../../lib/database/mongodb.js';
 import { User } from '../../../../lib/database/models/index.js';
-import { ApiKeyValidator, Logger } from '../../../../lib/ai/AIService.js';
+import { ApiKeyValidator } from '../../../../lib/ai/AIService.js';
+import logger from '@/lib/utils/logger.js';
 
 /**
  * GET /api/user/api-keys - Get user's API keys (returns masked versions for security)
@@ -22,7 +23,23 @@ export async function GET(request) {
 
     await connectMongoose();
     
-    const user = await User.findById(session.user.id);
+    let user = null;
+    try {
+      const mongoose = require('mongoose');
+      if (mongoose.Types.ObjectId.isValid(session.user.id)) {
+        user = await User.findById(session.user.id);
+      } else {
+        // Try finding by email as fallback if ID is not valid ObjectId
+        user = await User.findByEmail(session.user.email);
+      }
+    } catch (dbError) {
+      console.error('Database error finding user:', dbError);
+      return NextResponse.json(
+        { error: 'Database error' },
+        { status: 500 }
+      );
+    }
+    
     if (!user) {
       return NextResponse.json(
         { error: 'User not found' },
@@ -62,7 +79,7 @@ export async function GET(request) {
     });
 
   } catch (error) {
-    Logger.error('Get API keys error:', error);
+    logger.error('Get API keys error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -102,7 +119,7 @@ export async function POST(request) {
     }
 
     // Validate API key formats using our validator
-    Logger.info('Validating API keys:', { 
+    logger.info('Validating API keys:', { 
       hasOpenai: !!apiKeys.openai, 
       hasGemini: !!apiKeys.gemini,
       openaiPrefix: apiKeys.openai?.substring(0, 5),
@@ -110,10 +127,10 @@ export async function POST(request) {
     });
     
     const validation = ApiKeyValidator.validateAll(apiKeys);
-    Logger.info('Validation result:', validation);
+    logger.info('Validation result:', validation);
     
     if (!validation.valid) {
-      Logger.error('API key validation failed:', validation.errors);
+      logger.error('API key validation failed:', validation.errors);
       return NextResponse.json(
         { error: 'No valid API keys provided', details: validation.errors },
         { status: 400 }
@@ -122,7 +139,23 @@ export async function POST(request) {
 
     await connectMongoose();
     
-    const user = await User.findById(session.user.id);
+    let user = null;
+    try {
+      const mongoose = require('mongoose');
+      if (mongoose.Types.ObjectId.isValid(session.user.id)) {
+        user = await User.findById(session.user.id);
+      } else {
+        // Try finding by email as fallback if ID is not valid ObjectId
+        user = await User.findByEmail(session.user.email);
+      }
+    } catch (dbError) {
+      console.error('Database error finding user in API keys POST:', dbError);
+      return NextResponse.json(
+        { error: 'Database error' },
+        { status: 500 }
+      );
+    }
+    
     if (!user) {
       return NextResponse.json(
         { error: 'User not found' },
@@ -131,11 +164,17 @@ export async function POST(request) {
     }
 
     // Set API keys
-    console.log('📝 About to call user.setApiKeys with:', { hasOpenai: !!apiKeys.openai, hasGemini: !!apiKeys.gemini });
+    logger.info('📝 About to call user.setApiKeys with:', { hasOpenai: !!apiKeys.openai, hasGemini: !!apiKeys.gemini });
     user.setApiKeys(apiKeys);
-    console.log('💾 About to save user...');
+        logger.info('💾 About to save user...');
     await user.save();
-    console.log('✅ User saved successfully');
+            logger.info('✅ User saved successfully');
+
+    // Reinitialize AI service with new keys
+    logger.info('🔄 Reinitializing AI service with new keys...');
+    const { aiService } = await import('../../../../lib/ai/AIService.js');
+    await aiService.initialize(apiKeys, session.user.id);
+    logger.info('✅ AI service reinitialized successfully');
 
     // Return success with masked keys
     const savedKeys = user.getApiKeys();
@@ -154,7 +193,7 @@ export async function POST(request) {
     });
 
   } catch (error) {
-    Logger.error('Save API keys error:', error);
+    logger.error('Save API keys error:', error);
     return NextResponse.json(
       { error: 'Internal server error', details: error.message },
       { status: 500 }
@@ -196,7 +235,7 @@ export async function DELETE() {
     });
 
   } catch (error) {
-    Logger.error('Clear API keys error:', error);
+    logger.error('Clear API keys error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

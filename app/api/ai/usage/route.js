@@ -13,7 +13,7 @@ import { aiService } from '../../../../lib/ai/AIService.js';
  * GET /api/ai/usage
  * Get usage statistics for the authenticated user
  */
-async function GET(req) {
+async function GET() {
   try {
     const session = await getServerSession(authOptions);
     
@@ -25,8 +25,8 @@ async function GET(req) {
     }
     
     const userId = session.user.id;
-    const userStats = aiService.getUserUsageStats(userId);
-    const globalStats = aiService.usageTracker.getGlobalStats();
+    const userStats = aiService.getUsageStats(userId);
+    const globalStats = aiService.getGlobalUsageStats();
     
     return NextResponse.json({
       user: {
@@ -53,27 +53,7 @@ async function GET(req) {
   }
 }
 
-/**
- * GET /api/ai/usage/check-limits
- * Check if user can make additional AI requests
- */
-async function checkLimits(req) {
-  try {
-    const userId = req.user.id;
-    const limitsCheck = aiService.usageTracker.checkUserLimits(userId);
-    
-    return NextResponse.json({
-      ...limitsCheck,
-      userId,
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    return NextResponse.json({
-      error: error.message,
-      timestamp: new Date().toISOString()
-    }, { status: 500 });
-  }
-}
+
 
 // Apply middleware - no withAuth needed since we handle session manually
 const rateLimitedGET = compose(withMethods(['GET']), withRateLimit('general'), withSecurityHeaders, withErrorHandling)(GET);

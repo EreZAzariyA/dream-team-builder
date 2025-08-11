@@ -84,7 +84,7 @@ export default function ProfilePage() {
       
       setSuccess('Profile updated successfully!');
       setIsEditing(false);
-    } catch (e) {
+    } catch {
       setError('Failed to update profile. Please try again.');
     } finally {
       setIsLoading(false);

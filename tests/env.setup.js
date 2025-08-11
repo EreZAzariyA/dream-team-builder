@@ -8,10 +8,7 @@ process.env.NEXTAUTH_URL = 'http://localhost:3000'
 process.env.MONGODB_URI = 'mongodb://localhost:27017/dream-team-test'
 process.env.MONGODB_URI_TEST = 'mongodb://localhost:27017/dream-team-test'
 process.env.JWT_SECRET = 'test-jwt-secret-key'
-
-// AI Service test configuration
-process.env.GOOGLE_GEMINI_API_KEY = 'test-gemini-key'
-process.env.OPENAI_API_KEY = 'test-openai-key'
+process.env.LOGTAIL_TOKEN = 'test-logtail-token'
 
 // Pusher test configuration
 process.env.PUSHER_APP_ID = 'test-app-id'

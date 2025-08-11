@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../../../../lib/auth/config.js';
-import { aiService, Logger } from '../../../../lib/ai/AIService.js';
+import { aiService } from '../../../../lib/ai/AIService.js';
+import logger from '@/lib/utils/logger.js';
 
 /**
  * Reinitialize AI service with user-provided API keys
@@ -29,9 +30,9 @@ export async function POST(request) {
       );
     }
 
-    // Reinitialize the AI service with user keys and current user's ID
+    // Initialize the AI service with user keys and current user's ID
     const userId = session?.user?.id || null;
-    const success = await aiService.reinitializeWithUserKeys(apiKeys, userId);
+    const success = await aiService.initialize(apiKeys, userId);
     
     if (success) {
       // Get updated health status
@@ -39,7 +40,7 @@ export async function POST(request) {
       
       return NextResponse.json({
         success: true,
-        message: hasKeys ? 'AI service reinitialized with user API keys' : 'AI service reset to environment keys',
+        message: hasKeys ? 'AI service reinitialized with user API keys' : 'AI service reset to limited mode (no API keys)',
         healthStatus
       });
     } else {
@@ -49,7 +50,7 @@ export async function POST(request) {
       );
     }
   } catch (error) {
-    Logger.error('AI reinitialize error:', error);
+    logger.error('AI reinitialize error:', error);
     return NextResponse.json(
       { error: 'Internal server error during AI service reinitialization' },
       { status: 500 }

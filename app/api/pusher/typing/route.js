@@ -28,7 +28,7 @@ export async function POST(request) {
 
     await pusherServer.trigger(channelName, eventName, typingData);
 
-    console.log(`✍️ Typing indicator sent: ${userId} ${isTyping ? 'started' : 'stopped'} typing`);
+    logger.info(`✍️ Typing indicator sent: ${userId} ${isTyping ? 'started' : 'stopped'} typing`);
 
     return NextResponse.json({
       success: true,
@@ -37,7 +37,7 @@ export async function POST(request) {
     });
 
   } catch (error) {
-    console.error('Error sending typing indicator:', error);
+    logger.error('Error sending typing indicator:', error);
     return NextResponse.json(
       { error: 'Failed to send typing indicator' },
       { status: 500 }

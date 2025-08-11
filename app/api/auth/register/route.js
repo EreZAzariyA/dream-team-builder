@@ -10,8 +10,8 @@ import {
   apiResponse,
   tokenUtils 
 } from '../../../../lib/api/middleware.js';
-import { logUserActivity } from '../../../../lib/utils/activityLogger.js';
 import { NextResponse } from 'next/server.js';
+import { logUserActivity } from '@/lib/utils/activityLogger.js';
 
 // Validation schema for user registration
 const registrationSchema = {
@@ -85,7 +85,7 @@ const handler = async (req) => {
     );
     
   } catch (error) {
-    console.error('Registration error:', error);
+    logger.error('Registration error:', error);
     throw error; // Will be caught by error handling middleware
   }
 };

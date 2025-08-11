@@ -6,23 +6,9 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../../../../lib/auth/config.js';
-import BmadOrchestrator from '../../../../../lib/bmad/BmadOrchestrator.js';
+import { getOrchestrator } from '../../../../../lib/bmad/BmadOrchestrator.js';
 import dbConnect, { connectMongoose } from '../../../../../lib/database/mongodb.js';
 import Workflow from '../../../../../lib/database/models/Workflow.js';
-
-// Global orchestrator instance
-let orchestrator = null;
-
-/**
- * Initialize orchestrator if not already done
- */
-async function getOrchestrator() {
-  if (!orchestrator) {
-    orchestrator = new BmadOrchestrator();
-    await orchestrator.initialize();
-  }
-  return orchestrator;
-}
 
 /**
  * GET /api/bmad/workflow/[id] - Get detailed workflow status
@@ -37,7 +23,7 @@ export async function GET(request, { params }) {
       );
     }
 
-    const { id: workflowId } = params;
+    const { id: workflowId } = await params;
     
     if (!workflowId) {
       return NextResponse.json(
@@ -89,7 +75,7 @@ export async function GET(request, { params }) {
     });
 
   } catch (error) {
-    console.error('Error fetching workflow details:', error);
+    logger.error('Error fetching workflow details:', error);
     return NextResponse.json(
       { error: 'Failed to fetch workflow details', details: error.message },
       { status: 500 }
@@ -110,7 +96,7 @@ export async function DELETE(request, { params }) {
       );
     }
 
-    const { id: workflowId } = params;
+    const { id: workflowId } = await params;
     
     if (!workflowId) {
       return NextResponse.json(
@@ -158,7 +144,7 @@ export async function DELETE(request, { params }) {
     });
 
   } catch (error) {
-    console.error('Error deleting workflow:', error);
+    logger.error('Error deleting workflow:', error);
     return NextResponse.json(
       { error: 'Failed to delete workflow', details: error.message },
       { status: 500 }

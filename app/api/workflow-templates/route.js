@@ -11,7 +11,7 @@ export async function GET() {
     const templates = await WorkflowTemplate.find({});
     return NextResponse.json({ success: true, data: templates });
   } catch (error) {
-    console.error('Error fetching workflow templates:', error);
+    logger.error('Error fetching workflow templates:', error);
     return NextResponse.json(
       { error: 'Failed to fetch workflow templates', details: error.message },
       { status: 500 }
@@ -47,7 +47,7 @@ export async function POST(request) {
     await newTemplate.save();
     return NextResponse.json({ success: true, data: newTemplate }, { status: 201 });
   } catch (error) {
-    console.error('Error creating workflow template:', error);
+    logger.error('Error creating workflow template:', error);
     return NextResponse.json(
       { error: 'Failed to create workflow template', details: error.message },
       { status: 500 }

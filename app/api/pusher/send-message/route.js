@@ -5,11 +5,13 @@
 
 import { NextResponse } from 'next/server';
 import { pusherServer, CHANNELS, EVENTS } from '../../../../lib/pusher/config';
-import BmadOrchestrator from '../../../../lib/bmad/BmadOrchestrator.js';
+import { getOrchestrator } from '../../../../lib/bmad/BmadOrchestrator.js';
 import { aiService } from '../../../../lib/ai/AIService.js';
 import { connectMongoose } from '../../../../lib/database/mongodb.js';
 import AgentMessage from '../../../../lib/database/models/AgentMessage.js';
-import { compose, withMethods, withRateLimit, withAIRateLimit, withSecurityHeaders, withErrorHandling } from '../../../../lib/api/middleware.js';
+import { compose, withMethods, withAIRateLimit, withSecurityHeaders, withErrorHandling } from '../../../../lib/api/middleware.js';
+import { WorkflowId } from '../../../../lib/utils/workflowId.js';
+import logger from '@/lib/utils/logger.js';
 
 /**
  * Load agent definition from file
@@ -32,7 +34,7 @@ async function loadAgentDefinition(agentId) {
     
     return null;
   } catch (error) {
-    console.error(`Failed to load agent ${agentId}:`, error);
+    logger.error(`Failed to load agent ${agentId}:`, error);
     return null;
   }
 }
@@ -40,7 +42,7 @@ async function loadAgentDefinition(agentId) {
 /**
  * Determine which agent should handle the message
  */
-function determineTargetAgent(content, availableAgents = []) {
+function determineTargetAgent(content) {
   const message = content.toLowerCase();
   
   // Agent-specific keywords
@@ -97,23 +99,28 @@ async function processUserMessageWithAgents(orchestrator, content, workflowId, t
       
       if (agentDefinition) {
         try {
-          // Generate AI response with agent persona
-          const aiResponse = await aiService.generateAgentResponse(
-            agentDefinition, 
-            content,
-            [], // TODO: Add conversation history
+          // Generate AI response with agent persona using the correct method
+          const aiResponse = await aiService.call(
+            `Acting as ${agentDefinition.agent?.name || finalTargetAgentId} (${agentDefinition.agent?.title || 'Assistant'}): ${agentDefinition.persona?.identity || 'I am a helpful assistant'}.
+            
+User message: ${content}
+
+Please respond in character as this agent, following the persona guidelines.`,
+            agentDefinition.agent || { id: finalTargetAgentId, name: finalTargetAgentId },
+            1, // complexity
+            { persona: agentDefinition.persona, conversationHistory: [] },
             userId || 'anonymous'
           );
           
           return {
-            content: aiResponse.content,
-            agentId: aiResponse.agentId,
-            agentName: aiResponse.agentName,
-            provider: aiResponse.provider,
-            structured: aiResponse.structured
+            content: aiResponse.content || aiResponse.message || 'Response generated successfully',
+            agentId: agentDefinition.agent?.id || finalTargetAgentId,
+            agentName: agentDefinition.agent?.name || finalTargetAgentId,
+            provider: aiResponse.provider || 'ai-service',
+            structured: aiResponse.structured || false
           };
         } catch (aiError) {
-          console.error('AI service error:', aiError);
+          logger.error('AI service error:', aiError);
           // Fallback with agent info when AI fails
           return {
             content: `Hello! I'm ${agentDefinition.agent?.name || finalTargetAgentId} (${agentDefinition.agent?.title || 'Assistant'}). I received your message: "${content}". 
@@ -138,7 +145,7 @@ The issue is with the AI generation service. Please try again, or contact suppor
       }
     }
   } catch (error) {
-    console.error('Error processing user message:', error);
+    logger.error('Error processing user message:', error);
     return {
       content: `I encountered an issue processing your message: "${content}". Please try again or rephrase your request.`,
       agentId: 'bmad-system'
@@ -190,10 +197,10 @@ async function saveMessageToDatabase(messageData, messageType = 'response', from
     });
     
     await agentMessage.save();
-    console.log(`💾 Message saved to database: ${messageData.id}`);
+    logger.info(`💾 Message saved to database: ${messageData.id}`);
     return agentMessage;
   } catch (error) {
-    console.error('Failed to save message to database:', error);
+    logger.error('Failed to save message to database:', error);
     // Don't throw - we don't want to break the real-time functionality
     return null;
   }
@@ -209,13 +216,21 @@ async function handler(request) {
         { status: 400 }
       );
     }
+    
+    // Validate workflow ID if target is workflow
+    if (target.type === 'workflow' && !WorkflowId.validate(target.id)) {
+      return NextResponse.json(
+        { error: 'Invalid workflow ID format' },
+        { status: 400 }
+      );
+    }
 
-    // Determine channel and event based on target
+    // Determine channel and event based on target with standardized naming
     let channelName;
     let eventName;
     
     if (target.type === 'workflow') {
-      channelName = CHANNELS.WORKFLOW(target.id);
+      channelName = WorkflowId.toChannelName(target.id) || CHANNELS.WORKFLOW(target.id);
       eventName = EVENTS.USER_MESSAGE;
     } else if (target.type === 'agent') {
       channelName = CHANNELS.AGENT(target.id);
@@ -228,13 +243,18 @@ async function handler(request) {
       eventName = EVENTS.USER_MESSAGE;
     }
 
-    // Prepare message data
+    // Prepare message data with standardized ID
     const messageData = {
-      id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: WorkflowId.generate(), // Use standardized ID generation
       content,
       userId,
       timestamp: timestamp || new Date().toISOString(),
       target,
+      validated: {
+        workflowId: target.type === 'workflow' ? WorkflowId.extract(target.id) : null,
+        channelName,
+        eventName
+      }
     };
 
     // Send message via Pusher
@@ -246,16 +266,15 @@ async function handler(request) {
     // Process with real BMAD agents
     if (target.type === 'workflow') {
       try {
-        // Initialize BMAD orchestrator
-        const orchestrator = new BmadOrchestrator();
-        await orchestrator.initialize();
+        // Get singleton BMAD orchestrator
+        const orchestrator = await getOrchestrator();
 
         // Process the message as a user input to agents
         const response = await processUserMessageWithAgents(orchestrator, content, target.id, target.targetAgent, userId);
         
-        // Send agent response via Pusher immediately
+        // Send agent response via Pusher immediately with standardized ID
         const agentResponse = {
-          id: `agent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: WorkflowId.generate(), // Use standardized ID generation
           content: response.content,
           agentId: response.agentId || 'bmad-orchestrator',
           agentName: response.agentName,
@@ -263,7 +282,7 @@ async function handler(request) {
           usage: response.usage,
           userId: 'system',
           timestamp: new Date().toISOString(),
-          workflowId: target.id,
+          workflowId: WorkflowId.extract(target.id), // Normalize workflow ID
           structured: response.structured,
         };
 
@@ -281,15 +300,15 @@ async function handler(request) {
           'user'
         );
       } catch (error) {
-        console.error('BMAD processing error:', error);
-        // Fallback to simple response immediately
+        logger.error('BMAD processing error:', error);
+        // Fallback to simple response immediately with standardized ID
         const fallbackResponse = {
-          id: `agent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: WorkflowId.generate(), // Use standardized ID generation
           content: `I received your message: "${content}". I'm currently experiencing technical issues, but I'm here to help you with that!`,
           agentId: 'bmad-assistant',
           userId: 'system',
           timestamp: new Date().toISOString(),
-          workflowId: target.id,
+          workflowId: WorkflowId.extract(target.id), // Normalize workflow ID
           error: error.message
         };
 

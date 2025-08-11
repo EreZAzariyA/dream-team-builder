@@ -71,6 +71,7 @@ const customJestConfig = {
   // Transform configuration
   transform: {
     '^.+\\.(js|jsx|ts|tsx)$': ['babel-jest'],
+    '^.+\\.md$': '<rootDir>/tests/jest.md-transformer.js',
   },
   
   // Handle static assets (merged with moduleNameMapper above)

@@ -26,26 +26,41 @@ export default function OnboardingWelcomeModal({ onClose, onStartTour, onQuickSt
     setTimeout(onQuickStart, 300);
   };
 
-  const features = [
-    {
-      icon: '🤖',
-      title: 'AI Agent Collaboration',
-      description: 'Watch specialized agents work together on your projects'
-    },
+  const bmadFeatures = [
     {
       icon: '📋',
-      title: 'Workflow Templates',
-      description: 'Pre-built workflows for common development tasks'
+      title: 'Project Brief & Requirements',
+      description: 'Work with the Analyst agent to define your project scope and create comprehensive PRDs'
+    },
+    {
+      icon: '🏗️',
+      title: 'Architecture Planning',
+      description: 'Collaborate with the Architect agent to design robust system architecture'
     },
     {
       icon: '⚡',
-      title: 'Real-time Execution',
-      description: 'See your documentation and code generated live'
+      title: 'Two-Phase Development',
+      description: 'Web UI for strategic planning, then IDE integration for hands-on development'
     },
     {
-      icon: '🔗',
-      title: 'Seamless Integrations',
-      description: 'Connect with GitHub, Slack, JIRA, and more'
+      icon: '🔄',
+      title: 'Agent Orchestration',
+      description: 'PM, Dev, QA, and specialized agents work together following BMAD methodology'
+    }
+  ];
+
+  const bmadPhases = [
+    {
+      phase: 'Planning Phase',
+      description: 'Work with agents to create Project Brief, PRD, and Architecture documents',
+      icon: '🎯',
+      color: 'from-blue-500 to-purple-500'
+    },
+    {
+      phase: 'Development Phase',
+      description: 'Move to IDE for story creation, coding, and quality assurance',
+      icon: '⚒️',
+      color: 'from-green-500 to-teal-500'
     }
   ];
 
@@ -71,25 +86,46 @@ export default function OnboardingWelcomeModal({ onClose, onStartTour, onQuickSt
             
             <div className="flex items-center space-x-4">
               <div className="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center text-3xl">
-                🚀
+                🎯
               </div>
               <div>
-                <h1 className="text-3xl font-bold">Welcome to Dream Team!</h1>
-                <p className="text-blue-100 mt-1">Your AI-powered documentation assistant with autonomous agent workflows</p>
+                <h1 className="text-3xl font-bold">Welcome to BMAD System!</h1>
+                <p className="text-blue-100 mt-1">Breakthrough Method for Agile AI-Driven Development</p>
+                <p className="text-blue-200 text-sm mt-1">Strategic Planning → Structured Development → Quality Delivery</p>
               </div>
             </div>
           </div>
 
           {/* Content */}
           <div className="px-8 py-6">
+            {/* BMAD Two-Phase Overview */}
             <div className="mb-8">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-                What makes Dream Team special?
+                The BMAD Two-Phase Approach
+              </h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                {bmadPhases.map((phase, index) => (
+                  <div key={index} className={`relative p-6 bg-gradient-to-r ${phase.color} rounded-xl text-white overflow-hidden`}>
+                    <div className="absolute top-2 right-2 text-3xl opacity-20">{phase.icon}</div>
+                    <div className="relative">
+                      <h3 className="text-lg font-bold mb-2">{phase.phase}</h3>
+                      <p className="text-sm opacity-90">{phase.description}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* BMAD Key Features */}
+            <div className="mb-8">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                What makes BMAD different?
               </h2>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {features.map((feature, index) => (
-                  <div key={index} className="flex items-start space-x-3 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+                {bmadFeatures.map((feature, index) => (
+                  <div key={index} className="flex items-start space-x-3 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
                     <div className="text-2xl flex-shrink-0">{feature.icon}</div>
                     <div>
                       <h3 className="font-medium text-gray-900 dark:text-white">{feature.title}</h3>
@@ -100,20 +136,32 @@ export default function OnboardingWelcomeModal({ onClose, onStartTour, onQuickSt
               </div>
             </div>
 
-            {/* Stats Section */}
-            <div className="mb-8 p-6 bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 rounded-xl">
-              <div className="grid grid-cols-3 gap-4 text-center">
+            {/* BMAD Agent Team Stats */}
+            <div className="mb-8 p-6 bg-gradient-to-r from-emerald-50 to-cyan-50 dark:from-emerald-900/20 dark:to-cyan-900/20 rounded-xl border border-emerald-200 dark:border-emerald-700">
+              <div className="text-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Your BMAD Agent Team</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Specialized AI agents following proven methodologies</p>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
                 <div>
-                  <div className="text-2xl font-bold text-green-600 dark:text-green-400">10+</div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">Specialized Agents</div>
+                  <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">8</div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400">Core Agents</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">Analyst, PM, Architect, Dev, QA, etc.</div>
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">5+</div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">Workflow Templates</div>
+                  <div className="text-2xl font-bold text-green-600 dark:text-green-400">4</div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400">Workflow Types</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">Brownfield, Greenfield, Service, UI</div>
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">3+</div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400">Platform Integrations</div>
+                  <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">2</div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400">Development Phases</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">Planning & Implementation</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">∞</div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400">Project Types</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">Full-stack, APIs, Features</div>
                 </div>
               </div>
             </div>
@@ -126,19 +174,33 @@ export default function OnboardingWelcomeModal({ onClose, onStartTour, onQuickSt
               >
                 <span className="flex items-center justify-center space-x-2">
                   <span>🎯</span>
-                  <span>Take the 2-minute tour</span>
+                  <span>Learn BMAD Method (3 min)</span>
                 </span>
               </button>
               
               <button
                 onClick={handleQuickStart}
-                className="px-8 py-3 border-2 border-blue-600 text-blue-600 dark:text-blue-400 font-medium rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transform hover:scale-105 transition-all duration-200"
+                className="px-8 py-3 border-2 border-emerald-600 text-emerald-600 dark:text-emerald-400 font-medium rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transform hover:scale-105 transition-all duration-200"
               >
                 <span className="flex items-center justify-center space-x-2">
-                  <span>⚡</span>
-                  <span>Jump to Quick Start</span>
+                  <span>🚀</span>
+                  <span>Start Your First Project</span>
                 </span>
               </button>
+            </div>
+
+            {/* Info callout */}
+            <div className="mt-6 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
+              <div className="flex items-start space-x-3">
+                <span className="text-amber-500 text-xl">💡</span>
+                <div>
+                  <h4 className="font-medium text-amber-800 dark:text-amber-200">New to BMAD?</h4>
+                  <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                    Take the tour to understand the two-phase approach: Web UI planning followed by IDE development. 
+                    This ensures structured, high-quality project delivery.
+                  </p>
+                </div>
+              </div>
             </div>
 
             <div className="text-center mt-4">

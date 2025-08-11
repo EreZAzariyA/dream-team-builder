@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { pusherServer } from '../../../lib/pusher/config.js';
+import logger from '@/lib/utils/logger.js';
 
 export async function GET(request) {
   try {
@@ -7,7 +8,7 @@ export async function GET(request) {
     const workflowId = searchParams.get('workflowId') || 'test-workflow';
     
     // Debug Pusher server initialization
-    console.log('🔍 Pusher server status:', {
+    logger.info('🔍 Pusher server status:', {
       pusherServerExists: !!pusherServer,
       envVarsSet: {
         PUSHER_APP_ID: !!process.env.PUSHER_APP_ID,
@@ -22,7 +23,7 @@ export async function GET(request) {
     }
     
     const channelName = `workflow-${workflowId}`;
-    console.log(`📡 Sending test events to channel: ${channelName}`);
+    logger.info(`📡 Sending test events to channel: ${channelName}`);
     
     // Send a test event
     await pusherServer.trigger(channelName, 'agent-activated', {
@@ -42,7 +43,7 @@ export async function GET(request) {
       }
     });
     
-    console.log(`🧪 Test Pusher events sent for workflow: ${workflowId}`);
+    logger.info(`🧪 Test Pusher events sent for workflow: ${workflowId}`);
     
     return NextResponse.json({ 
       success: true,
@@ -52,7 +53,7 @@ export async function GET(request) {
     });
     
   } catch (error) {
-    console.error('Test Pusher error:', error);
+    logger.error('Test Pusher error:', error);
     return NextResponse.json({ 
       error: 'Failed to send test events',
       details: error.message 

@@ -13,7 +13,7 @@ export async function GET() {
       }
     });
   } catch (error) {
-    console.error('Error generating OpenAPI spec:', error);
+    logger.error('Error generating OpenAPI spec:', error);
     return NextResponse.json(
       { error: 'Failed to generate OpenAPI specification', details: error.message },
       { status: 500 }
@@ -34,7 +34,7 @@ export async function POST(request) {
       path: savedPath
     });
   } catch (error) {
-    console.error('Error saving OpenAPI spec:', error);
+    logger.error('Error saving OpenAPI spec:', error);
     return NextResponse.json(
       { error: 'Failed to save OpenAPI specification', details: error.message },
       { status: 500 }

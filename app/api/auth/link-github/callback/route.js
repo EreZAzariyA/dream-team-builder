@@ -21,7 +21,7 @@ export async function GET(request) {
     let stateData;
     try {
       stateData = JSON.parse(state);
-    } catch (e) {
+    } catch {
       return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/integrations?error=invalid_state`);
     }
 
@@ -45,7 +45,7 @@ export async function GET(request) {
 
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text();
-      console.error('Token exchange failed:', {
+      logger.error('Token exchange failed:', {
         status: tokenResponse.status,
         statusText: tokenResponse.statusText,
         error: errorText
@@ -103,7 +103,7 @@ export async function GET(request) {
     return NextResponse.redirect(`${callbackUrl || '/integrations'}?success=github_linked`);
 
   } catch (error) {
-    console.error('GitHub callback error:', error);
+    logger.error('GitHub callback error:', error);
     return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/integrations?error=callback_failed`);
   }
 }

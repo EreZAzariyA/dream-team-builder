@@ -1,8 +1,8 @@
 // Global test setup
 require('@testing-library/jest-dom')
 
-// Mock the activityLogger to prevent database issues in tests
-jest.mock('../lib/utils/activityLogger.js', () => ({
+// Mock the activitylogger to prevent database issues in tests
+jest.mock('../lib/utils/activitylogger.js', () => ({
   logUserActivity: jest.fn().mockResolvedValue(true)
 }))
 

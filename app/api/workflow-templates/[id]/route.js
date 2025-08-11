@@ -8,7 +8,7 @@ import { connectMongoose } from '../../../../lib/database/mongodb.js';
 export async function GET(request, { params }) {
   try {
     await connectMongoose();
-    const { id } = params;
+    const { id } = await params;
     const template = await WorkflowTemplate.findById(id);
 
     if (!template) {
@@ -17,7 +17,7 @@ export async function GET(request, { params }) {
 
     return NextResponse.json({ success: true, data: template });
   } catch (error) {
-    console.error('Error fetching workflow template:', error);
+    logger.error('Error fetching workflow template:', error);
     return NextResponse.json(
       { error: 'Failed to fetch workflow template', details: error.message },
       { status: 500 }
@@ -33,7 +33,7 @@ export async function PUT(request, { params }) {
     }
 
     await connectMongoose();
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
     const { name, description, sequence } = body;
 
@@ -49,7 +49,7 @@ export async function PUT(request, { params }) {
 
     return NextResponse.json({ success: true, data: updatedTemplate });
   } catch (error) {
-    console.error('Error updating workflow template:', error);
+    logger.error('Error updating workflow template:', error);
     return NextResponse.json(
       { error: 'Failed to update workflow template', details: error.message },
       { status: 500 }
@@ -65,7 +65,7 @@ export async function DELETE(request, { params }) {
     }
 
     await connectMongoose();
-    const { id } = params;
+    const { id } = await params;
 
     const deletedTemplate = await WorkflowTemplate.findByIdAndDelete(id);
 
@@ -75,7 +75,7 @@ export async function DELETE(request, { params }) {
 
     return NextResponse.json({ success: true, message: 'Template deleted successfully' });
   } catch (error) {
-    console.error('Error deleting workflow template:', error);
+    logger.error('Error deleting workflow template:', error);
     return NextResponse.json(
       { error: 'Failed to delete workflow template', details: error.message },
       { status: 500 }

@@ -1,11 +1,22 @@
 
 import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '../../../../lib/auth/config.js';
 import fs from 'fs';
 import path from 'path';
 import yaml from 'js-yaml';
 
 export async function GET(request, { params }) {
   try {
+    // Check authentication
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
     const { workflowId } = await params;
     const filePath = path.join(process.cwd(), '.bmad-core', 'workflows', `${workflowId}.yaml`);
 
@@ -18,7 +29,7 @@ export async function GET(request, { params }) {
 
     return NextResponse.json(data.workflow);
   } catch (error) {
-    console.error(`Error fetching workflow:`, error);
-    return NextResponse.json({ error: 'Failed to fetch workflow' }, { status: 500 });
+    console.error('Error fetching workflow:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

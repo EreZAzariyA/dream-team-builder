@@ -41,7 +41,7 @@ const getHandler = async (req, res) => {
     );
     
   } catch (error) {
-    console.error('Get user error:', error);
+    logger.error('Get user error:', error);
     throw error;
   }
 };
@@ -108,7 +108,7 @@ const updateHandler = async (req, res) => {
     );
     
   } catch (error) {
-    console.error('Update user error:', error);
+    logger.error('Update user error:', error);
     throw error;
   }
 };
@@ -142,7 +142,7 @@ const deleteHandler = async (req, res) => {
     );
     
   } catch (error) {
-    console.error('Delete user error:', error);
+    logger.error('Delete user error:', error);
     throw error;
   }
 };

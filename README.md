@@ -133,12 +133,12 @@ Interactive product tour with:
 - Color-coded workflow categories
 - Time estimates and feature examples
 
-#### WorkflowLauncherModal
+#### BmadTemplateCard
 Template selection interface with:
 - Categorized workflow templates
 - Search and filtering capabilities
 - Template complexity indicators
-- Full-screen modal experience
+- Instant workflow launching
 
 ### Usage Examples
 
@@ -188,7 +188,7 @@ SLACK_WEBHOOK_URL=your-slack-webhook
 
 ### Customization Options
 - Theme colors in `tailwind.config.js`
-- Workflow templates in `WorkflowLauncherModal.js`
+- Workflow templates in `BmadTemplateCard.js`
 - Tour steps in `OnboardingTour.js`
 - Agent configurations in API routes
 

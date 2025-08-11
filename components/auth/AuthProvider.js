@@ -12,7 +12,7 @@ const AuthSyncComponent = ({ children }) => {
   // Optional: Add analytics or side effects based on auth state
   useEffect(() => {
     if (isAuthenticated && user) {
-      console.log(`✅ User authenticated: ${user.email}`);
+            console.info(`✅ User authenticated: ${user.email}`);
       // You could trigger analytics events here
       // analytics.identify(user.id, { email: user.email, name: user.name });
     }
