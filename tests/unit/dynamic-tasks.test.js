@@ -76,12 +76,15 @@ describe('Dynamic Task Execution Tests', () => {
       let execute;
       try {
         // Dynamic import of the task module
-        taskModule = await import(taskPath);
-        execute = taskModule.execute; // Attempt to get the named export
-        if (!execute && taskModule.default && typeof taskModule.default.execute === 'function') {
-          execute = taskModule.default.execute; // Fallback for default export wrapping
-        } else if (!execute && typeof taskModule.default === 'function') {
-          execute = taskModule.default; // Fallback if the default export *is* the function
+        const taskContent = await fs.readFile(taskPath, 'utf8');
+        const match = taskContent.match(/```javascript\n(.*?)\n```/s);
+        if (match && match[1]) {
+          const executeFn = new Function('module', 'require', match[1]);
+          const module = { exports: {} };
+          executeFn(module, require);
+          execute = module.exports;
+        } else {
+          throw new Error('Could not find execute function in task file');
         }
       } catch (importError) {
         // If import fails, it's a critical error for the test

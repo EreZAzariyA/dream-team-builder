@@ -71,6 +71,31 @@ const AIProviderStatus = React.memo(({ className = '' }) => {
     notifyOnChangeProps: ['data', 'isLoading']
   });
 
+  // Fetch detailed usage statistics from new enhanced tracking
+  const { data: detailedUsage, isLoading: isDetailedUsageLoading } = useQuery({
+    queryKey: ['ai-detailed-usage'],
+    queryFn: async () => {
+      const response = await fetch('/api/usage/stats?timeframe=day', {
+        credentials: 'include'
+      });
+      if (!response.ok) {
+        if (response.status === 401) {
+          return { success: true, data: { detailed: { totalEntries: 0, totalTokens: 0, totalCost: 0, providers: {} } } };
+        }
+        throw new Error('Failed to fetch detailed usage');
+      }
+      return response.json();
+    },
+    refetchInterval: false,
+    retry: 1,
+    staleTime: Infinity,
+    cacheTime: 60000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+    notifyOnChangeProps: ['data', 'isLoading']
+  });
+
   // Provider configurations with icons and colors (memoized)
   const providerConfig = useMemo(() => ({
     gemini: {
@@ -129,7 +154,7 @@ const AIProviderStatus = React.memo(({ className = '' }) => {
 
   const currentConfig = useMemo(() => 
     currentProvider ? providerConfig[currentProvider] : null, 
-    [currentProvider]
+    [currentProvider, providerConfig]
   );
 
   const StatusIcon = currentConfig?.icon || Brain;
@@ -143,7 +168,7 @@ const AIProviderStatus = React.memo(({ className = '' }) => {
         const status = getStatusIndicator(provider.healthy, circuitBreaker?.state, provider.lastError);
         return status.needsApiKey;
       }));
-  }, [healthStatus?.needsUserApiKeys, healthStatus?.status, healthStatus?.providers, healthStatus?.circuitBreakers]);
+  }, [healthStatus?.needsUserApiKeys, healthStatus?.status, healthStatus?.providers, healthStatus?.circuitBreakers, getStatusIndicator]);
 
   // Memoized quota issues check
   const hasQuotaIssues = useMemo(() => {
@@ -163,7 +188,7 @@ const AIProviderStatus = React.memo(({ className = '' }) => {
   }, []);
 
   // Loading state
-  if (isLoading || isUsageLoading) {
+  if (isLoading || isUsageLoading || isDetailedUsageLoading) {
     return (
       <div className={`flex items-center space-x-2 ${className}`}>
         <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-300 border-t-blue-500"></div>
@@ -220,11 +245,11 @@ const AIProviderStatus = React.memo(({ className = '' }) => {
 
       {/* Dropdown Panel */}
       {isDropdownOpen && (
-        <div className="absolute right-0 mt-2 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+        <div className="absolute right-0 mt-2 w-96 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-50">
           <div className="p-4">
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-body font-semibold text-gray-900">AI Provider Status</h3>
+              <h3 className="text-body font-semibold text-gray-900 dark:text-gray-100">AI Provider Status</h3>
               <button
                 onClick={() => setShowDetails(!showDetails)}
                 className="text-body-small text-blue-600 hover:text-blue-700"
@@ -265,25 +290,60 @@ const AIProviderStatus = React.memo(({ className = '' }) => {
               </div>
             )}
 
-            {/* Summary Stats */}
-            <div className="grid grid-cols-3 gap-3 mb-4">
-              <div className="text-center p-2 bg-gray-50 rounded">
-                <div className="text-h4 font-bold text-gray-900">{healthyCount}/{totalProviders}</div>
-                <div className="text-caption text-gray-500">Healthy</div>
+            {/* Enhanced Summary Stats with Gemini Detailed Usage */}
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="text-center p-3 bg-gray-50 dark:bg-gray-700 rounded">
+                <div className="text-h4 font-bold text-gray-900 dark:text-gray-100">{healthyCount}/{totalProviders}</div>
+                <div className="text-caption text-gray-500 dark:text-gray-400">Healthy</div>
               </div>
-              <div className="text-center p-2 bg-gray-50 rounded">
-                <div className="text-h4 font-bold text-green-600">
-                  {userUsage?.user?.stats?.requests || 0}
+              <div className="text-center p-3 bg-gray-50 dark:bg-gray-700 rounded">
+                <div className="text-h4 font-bold text-green-600 dark:text-green-400">
+                  {detailedUsage?.data?.detailed?.totalEntries || userUsage?.user?.stats?.requests || 0}
                 </div>
-                <div className="text-caption text-gray-500">My Requests</div>
+                <div className="text-caption text-gray-500 dark:text-gray-400">Today</div>
               </div>
-              <div className="text-center p-2 bg-gray-50 rounded">
-                <div className="text-h4 font-bold text-blue-600">
-                  ${(userUsage?.user?.stats?.cost || 0).toFixed(3)}
+              <div className="text-center p-3 bg-gray-50 dark:bg-gray-700 rounded">
+                <div className="text-h4 font-bold text-purple-600 dark:text-purple-400">
+                  {detailedUsage?.data?.detailed?.totalTokens ? 
+                    `${Math.round(detailedUsage.data.detailed.totalTokens / 1000)}K` : 
+                    '0'
+                  }
                 </div>
-                <div className="text-caption text-gray-500">My Cost</div>
+                <div className="text-caption text-gray-500 dark:text-gray-400">Tokens</div>
+              </div>
+              <div className="text-center p-3 bg-gray-50 dark:bg-gray-700 rounded">
+                <div className="text-h4 font-bold text-blue-600 dark:text-blue-400">
+                  ${(detailedUsage?.data?.detailed?.totalCost || userUsage?.user?.stats?.cost || 0).toFixed(3)}
+                </div>
+                <div className="text-caption text-gray-500 dark:text-gray-400">Cost</div>
               </div>
             </div>
+
+            {/* Gemini Usage Details (if available) */}
+            {detailedUsage?.data?.detailed?.providers?.gemini && (
+              <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg">
+                <div className="flex items-center space-x-2 mb-2">
+                  <Zap className="w-4 h-4 text-blue-500 dark:text-blue-400" />
+                  <span className="text-sm font-medium text-blue-800 dark:text-blue-200">Gemini Usage Today</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-xs text-blue-700 dark:text-blue-300">
+                  <div>
+                    <span className="font-medium">Requests:</span> {detailedUsage.data.detailed.providers.gemini.requests}
+                  </div>
+                  <div>
+                    <span className="font-medium">Tokens:</span> {Math.round(detailedUsage.data.detailed.providers.gemini.totalTokens / 1000)}K
+                  </div>
+                  <div>
+                    <span className="font-medium">Cost:</span> ${detailedUsage.data.detailed.providers.gemini.totalCost.toFixed(4)}
+                  </div>
+                </div>
+                {detailedUsage.data.detailed.averageTokensPerRequest > 0 && (
+                  <div className="mt-2 text-xs text-blue-600 dark:text-blue-300">
+                    <span className="font-medium">Avg per request:</span> {Math.round(detailedUsage.data.detailed.averageTokensPerRequest)} tokens
+                  </div>
+                )}
+              </div>
+            )}
 
 
             {/* Provider List */}
@@ -295,27 +355,45 @@ const AIProviderStatus = React.memo(({ className = '' }) => {
                 const Icon = config?.icon || Brain;
                 const StatusIndicatorIcon = status.icon;
 
+                // Get proper dark mode classes for current provider
+                const getProviderBoxClasses = () => {
+                  if (status.needsApiKey) {
+                    return 'border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/30';
+                  }
+                  
+                  if (provider === currentProvider) {
+                    // Primary provider styling with proper dark mode support
+                    switch (provider) {
+                      case 'gemini':
+                        return 'border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/30';
+                      case 'openai':
+                        return 'border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/30';
+                      default:
+                        return 'border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-700';
+                    }
+                  }
+                  
+                  return 'border-gray-100 dark:border-gray-600 bg-gray-50 dark:bg-gray-700';
+                };
+
                 return (
-                  <div key={provider} className={`p-3 rounded-lg border ${
-                    status.needsApiKey ? 'border-red-200 bg-red-50' :
-                    provider === currentProvider ? config?.borderColor + ' ' + config?.bgColor : 'border-gray-100 bg-gray-50'
-                  }`}>
+                  <div key={provider} className={`p-3 rounded-lg border ${getProviderBoxClasses()}`}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
                         <Icon className={`w-5 h-5 ${config?.color || 'text-gray-500'}`} />
                         <div>
                           <div className="flex items-center space-x-2">
-                            <span className="text-body-small font-medium text-gray-900">
+                            <span className="text-body-small font-medium text-gray-900 dark:text-gray-100">
                               {config?.name || provider}
                             </span>
                             {provider === currentProvider && (
-                              <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full">
+                              <span className="px-2 py-0.5 text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200 rounded-full">
                                 Primary
                               </span>
                             )}
                           </div>
                           {showDetails && (
-                            <div className="text-caption text-gray-500">
+                            <div className="text-caption text-gray-500 dark:text-gray-400">
                               Last check: {stats.lastCheck ? new Date(stats.lastCheck).toLocaleTimeString() : 'Never'}
                             </div>
                           )}
@@ -331,10 +409,10 @@ const AIProviderStatus = React.memo(({ className = '' }) => {
 
                     {/* Detailed Stats (when expanded) */}
                     {showDetails && (
-                      <div className="mt-2 pt-2 border-t border-gray-200 space-y-2">
+                      <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600 space-y-2">
                         {/* Circuit Breaker Stats */}
                         {circuitBreaker && (
-                          <div className="grid grid-cols-3 gap-2 text-caption text-gray-600">
+                          <div className="grid grid-cols-3 gap-2 text-caption text-gray-600 dark:text-gray-400">
                             <div>
                               <span className="font-medium">State:</span> {circuitBreaker.state}
                             </div>
@@ -347,15 +425,42 @@ const AIProviderStatus = React.memo(({ className = '' }) => {
                           </div>
                         )}
                         
-                        {/* User Usage Stats for this provider */}
-                        {userUsage?.user?.stats?.providers?.[provider] && (
-                          <div className="grid grid-cols-2 gap-2 text-caption text-gray-600">
-                            <div>
-                              <span className="font-medium">My Requests:</span> {userUsage.user.stats.providers[provider].requests || 0}
+                        {/* Enhanced User Usage Stats for this provider */}
+                        {(detailedUsage?.data?.detailed?.providers?.[provider] || userUsage?.user?.stats?.providers?.[provider]) && (
+                          <div className="space-y-2">
+                            {/* Primary stats */}
+                            <div className="grid grid-cols-2 gap-2 text-caption text-gray-600 dark:text-gray-400">
+                              <div>
+                                <span className="font-medium">My Requests:</span> {
+                                  detailedUsage?.data?.detailed?.providers?.[provider]?.requests ||
+                                  userUsage?.user?.stats?.providers?.[provider]?.requests || 0
+                                }
+                              </div>
+                              <div>
+                                <span className="font-medium">My Cost:</span> ${
+                                  (detailedUsage?.data?.detailed?.providers?.[provider]?.totalCost ||
+                                   userUsage?.user?.stats?.providers?.[provider]?.cost || 0).toFixed(4)
+                                }
+                              </div>
                             </div>
-                            <div>
-                              <span className="font-medium">My Cost:</span> ${(userUsage.user.stats.providers[provider].cost || 0).toFixed(4)}
-                            </div>
+                            {/* Token usage (new detailed info) */}
+                            {detailedUsage?.data?.detailed?.providers?.[provider]?.totalTokens && (
+                              <div className="grid grid-cols-2 gap-2 text-caption text-gray-600 dark:text-gray-400">
+                                <div>
+                                  <span className="font-medium">Tokens Today:</span> {
+                                    Math.round(detailedUsage.data.detailed.providers[provider].totalTokens / 1000)
+                                  }K
+                                </div>
+                                <div>
+                                  <span className="font-medium">Avg/Request:</span> {
+                                    detailedUsage.data.detailed.providers[provider].requests > 0 ?
+                                    Math.round(detailedUsage.data.detailed.providers[provider].totalTokens / 
+                                              detailedUsage.data.detailed.providers[provider].requests) :
+                                    0
+                                  } tokens
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -366,11 +471,11 @@ const AIProviderStatus = React.memo(({ className = '' }) => {
             </div>
 
             {/* Footer Actions */}
-            <div className="mt-4 pt-3 border-t border-gray-200 flex justify-between">
+            <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-600 flex justify-between">
               <Link
                 href={'/settings'}
                 onClick={handleNavigationLink}
-                className="flex items-center space-x-1 text-body-small text-gray-600 hover:text-gray-800"
+                className="flex items-center space-x-1 text-body-small text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
               >
                 <Settings className="w-3 h-3" />
                 <span>Settings</span>
@@ -378,7 +483,7 @@ const AIProviderStatus = React.memo(({ className = '' }) => {
               <Link
                 href={'/analytics'}
                 onClick={handleNavigationLink}
-                className="flex items-center space-x-1 text-body-small text-blue-600 hover:text-blue-700"
+                className="flex items-center space-x-1 text-body-small text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
               >
                 <TrendingUp className="w-3 h-3" />
                 <span>Analytics</span>

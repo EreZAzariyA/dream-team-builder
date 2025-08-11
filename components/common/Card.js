@@ -1,6 +1,6 @@
 
-const Card = ({ children, className = '' }) => (
-  <div className={`bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden ${className}`}>
+const Card = ({ children, className = '', onClick }) => (
+  <div onClick={onClick} className={`bg-white dark:bg-gray-800 shadow-md rounded-lg overflow-hidden ${className}`}>
     {children}
   </div>
 );

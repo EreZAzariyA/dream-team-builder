@@ -1,11 +1,16 @@
 'use client';
 
 import React, { useState, useMemo, useCallback, memo } from 'react';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../common/Card';
+import { Card, CardContent, CardHeader, CardTitle } from '../common/Card';
 import { ScrollArea } from '../ui/scroll-area';
 import { Badge } from '../common/Badge';
-import { Bot, User, MessageSquare, Loader2, Clock, CheckCircle, AlertCircle, Send } from 'lucide-react';
+import { MessageSquare, Loader2, Clock, CheckCircle, AlertCircle, Bot } from 'lucide-react';
 import MarkdownIt from 'markdown-it';
+
+// Import sub-components
+import AgentSidebar from './AgentSidebar';
+import MessageBubble from './MessageBubble';
+import ChatInput from './ChatInput';
 
 
 const WorkflowChat = memo(({ 
@@ -13,25 +18,16 @@ const WorkflowChat = memo(({
   isConnected = false, 
   onSendMessage, 
   loading = false,
+  waitingForAgent = false,
+  respondingAgent = null,
   title = "Live Communication",
   elicitationPrompt = null,
   allowFreeChat = true,
-  workflowInstance = null
+  workflowInstance = null,
+  activeAgents = [],
+  currentAgent = null
 }) => {
-  const [freeMessage, setFreeMessage] = useState('');
-
-  const handleFreeChatSubmit = useCallback(() => {
-    if (!freeMessage.trim() || !onSendMessage) return;
-    onSendMessage(freeMessage.trim());
-    setFreeMessage('');
-  }, [freeMessage, onSendMessage]);
-
-  const handleKeyPress = useCallback((e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleFreeChatSubmit();
-    }
-  }, [handleFreeChatSubmit]);
+  const [activeAgentId, setActiveAgentId] = useState(null);
 
   const formatTimestamp = useCallback((timestamp) => {
     if (!timestamp) return '';
@@ -42,14 +38,144 @@ const WorkflowChat = memo(({
     });
   }, []);
 
-  const getMessageIcon = useCallback((message) => {
-    const isUser = message.from === 'User';
-    const isSystem = message.from === 'System' || message.from === 'BMAD System';
-    
-    if (isUser) return <User className="w-4 h-4" />;
-    if (isSystem) return <MessageSquare className="w-4 h-4" />;
-    return <Bot className="w-4 h-4" />;
+  const getAgentIcon = useCallback((agentId) => {
+    if (agentId.includes('/') || agentId === 'various') return '🔄';
+
+    const icons = {
+      'analyst': '🧠',
+      'pm': '📋',
+      'architect': '🏗️',
+      'ux-expert': '🎨',
+      'dev': '🛠️',
+      'qa': '🔍',
+      'sm': '📊',
+      'po': '✅',
+      'system': '⚙️',
+      'bmad-orchestrator': '🎭'
+    };
+    return icons[agentId] || '🤖';
   }, []);
+
+  const getAgentRole = useCallback((agentId) => {
+    const roles = {
+      'analyst': 'Business Analyst',
+      'pm': 'Product Manager',
+      'architect': 'System Architect',
+      'ux-expert': 'UX Designer',
+      'dev': 'Developer',
+      'qa': 'QA Engineer',
+      'sm': 'Scrum Master',
+      'po': 'Product Owner',
+      'system': 'System',
+      'bmad-orchestrator': 'BMad Orchestrator'
+    };
+    return roles[agentId] || 'AI Agent';
+  }, []);
+
+  // Extract workflow agents and prioritize them, with message activity tracking
+  const detectedAgents = useMemo(() => {
+    // Track message activity for all agents
+    const agentActivity = new Map();
+    
+    // Add agents from messages
+    messages.forEach(msg => {
+      if (msg.from && msg.from !== 'User' && msg.from !== 'System' && msg.from !== 'BMAD System') {
+        const agentId = msg.from.toLowerCase().replace(/\s+/g, '-');
+        agentActivity.set(agentId, new Date(msg.timestamp || Date.now()));
+      }
+      if (msg.agentId && msg.agentId !== 'user' && msg.agentId !== 'system') {
+        agentActivity.set(msg.agentId, new Date(msg.timestamp || Date.now()));
+      }
+    });
+    
+    // Add elicitation agent activity
+    if (elicitationPrompt?.agentId) {
+      agentActivity.set(elicitationPrompt.agentId, new Date());
+      // Auto-set active agent for elicitation
+      if (activeAgentId !== elicitationPrompt.agentId) {
+        setActiveAgentId(elicitationPrompt.agentId);
+      }
+    }
+    
+    // Auto-set current agent as active if no active agent selected
+    if (!activeAgentId && currentAgent) {
+      setActiveAgentId(currentAgent);
+    }
+    
+    // Prioritize workflow agents (activeAgents) and show them in order
+    const workflowAgents = [];
+    const additionalAgents = [];
+    
+    if (activeAgents && activeAgents.length > 0) {
+      // Process workflow agents in order
+      activeAgents.forEach(agent => {
+        const agentId = typeof agent === 'string' ? agent : agent.id;
+        const agentName = typeof agent === 'string' ? 
+          (agentId.charAt(0).toUpperCase() + agentId.slice(1).replace(/-/g, ' ')) : 
+          (agent.name || agentId);
+        const agentStatus = typeof agent === 'object' ? agent.status : 'pending';
+        
+        workflowAgents.push({
+          id: agentId,
+          name: agentName,
+          role: getAgentRole(agentId),
+          icon: getAgentIcon(agentId),
+          isActive: agentId === activeAgentId,
+          isRecent: agentId === currentAgent && agentId !== activeAgentId,
+          isCurrent: agentId === currentAgent,
+          workflowStatus: agentStatus,
+          lastActivity: agentActivity.get(agentId),
+          order: activeAgents.indexOf(agent) + 1
+        });
+      });
+    }
+    
+    // Add any additional agents from messages that aren't in workflow
+    agentActivity.forEach((activity, agentId) => {
+      const isInWorkflow = workflowAgents.some(wa => wa.id === agentId);
+      if (!isInWorkflow) {
+        additionalAgents.push({
+          id: agentId,
+          name: agentId.charAt(0).toUpperCase() + agentId.slice(1).replace(/-/g, ' '),
+          role: getAgentRole(agentId),
+          icon: getAgentIcon(agentId),
+          isActive: agentId === activeAgentId,
+          isRecent: false,
+          isCurrent: false,
+          workflowStatus: 'additional',
+          lastActivity: activity,
+          order: 999 // Show at end
+        });
+      }
+    });
+    
+    // Combine workflow agents first (in order), then additional agents
+    return [...workflowAgents, ...additionalAgents];
+  }, [messages, elicitationPrompt, activeAgents, currentAgent, activeAgentId, getAgentRole, getAgentIcon]);
+
+  // Convert elicitation to a natural message
+  const elicitationAsMessage = useMemo(() => {
+    if (!elicitationPrompt) return null;
+    
+    return {
+      id: `elicitation-${Date.now()}`,
+      from: elicitationPrompt.agentId || 'Agent',
+      agentId: elicitationPrompt.agentId,
+      content: elicitationPrompt.instruction || 'I need your input to continue.',
+      timestamp: new Date().toISOString(),
+      type: 'elicitation',
+      isElicitation: true
+    };
+  }, [elicitationPrompt]);
+
+  // Combine messages with elicitation
+  const allMessages = useMemo(() => {
+    const combined = [...messages];
+    if (elicitationAsMessage) {
+      combined.push(elicitationAsMessage);
+    }
+    return combined.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+  }, [messages, elicitationAsMessage]);
 
   const getStatusIcon = useCallback((status) => {
     switch (status) {
@@ -71,9 +197,32 @@ const WorkflowChat = memo(({
   }), []);
 
   const renderStructuredContent = (message) => {
+    console.log({ message });
+    
     if (!message.content && !message.summary && !message.structured) return 'No content available';
     
-    let contentToRender = '';
+    // Handle elicitation messages directly and return rendered HTML
+    if (message.isElicitation) {
+      const htmlContent = md.render(message.content);
+      return (
+        <div
+          className="prose prose-sm dark:prose-invert max-w-none
+            prose-headings:text-gray-900 dark:prose-headings:text-gray-100
+            prose-p:text-gray-700 dark:prose-p:text-gray-300 prose-p:leading-relaxed
+            prose-strong:text-gray-900 dark:prose-strong:text-gray-100
+            prose-code:text-blue-600 dark:prose-code:text-blue-400 prose-code:bg-gray-100 dark:prose-code:bg-gray-800 prose-code:px-1 prose-code:py-0.5 prose-code:rounded
+            prose-pre:bg-gray-100 dark:prose-pre:bg-gray-800 prose-pre:border prose-pre:border-gray-200 dark:prose-pre:border-gray-700
+            prose-blockquote:border-l-blue-400 prose-blockquote:bg-blue-50 dark:prose-blockquote:bg-blue-900/20 prose-blockquote:text-blue-800 dark:prose-blockquote:text-blue-200
+            prose-ul:text-gray-700 dark:prose-ul:text-gray-300
+            prose-ol:text-gray-700 dark:prose-ol:text-gray-300
+            prose-li:text-gray-700 dark:prose-li:text-gray-300
+            prose-a:text-blue-600 dark:prose-a:text-blue-400 prose-a:no-underline hover:prose-a:underline"
+          dangerouslySetInnerHTML={{ __html: htmlContent }}
+        />
+      );
+    }
+
+    let contentToRender = ''; // Reset for non-elicitation messages
 
     if (message.structured && message.structured.response) {
       const { main_response, key_points, codeModifications } = message.structured.response;
@@ -135,377 +284,127 @@ const WorkflowChat = memo(({
   };
 
   return (
-    <Card className="h-full flex flex-col">
-      <CardHeader className="border-b">
-        <CardTitle className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <MessageSquare className="w-5 h-5 text-blue-600" />
-            {title}
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-              {messages.length}
-            </Badge>
-            <div className={`flex items-center gap-1 text-xs ${
-              isConnected 
-                ? 'text-green-600 dark:text-green-400' 
-                : 'text-red-600 dark:text-red-400'
-            }`}>
-              <div className={`w-2 h-2 rounded-full ${
-                isConnected ? 'bg-green-500' : 'bg-red-500'
-              }`}></div>
-              {isConnected ? 'Live' : 'Offline'}
+    <Card className="h-full flex flex-col lg:flex-row">
+      {/* Agent Sidebar */}
+      <AgentSidebar
+        detectedAgents={detectedAgents}
+        isConnected={isConnected}
+        currentAgent={currentAgent}
+      />
+
+      {/* Chat Area */}
+      <div className="flex-1 flex flex-col">
+        <CardHeader className="border-b">
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="w-5 h-5 text-blue-600" />
+              {title}
+              {activeAgentId && (
+                <div className="flex items-center gap-2 ml-4 px-3 py-1 bg-blue-50 dark:bg-blue-900/20 rounded-full">
+                  <span className="text-lg">{getAgentIcon(activeAgentId)}</span>
+                  <span className="text-sm text-blue-700 dark:text-blue-300">
+                    Talking with {activeAgentId.charAt(0).toUpperCase() + activeAgentId.slice(1)}
+                  </span>
+                </div>
+              )}
             </div>
-          </div>
-        </CardTitle>
-        <p className="text-sm text-gray-600 dark:text-gray-400">
-          Real-time communication with AI agents and system updates
-        </p>
-      </CardHeader>
+            <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+              {allMessages.length}
+            </Badge>
+          </CardTitle>
+        </CardHeader>
 
-      <CardContent className="flex-1 p-0">
-        <div className="h-[500px] bg-gray-50 dark:bg-gray-900 overflow-hidden">
-          <ScrollArea className="h-full p-4">
-            {messages.length === 0 && !elicitationPrompt && (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                  <MessageSquare className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
-                    No messages yet
-                  </h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Agent communication will appear here in real-time
-                  </p>
+        <CardContent className="flex-1 p-0">
+          <div className="h-[500px] bg-gray-50 dark:bg-gray-900 overflow-hidden">
+            <ScrollArea className="h-full p-4">
+              {allMessages.length === 0 && (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <MessageSquare className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+                      Ready for conversation
+                    </h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Agents will appear in the sidebar when they become active
+                    </p>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {messages.map((message, index) => {
-              const isUser = message.from === 'User' || message.from === 'user';
-              const isSystem = message.from === 'System' || message.from === 'BMAD System' || message.from === 'system';
-              
-              return (
-                <div
+              {currentAgent === 'various' && (
+                <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+                  <h4 className="font-semibold mb-2">Select the next agent:</h4>
+                  {/* Placeholder for agent selection UI */}
+                  <div className="flex gap-2">
+                    <button className="px-4 py-2 bg-blue-500 text-white rounded-md">Analyst</button>
+                    <button className="px-4 py-2 bg-blue-500 text-white rounded-md">PM</button>
+                    <button className="px-4 py-2 bg-blue-500 text-white rounded-md">Architect</button>
+                  </div>
+                </div>
+              )}
+
+              {allMessages.map((message, index) => (
+                <MessageBubble
                   key={message.id || index}
-                  className={`mb-4 flex ${isUser ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div className={`flex items-start gap-3 max-w-[85%] ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
-                    {/* Avatar */}
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                      isUser 
-                        ? 'bg-blue-600 text-white' 
-                        : isSystem 
-                          ? 'bg-gray-600 text-white'
-                          : 'bg-green-600 text-white'
-                    }`}>
-                      {getMessageIcon(message)}
-                    </div>
+                  message={message}
+                  index={index}
+                  getAgentIcon={getAgentIcon}
+                  formatTimestamp={formatTimestamp}
+                  renderStructuredContent={renderStructuredContent}
+                  getStatusIcon={getStatusIcon}
+                />
+              ))}
 
-                    {/* Message Content */}
-                    <div
-                      className={`rounded-2xl p-4 ${
-                        isUser 
-                          ? 'bg-blue-600 text-white rounded-br-md' 
-                          : 'bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 rounded-bl-md shadow-sm'
-                      }`}
-                    >
-                      {/* Header */}
-                      <div className={`flex items-center gap-2 mb-2 ${isUser ? 'justify-end' : 'justify-start'}`}>
-                        <span className={`text-xs font-medium ${
-                          isUser ? 'text-blue-100' : 'text-gray-600 dark:text-gray-400'
-                        }`}>
-                          {isUser ? 'You' : isSystem ? 'System' : (message.from?.charAt(0).toUpperCase() + message.from?.slice(1) || 'Agent')}
-                        </span>
-                        {message.type && (
-                          <Badge variant="outline" className={`text-xs ${
-                            isUser ? 'border-blue-300 text-blue-100' : 'border-gray-300 text-gray-600 dark:border-gray-600 dark:text-gray-400'
-                          }`}>
-                            {message.type.replace(/-/g, ' ')}
-                          </Badge>
-                        )}
-                        {message.status && getStatusIcon(message.status)}
-                      </div>
-
-                      {/* Content */}
-                      <div className="text-sm leading-relaxed">
-                        {renderStructuredContent(message)}
-                      </div>
-
-                      {/* Timestamp */}
-                      <div className={`text-xs mt-2 ${
-                        isUser 
-                          ? 'text-blue-200 text-right' 
-                          : 'text-gray-500 dark:text-gray-400 text-left'
-                      }`}>
-                        {formatTimestamp(message.timestamp)}
+              {/* Show typing indicator when waiting for agent response */}
+              {waitingForAgent && respondingAgent && (
+                <div className="flex justify-start mb-6">
+                  <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-4 max-w-[80%] border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{getAgentIcon(respondingAgent)}</span>
+                      <span className="text-sm font-medium capitalize">
+                        {respondingAgent.replace(/-/g, ' ')}
+                      </span>
+                      <div className="flex gap-1 ml-2">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                        <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                        <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                       </div>
                     </div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                      {elicitationPrompt ? 'Processing your response...' : 'Thinking...'}
+                    </p>
                   </div>
                 </div>
-              );
-            })}
+              )}
 
-            {/* Enhanced Elicitation Interface */}
-            {elicitationPrompt && (
-              <div className="mb-6 flex justify-center">
-                <div className="w-full max-w-4xl">
-                  {/* Elicitation Header */}
-                  <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-t-xl p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                          <Bot className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <h3 className="text-lg font-semibold">
-                            {elicitationPrompt?.agentId?.charAt(0).toUpperCase() + elicitationPrompt?.agentId?.slice(1) || 'Agent'} needs your input
-                          </h3>
-                          <p className="text-blue-100 text-sm">
-                            {elicitationPrompt?.sectionTitle || 'Additional Information Required'}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge className="bg-white/20 text-white border-white/30">
-                          <Clock className="w-3 h-3 mr-1" />
-                          Workflow Paused
-                        </Badge>
-                      </div>
+              {/* Fallback loading indicator */}
+              {loading && !waitingForAgent && (
+                <div className="flex justify-start mb-6">
+                  <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-4 max-w-[80%] border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center gap-2">
+                      <Bot className="w-4 h-4" />
+                      <span className="text-sm font-medium">Agent</span>
+                      <Loader2 className="w-4 h-4 animate-spin ml-2" />
                     </div>
-                  </div>
-
-                  {/* Elicitation Content */}
-                  <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 border-t-0 p-6">
-                    <div className="mb-6">
-                      <div className="prose prose-sm dark:prose-invert max-w-none
-                        prose-headings:text-gray-900 dark:prose-headings:text-gray-100 prose-headings:mb-3
-                        prose-p:text-gray-700 dark:prose-p:text-gray-300 prose-p:leading-relaxed prose-p:mb-4
-                        prose-strong:text-gray-900 dark:prose-strong:text-gray-100 prose-strong:font-semibold
-                        prose-ul:text-gray-700 dark:prose-ul:text-gray-300 prose-ul:mb-4
-                        prose-ol:text-gray-700 dark:prose-ol:text-gray-300 prose-ol:mb-4  
-                        prose-li:text-gray-700 dark:prose-li:text-gray-300 prose-li:mb-1
-                        prose-blockquote:border-l-blue-400 prose-blockquote:bg-blue-50 dark:prose-blockquote:bg-blue-900/20 
-                        prose-blockquote:text-blue-800 dark:prose-blockquote:text-blue-200 prose-blockquote:py-3 prose-blockquote:px-4
-                        prose-code:text-blue-600 dark:prose-code:text-blue-400 prose-code:bg-gray-100 dark:prose-code:bg-gray-700 
-                        prose-code:px-2 prose-code:py-1 prose-code:rounded prose-code:text-sm"
-                        dangerouslySetInnerHTML={{ 
-                          __html: md.render(elicitationPrompt?.instruction || 'Please provide additional information to continue.') 
-                        }}
-                      />
-                    </div>
-
-                    {/* Response Section */}
-                    <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
-                      <div className="flex items-center gap-2 mb-4">
-                        <User className="w-5 h-5 text-blue-600" />
-                        <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                          Your Response
-                        </h4>
-                      </div>
-                      
-                      <div className="text-center py-4">
-                        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                          <div className="flex items-center justify-center gap-2 mb-2">
-                            <MessageSquare className="w-5 h-5 text-blue-600" />
-                            <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                              Ready for your response
-                            </span>
-                          </div>
-                          <p className="text-sm text-blue-700 dark:text-blue-300">
-                            Use the chat input below to provide your detailed response to continue the workflow
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Workflow Context Footer */}
-                  <div className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 border-t-0 rounded-b-xl p-3">
-                    <div className="flex items-center justify-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-                      <CheckCircle className="w-3 h-3" />
-                      <span>Once you submit your response, the workflow will continue automatically</span>
-                    </div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">Processing workflow...</p>
                   </div>
                 </div>
-              </div>
-            )}
-
-            {loading && (
-              <div className="flex justify-start mb-6">
-                <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-4 max-w-[80%] border border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center gap-2">
-                    <Bot className="w-4 h-4" />
-                    <span className="text-sm font-medium">Agent</span>
-                    <Loader2 className="w-4 h-4 animate-spin ml-2" />
-                  </div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">Processing workflow...</p>
-                </div>
-              </div>
-            )}
+              )}
           </ScrollArea>
         </div>
       </CardContent>
 
-      {/* Enhanced Free Chat Input */}
-      {allowFreeChat && (
-        <CardFooter className="border-t bg-gradient-to-r from-gray-50 to-blue-50/30 dark:from-gray-800 dark:to-blue-900/10 p-4">
-          <div className="space-y-3">
-            {/* Chat Status Indicator */}
-            <div className="flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2">
-                <div className={`flex items-center gap-1 ${
-                  isConnected 
-                    ? 'text-green-600 dark:text-green-400' 
-                    : 'text-red-600 dark:text-red-400'
-                }`}>
-                  <div className={`w-2 h-2 rounded-full ${
-                    isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'
-                  }`}></div>
-                  {isConnected ? 'Connected to workflow agents' : 'Disconnected'}
-                </div>
-                {elicitationPrompt && (
-                  <div className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
-                    <AlertCircle className="w-3 h-3" />
-                    <span>Response Mode</span>
-                  </div>
-                )}
-              </div>
-              <div className="text-gray-500 dark:text-gray-400">
-                {freeMessage.length}/500 characters
-              </div>
-            </div>
-
-            {/* Chat Input */}
-            <div className="flex w-full gap-3">
-              <div className="flex-1 relative">
-                <textarea
-                  className="w-full p-3 pr-12 border-2 border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 
-                    text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 
-                    transition-all duration-200 resize-none min-h-[44px] max-h-[120px] text-sm leading-relaxed
-                    placeholder:text-gray-400 dark:placeholder:text-gray-500"
-                  placeholder={isConnected 
-                    ? elicitationPrompt 
-                      ? "💬 Respond to the agent's question above or ask something else..." 
-                      : "Ask questions, provide feedback, or chat with the agents..."
-                    : "Connecting to workflow agents..."
-                  }
-                  value={freeMessage}
-                  onChange={(e) => setFreeMessage(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  disabled={!isConnected || loading}
-                  maxLength={500}
-                  rows={1}
-                />
-                {/* Character limit indicator */}
-                {freeMessage.length > 400 && (
-                  <div className="absolute bottom-2 right-2 text-xs text-gray-400">
-                    {500 - freeMessage.length}
-                  </div>
-                )}
-              </div>
-              
-              <button
-                onClick={handleFreeChatSubmit}
-                disabled={!freeMessage.trim() || !isConnected || loading}
-                className="px-5 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 
-                  text-white rounded-lg transition-all duration-200 disabled:from-gray-400 disabled:to-gray-500 
-                  disabled:cursor-not-allowed flex items-center gap-2 font-medium shadow-md hover:shadow-lg
-                  min-w-[100px] justify-center"
-              >
-                {loading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <>
-                    <Send className="w-4 h-4" />
-                    {elicitationPrompt ? 'Respond' : 'Send'}
-                  </>
-                )}
-              </button>
-            </div>
-
-            {/* Quick Actions */}
-            <div className="flex flex-wrap gap-2">
-              {elicitationPrompt ? (
-                /* Elicitation Response Quick Actions */
-                <>
-                  <button
-                    onClick={() => setFreeMessage("I need more details about this requirement before I can provide a comprehensive response.")}
-                    disabled={!isConnected || loading}
-                    className="px-3 py-1 text-xs bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 
-                      text-blue-700 dark:text-blue-300 rounded-full hover:bg-blue-100 dark:hover:bg-blue-900/30 
-                      transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    ❓ Need Clarification
-                  </button>
-                  <button
-                    onClick={() => setFreeMessage("Based on the project goals, here are the key requirements and user perspectives I can identify:")}
-                    disabled={!isConnected || loading}
-                    className="px-3 py-1 text-xs bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 
-                      text-blue-700 dark:text-blue-300 rounded-full hover:bg-blue-100 dark:hover:bg-blue-900/30 
-                      transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    📋 Provide Requirements
-                  </button>
-                  <button
-                    onClick={() => setFreeMessage("Let me address each perspective you mentioned:")}
-                    disabled={!isConnected || loading}
-                    className="px-3 py-1 text-xs bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 
-                      text-blue-700 dark:text-blue-300 rounded-full hover:bg-blue-100 dark:hover:bg-blue-900/30 
-                      transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    🎯 Address Points
-                  </button>
-                </>
-              ) : (
-                /* Regular Chat Quick Actions */
-                <>
-                  <button
-                    onClick={() => setFreeMessage("What's the current status of the workflow?")}
-                    disabled={!isConnected || loading}
-                    className="px-3 py-1 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 
-                      text-gray-600 dark:text-gray-400 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 
-                      transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    📊 Check Status
-                  </button>
-                  <button
-                    onClick={() => setFreeMessage("Can you explain what you're currently working on?")}
-                    disabled={!isConnected || loading}
-                    className="px-3 py-1 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 
-                      text-gray-600 dark:text-gray-400 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 
-                      transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    💬 Ask for Details
-                  </button>
-                  <button
-                    onClick={() => setFreeMessage("I have additional requirements to add.")}
-                    disabled={!isConnected || loading}
-                    className="px-3 py-1 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 
-                      text-gray-600 dark:text-gray-400 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 
-                      transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    ➕ Add Requirements
-                  </button>
-                  <button
-                    onClick={() => setFreeMessage("Can you provide a summary of what we've discussed so far?")}
-                    disabled={!isConnected || loading}
-                    className="px-3 py-1 text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 
-                      text-gray-600 dark:text-gray-400 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 
-                      transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    📝 Get Summary
-                  </button>
-                </>
-              )}
-            </div>
-
-            {/* Keyboard shortcuts hint */}
-            <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
-              Press Enter to send • Shift+Enter for new line • Use quick actions for common requests
-            </div>
-          </div>
-        </CardFooter>
-      )}
+      {/* Chat Input */}
+      <ChatInput
+        isConnected={isConnected}
+        loading={loading || waitingForAgent}
+        elicitationPrompt={elicitationPrompt}
+        onSendMessage={onSendMessage}
+        allowFreeChat={allowFreeChat}
+        waitingForAgent={waitingForAgent}
+        respondingAgent={respondingAgent}
+      />
+    </div>
 
     </Card>
   );
@@ -515,10 +414,14 @@ const WorkflowChat = memo(({
     prevProps.messages.length === nextProps.messages.length &&
     prevProps.isConnected === nextProps.isConnected &&
     prevProps.loading === nextProps.loading &&
+    prevProps.waitingForAgent === nextProps.waitingForAgent &&
+    prevProps.respondingAgent === nextProps.respondingAgent &&
     prevProps.title === nextProps.title &&
     prevProps.allowFreeChat === nextProps.allowFreeChat &&
     JSON.stringify(prevProps.elicitationPrompt) === JSON.stringify(nextProps.elicitationPrompt) &&
-    prevProps.messages === nextProps.messages // Reference equality for messages array
+    prevProps.messages === nextProps.messages && // Reference equality for messages array
+    prevProps.activeAgents === nextProps.activeAgents && // Reference equality for activeAgents array
+    prevProps.currentAgent === nextProps.currentAgent
   );
 });
 

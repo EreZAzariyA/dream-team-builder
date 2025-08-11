@@ -22,10 +22,10 @@ export async function GET(request, { params }) {
     // First check database for workflow
     let workflowDoc = null;
     try {
-      workflowDoc = await Workflow.findById(workflowInstanceId);
-    } catch {
-      // If not a valid ObjectId, try finding by workflowId field
+      // Always search by workflowId field - our standardized approach
       workflowDoc = await Workflow.findOne({ workflowId: workflowInstanceId });
+    } catch (error) {
+      logger.warn(`Workflow ${workflowInstanceId} not found:`, error.message);
     }
 
     // Get singleton BMAD orchestrator to maintain workflow state
@@ -42,6 +42,17 @@ export async function GET(request, { params }) {
     // If no workflow found in either source
     if (!workflowDoc && !bmadWorkflowState) {
       return NextResponse.json({ error: 'Workflow instance not found' }, { status: 404 });
+    }
+
+    // Load messages for this workflow
+    let messages = [];
+    try {
+      if (orchestrator && orchestrator.messageService) {
+        await orchestrator.messageService.initializeWorkflow(workflowInstanceId);
+        messages = await orchestrator.messageService.getMessages(workflowInstanceId);
+      }
+    } catch (messageError) {
+      logger.warn(`Failed to load messages for workflow ${workflowInstanceId}:`, messageError.message);
     }
 
     // Build comprehensive workflow instance response
@@ -69,10 +80,14 @@ export async function GET(request, { params }) {
         totalSteps: bmadWorkflowState?.sequence?.length || 5,
         percentage: bmadWorkflowState?.progress || 0
       },
-      communication: bmadWorkflowState?.communication || {
-        messageCount: 0,
-        timeline: [],
-        statistics: {}
+      communication: {
+        messageCount: messages.length,
+        timeline: messages,
+        statistics: {
+          totalMessages: messages.length,
+          agentMessages: messages.filter(m => m.type === 'response' || m.type === 'request').length,
+          userMessages: messages.filter(m => m.from === 'user' || m.to === 'user').length
+        }
       },
       agents: bmadWorkflowState?.agents || {},
       artifacts: bmadWorkflowState?.artifacts || [],
@@ -95,6 +110,9 @@ export async function GET(request, { params }) {
       pusherKey: process.env.NEXT_PUBLIC_PUSHER_KEY,
       cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER || 'mt1'
     };
+
+    console.log({workflowInstance});
+    
 
     return NextResponse.json(workflowInstance);
 

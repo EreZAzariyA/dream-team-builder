@@ -18,8 +18,8 @@ export async function GET(request, { params }) {
       );
     }
 
-    const artifactManager = new ArtifactManager();
-    await artifactManager.initialize();
+    const bmad = await getOrchestrator();
+    const artifactManager = bmad.artifactManager;
 
     // Get the specific artifact content
     const content = await artifactManager.getArtifactContent(workflowId, filename);

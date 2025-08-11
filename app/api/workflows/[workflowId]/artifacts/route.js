@@ -3,11 +3,23 @@
  * GET: List all artifacts for a workflow
  */
 
+import logger from '@/lib/utils/logger';
 import { NextResponse } from 'next/server';
-const { ArtifactManager } = require('../../../../../lib/bmad/ArtifactManager');
+import { getServerSession } from 'next-auth';
+import { authOptions } from '../../../../../lib/auth/config.js';
+import { getOrchestrator } from '../../../../../lib/bmad/BmadOrchestrator.js';
 
 export async function GET(request, { params }) {
   try {
+    // Check authentication first
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
     const { workflowId } = await params;
     
     if (!workflowId) {
@@ -17,8 +29,8 @@ export async function GET(request, { params }) {
       );
     }
 
-    const artifactManager = new ArtifactManager();
-    await artifactManager.initialize();
+    const bmad = await getOrchestrator();
+    const artifactManager = bmad.artifactManager;
 
     // Get artifacts for the workflow
     const artifacts = await artifactManager.getWorkflowArtifacts(workflowId);

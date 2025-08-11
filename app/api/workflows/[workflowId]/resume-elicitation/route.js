@@ -19,11 +19,33 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: 'Elicitation response is required' }, { status: 400 });
     }
 
-    logger.info('Resume elicitation request', { workflowId, agentId });
+    logger.info('Resume elicitation request', { workflowId, agentId, userId: session.user.id });
     
+    // Get orchestrator and ensure AIService is initialized for this user
+    const orchestrator = await getOrchestrator();
+    
+    // Initialize AIService with user session if not already done
+    if (orchestrator.aiService && session.user.id) {
+      try {
+        logger.info('Initializing AIService for user:', session.user.id);
+        const initResult = await orchestrator.aiService.initialize(null, session.user.id);
+        if (initResult) {
+          logger.info('✅ AIService initialized successfully for workflow execution');
+        } else {
+          logger.warn('⚠️ AIService initialization returned false - may need API keys');
+        }
+      } catch (aiError) {
+        logger.warn('AIService initialization failed:', aiError.message);
+      }
+    } else if (!orchestrator.aiService) {
+      logger.error('❌ No AIService available in orchestrator - workflow will fail');
+      return NextResponse.json(
+        { error: 'AI Service not available. Please check system configuration or provide API keys.' },
+        { status: 503 }
+      );
+    }
 
-    const orchestrator = await getOrchestrator(); // Use singleton orchestrator
-    const result = await orchestrator.resumeWorkflowWithElicitation(workflowId, elicitationResponse, agentId);
+    const result = await orchestrator.resumeWorkflowWithElicitation(workflowId, elicitationResponse, agentId, session.user.id);
 
     return NextResponse.json(result, { status: 200 });
   } catch (error) {

@@ -1,11 +1,10 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/common/Card';
-import { ArrowLeft, Loader2, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Loader2, CheckCircle, ChevronDown } from 'lucide-react';
 import Link from 'next/link';
 import { usePusherSimple } from '../../../../lib/pusher/SimplePusherClient';
 import { CHANNELS, EVENTS } from '../../../../lib/pusher/config';
@@ -19,7 +18,7 @@ const WorkflowDetailPage = () => {
   const [projectName, setProjectName] = useState('');
   const [description, setDescription] = useState('');
   const [workflowInstanceId, setWorkflowInstanceId] = useState(null);
-  const [realTimeMessages, setRealTimeMessages] = useState([]);
+  const [isDiagramCollapsed, setIsDiagramCollapsed] = useState(true);
 
   const [autoNavCountdown, setAutoNavCountdown] = useState(0);
   const { workflowId } = useParams();
@@ -84,29 +83,6 @@ const WorkflowDetailPage = () => {
     console.info('🔌 Subscribing to workflow instance:', workflowInstanceId);
     const channelName = CHANNELS.WORKFLOW(workflowInstanceId);
     const channel = pusherClient.subscribe(channelName);
-
-    // Handle incoming messages
-    channel.bind(EVENTS.AGENT_MESSAGE, (data) => {
-      console.info('🤖 Received agent message:', data);
-      setRealTimeMessages(prev => [{
-        id: data.id || `msg-${Date.now()}`,
-        from: data.agentName || data.agentId || 'Agent',
-        content: data.content,
-        timestamp: data.timestamp,
-        type: 'agent'
-      }, ...prev].slice(0, 20));
-    });
-
-    channel.bind(EVENTS.USER_MESSAGE, (data) => {
-      console.info('👤 Received user message:', data);
-      setRealTimeMessages(prev => [{
-        id: data.id || `msg-${Date.now()}`,
-        from: 'User',
-        content: data.content,
-        timestamp: data.timestamp,
-        type: 'user'
-      }, ...prev].slice(0, 20));
-    });
 
     channel.bind(EVENTS.WORKFLOW_UPDATE, (data) => {
       console.info('🔄 Workflow update:', data);
@@ -306,13 +282,31 @@ const WorkflowDetailPage = () => {
 
       <Card className="bg-white dark:bg-gray-800 shadow-md">
         <CardHeader>
-          <CardTitle>Workflow Diagram</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg overflow-x-auto">
-            <pre className="text-sm text-gray-800 dark:text-gray-200">{workflow.flow_diagram}</pre>
+          <div 
+            className="flex items-center justify-between cursor-pointer select-none"
+            onClick={() => setIsDiagramCollapsed(!isDiagramCollapsed)}
+          >
+            <CardTitle>Workflow Diagram</CardTitle>
+            <div className="flex items-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 transition-colors">
+              <ChevronDown 
+                className={`w-5 h-5 transition-transform duration-300 ease-in-out ${
+                  isDiagramCollapsed ? 'transform -rotate-90' : 'transform rotate-0'
+                }`} 
+              />
+            </div>
           </div>
-        </CardContent>
+        </CardHeader>
+        <div 
+          className={`overflow-hidden transition-all duration-300 ease-in-out ${
+            isDiagramCollapsed ? 'max-h-0 opacity-0' : 'max-h-[2000px] opacity-100'
+          }`}
+        >
+          <CardContent>
+            <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg overflow-x-auto">
+              <pre className="text-sm text-gray-800 dark:text-gray-200">{workflow.flow_diagram}</pre>
+            </div>
+          </CardContent>
+        </div>
       </Card>
 
       <div className="mt-8 flex flex-col items-end">

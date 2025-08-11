@@ -6,9 +6,10 @@ import { useParams } from 'next/navigation';
 import { Card, CardContent } from '../../../../../components/common/Card';
 import { Badge } from '../../../../../components/common/Badge';
 import WorkflowChat from '../../../../../components/workflow/WorkflowChat';
-import AgentPipeline from '../../../../../components/workflow/AgentPipeline';
 import GeneratedFiles from '../../../../../components/workflow/GeneratedFiles';
 import ProgressOverview from '../../../../../components/workflow/ProgressOverview';
+import BmadDocumentManager from '../../../../../components/workflow/BmadDocumentManager';
+import { AgentPipeline } from '../../../../../components/workflow/AgentPipeline';
 import { WorkflowErrorWrapper } from '../../../../../components/common/WorkflowErrorBoundary';
 import { WorkflowId } from '../../../../../lib/utils/workflowId';
 import { 
@@ -20,6 +21,7 @@ import {
   WifiOff} from 'lucide-react';
 import { CHANNELS, EVENTS } from '../../../../../lib/pusher/config';
 import { usePusherSimple } from '../../../../../lib/pusher/SimplePusherClient';
+import { getAgentStyle } from '../../../../../lib/utils/agentHelpers';
 
 const LiveWorkflowPage = () => {
   const [workflowInstance, setWorkflowInstance] = useState(null);
@@ -37,26 +39,15 @@ const LiveWorkflowPage = () => {
   const [elicitationPrompt, setElicitationPrompt] = useState(null);
   const [elicitationResponse, setElicitationResponse] = useState('');
   const [elicitationLoading, setElicitationLoading] = useState(false);
+  const [waitingForAgent, setWaitingForAgent] = useState(false);
+  const [respondingAgent, setRespondingAgent] = useState(null);
   const { workflowInstanceId } = useParams();
   
-  console.info({elicitationPrompt});
   
 
   // Use SimplePusherClient hook
   const { connected: pusherConnected, pusher: pusherClient, error: pusherError } = usePusherSimple();
 
-  // Agent role colors based on design system
-  const getAgentColor = (agentId) => {
-    const colors = {
-      'pm': { primary: '#8b5cf6', bg: '#f3f4f6', text: '#7c3aed' },
-      'architect': { primary: '#06b6d4', bg: '#ecfeff', text: '#0891b2' },
-      'developer': { primary: '#10b981', bg: '#ecfdf5', text: '#059669' },
-      'qa': { primary: '#f59e0b', bg: '#fffbeb', text: '#d97706' },
-      'ux-expert': { primary: '#ec4899', bg: '#fdf2f8', text: '#db2777' },
-      'data-architect': { primary: '#7c3aed', bg: '#f5f3ff', text: '#6d28d9' }
-    };
-    return colors[agentId] || { primary: '#6b7280', bg: '#f9fafb', text: '#4b5563' };
-  };
 
   // Initialize Pusher connection for real-time updates with error handling
   useEffect(() => {
@@ -68,10 +59,8 @@ const LiveWorkflowPage = () => {
       return;
     }
 
-    console.info('🔌 Initializing Pusher connection for workflow:', workflowInstanceId);
     
     const channelName = WorkflowId.toChannelName(workflowInstanceId) || CHANNELS.WORKFLOW(workflowInstanceId);
-    console.info('📺 Subscribing to channel:', channelName);
     
     try {
       const channel = pusherClient.subscribe(channelName);
@@ -82,18 +71,15 @@ const LiveWorkflowPage = () => {
       isConnected: pusherConnected,
       lastUpdate: new Date().toISOString()
     }));
-    console.info('✅ Connected to Pusher for workflow:', workflowInstanceId);
 
-    // Workflow event handlers with enhanced debugging
-    console.info('🔗 Binding to events:', Object.values(EVENTS));
-    
-    // Add a catch-all event listener for debugging
-    channel.bind_global((eventName, data) => {
-      console.info('📨 RECEIVED ANY EVENT:', eventName, data);
-    });
+    // Workflow event handlers
     
     channel.bind(EVENTS.AGENT_ACTIVATED, (data) => {
-      console.info('📨 RECEIVED AGENT_ACTIVATED:', data);
+      
+      // Set the responding agent for loading UI
+      setRespondingAgent(data.agentId);
+      setWaitingForAgent(true);
+      
       setRealTimeData(prev => ({
         ...prev,
         currentAgent: data.agentId,
@@ -114,7 +100,13 @@ const LiveWorkflowPage = () => {
     });
 
     channel.bind(EVENTS.AGENT_COMPLETED, (data) => {
-      console.info('📨 RECEIVED AGENT_COMPLETED:', data);
+      
+      // Clear waiting states when agent completes
+      if (respondingAgent === data.agentId) {
+        setWaitingForAgent(false);
+        setRespondingAgent(null);
+      }
+      
       setRealTimeData(prev => ({
         ...prev,
         lastUpdate: data.timestamp,
@@ -128,9 +120,13 @@ const LiveWorkflowPage = () => {
     });
 
     channel.bind(EVENTS.WORKFLOW_MESSAGE, (data) => {
-      console.info('💬 Workflow message:', data);
-      console.info('💬 Message content:', data.message?.content);
-      console.info('💬 Message summary:', data.message?.summary);
+      
+      // Clear waiting state when we receive a message from the responding agent
+      if (data.message?.from === respondingAgent || data.message?.agentId === respondingAgent) {
+        setWaitingForAgent(false);
+        setRespondingAgent(null);
+      }
+      
       setRealTimeData(prev => {
         // Check for duplicate messages based on ID or content + timestamp
         const messageId = data.message?.id || `workflow-msg-${data.timestamp}-${Math.random().toString(36).substr(2, 9)}`;
@@ -140,13 +136,11 @@ const LiveWorkflowPage = () => {
         );
         
         if (isDuplicate) {
-          console.info('🔄 Ignoring duplicate message:', messageId);
           return prev;
         }
         
         const messageWithId = { ...data.message, id: messageId };
         const newMessages = [...prev.messages, messageWithId].slice(-50);
-        console.info('✨ Updated messages (WORKFLOW_MESSAGE):', newMessages);
         return {
           ...prev,
           lastUpdate: data.timestamp,
@@ -156,7 +150,6 @@ const LiveWorkflowPage = () => {
     });
 
     channel.bind(EVENTS.WORKFLOW_UPDATE, (data) => {
-      console.info('🔄 Workflow update:', data);
       setRealTimeData(prev => ({ ...prev, lastUpdate: data.timestamp }));
       if (data.status) {
         setWorkflowInstance(prev => prev ? { ...prev, status: data.status } : null);
@@ -169,7 +162,6 @@ const LiveWorkflowPage = () => {
     });
 
     channel.bind(EVENTS.AGENT_COMMUNICATION, (data) => {
-      console.info('📡 Agent communication:', data);
       setRealTimeData(prev => {
         const newMessages = [...prev.messages, {
           id: data.id || `comm-${data.timestamp}-${Math.random().toString(36).substr(2, 9)}`,
@@ -178,7 +170,6 @@ const LiveWorkflowPage = () => {
           summary: data.message || 'Agent communication',
           timestamp: data.timestamp
         }].slice(-50);
-        console.info('✨ Updated messages (AGENT_COMMUNICATION):', newMessages); // ADD THIS LINE
         return {
           ...prev,
           lastUpdate: data.timestamp,
@@ -189,7 +180,8 @@ const LiveWorkflowPage = () => {
 
     // Handle agent messages
     channel.bind(EVENTS.AGENT_MESSAGE, (data) => {
-      console.info('🤖 Agent message:', data);
+      console.log({ data });
+      
       setRealTimeData(prev => {
         const newMessages = [...prev.messages, {
           id: data.id || `agent-msg-${data.timestamp}-${Math.random().toString(36).substr(2, 9)}`,
@@ -198,7 +190,6 @@ const LiveWorkflowPage = () => {
           content: data.content,
           timestamp: data.timestamp
         }].slice(-50);
-        console.info('✨ Updated messages (AGENT_MESSAGE):', newMessages); // ADD THIS LINE
         return {
           ...prev,
           lastUpdate: data.timestamp,
@@ -209,7 +200,6 @@ const LiveWorkflowPage = () => {
 
     // Handle user messages
     channel.bind(EVENTS.USER_MESSAGE, (data) => {
-      console.info('👤 User message:', data);
       setRealTimeData(prev => {
         const newMessages = [...prev.messages, {
           id: data.id || `user-msg-${data.timestamp}-${Math.random().toString(36).substr(2, 9)}`,
@@ -218,7 +208,6 @@ const LiveWorkflowPage = () => {
           content: data.content,
           timestamp: data.timestamp
         }].slice(-50);
-        console.info('✨ Updated messages (USER_MESSAGE):', newMessages); // ADD THIS LINE
         return {
           ...prev,
           lastUpdate: data.timestamp,
@@ -229,7 +218,6 @@ const LiveWorkflowPage = () => {
 
     // Cleanup function
     return () => {
-      console.info('🧹 Cleaning up Pusher connection');
       try {
         if (channel) {
           channel.unbind_all();
@@ -242,7 +230,7 @@ const LiveWorkflowPage = () => {
     } catch (error) {
       console.error('Error setting up Pusher connection:', error);
     }
-  }, [workflowInstanceId, pusherClient, pusherConnected]);
+  }, [workflowInstanceId, pusherClient, pusherConnected, respondingAgent]);
 
   // Update connection state when pusher connection changes
   useEffect(() => {
@@ -257,11 +245,9 @@ const LiveWorkflowPage = () => {
     
     // Handle reconnection - re-subscribe to channel if connection was restored
     if (pusherConnected && pusherClient && workflowInstanceId) {
-      console.info('🔄 Pusher reconnected, ensuring channel subscription...');
       const channelName = WorkflowId.toChannelName(workflowInstanceId) || CHANNELS.WORKFLOW(workflowInstanceId);
       const existingChannel = pusherClient.channel(channelName);
       if (!existingChannel) {
-        console.info('🔌 Re-subscribing to channel after reconnection:', channelName);
         // The main useEffect will handle re-subscription
       }
     }
@@ -277,24 +263,19 @@ const LiveWorkflowPage = () => {
             throw new Error('Failed to fetch workflow instance');
           }
           const text = await response.text();
-          console.info('🔍 Raw workflow response:', text);
           if (text) {
             const data = JSON.parse(text);
             setWorkflowInstance(data);
             
             // If the workflow is already paused, show the elicitation prompt
             if (data.status === 'PAUSED_FOR_ELICITATION' && data.elicitationDetails) {
-              console.info('🔍 [ELICITATION] Setting elicitation prompt from API:', data.elicitationDetails);
               setElicitationPrompt(data.elicitationDetails);
-            } else if (data.status === 'PAUSED_FOR_ELICITATION') {
-              console.info('⚠️ [ELICITATION] Workflow paused but no elicitationDetails found:', { status: data.status, elicitationDetails: data.elicitationDetails });
             }
 
             // Initialize real-time data with workflow agents
             const defaultAgents = ['pm', 'architect', 'ux-expert', 'developer', 'qa'];
             const workflowAgents = (data.workflow?.agents && data.workflow.agents.length > 0) ? 
               data.workflow.agents : defaultAgents;
-            console.info('🔍 Workflow agents data:', { workflowAgents, defaultAgents, workflow: data.workflow });
             
             const mappedAgents = workflowAgents.map((agent, index) => {
               // Handle both object and string agent formats
@@ -320,8 +301,6 @@ const LiveWorkflowPage = () => {
                 order: index + 1
               };
             });
-            
-            console.info('🔍 Mapped agents:', mappedAgents);
             
             setRealTimeData(prev => ({
               ...prev,
@@ -353,14 +332,15 @@ const LiveWorkflowPage = () => {
       const response = await fetch(`/api/workflows/${workflowInstanceId}/artifacts`);
       if (response.ok) {
         const text = await response.text();
-        console.info('🔍 Raw artifacts response:', text);
         if (text) {
           const data = JSON.parse(text);
           setArtifacts(data.artifacts || []);
-          console.info('✅ Artifacts loaded:', data.artifacts?.length || 0);
         } else {
           console.warn('⚠️ Empty artifacts response');
         }
+      } else if (response.status === 401) {
+        console.warn('❌ Authentication failed for artifacts - stopping polling');
+        return 'auth_failed';
       }
     } catch (error) {
       console.error('❌ Error fetching artifacts:', error);
@@ -373,7 +353,13 @@ const LiveWorkflowPage = () => {
   useEffect(() => {
     fetchArtifacts(); // Initial load
     
-    const interval = setInterval(fetchArtifacts, 10000); // Refresh every 10 seconds
+    const interval = setInterval(async () => {
+      const result = await fetchArtifacts();
+      if (result === 'auth_failed') {
+        console.warn('Stopping artifacts polling due to authentication failure');
+        clearInterval(interval);
+      }
+    }, 20000); // Refresh every 10 seconds
     return () => clearInterval(interval);
   }, [fetchArtifacts]);
 
@@ -382,7 +368,6 @@ const LiveWorkflowPage = () => {
       const response = await fetch(`/api/test-pusher?workflowId=${workflowInstanceId}`);
       if (response.ok) {
         const result = await response.json();
-        console.info('✅ Demo events triggered successfully:', result);
       }
     } catch (error) {
       console.error('Failed to trigger demo events:', error);
@@ -423,18 +408,44 @@ const LiveWorkflowPage = () => {
     if (!message.trim()) return;
 
     try {
+      // Add user message immediately to show it in chat
+      const userMessage = {
+        id: `user-msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        from: 'User',
+        content: message.trim(),
+        timestamp: new Date().toISOString(),
+        type: 'user_message'
+      };
+      
+      setRealTimeData(prev => ({
+        ...prev,
+        messages: [...prev.messages, userMessage].slice(-50)
+      }));
+
       // If there's an active elicitation prompt, treat this as an elicitation response
       if (elicitationPrompt) {
         setElicitationLoading(true);
+        setWaitingForAgent(true);
+        setRespondingAgent(elicitationPrompt.agentId);
         setElicitationResponse(message); // Set the message as the response
         
+        // const selectedNumber = parseInt(message.trim());
+        // if (isNaN(selectedNumber) || selectedNumber < 1 || (elicitationPrompt.options && selectedNumber > elicitationPrompt.options.length)) {
+        //     console.error("Invalid elicitation response: Please enter a number corresponding to an option.");
+        //     // Optionally, display an error message to the user in the UI
+        //     setElicitationLoading(false);
+        //     setWaitingForAgent(false);
+        //     setRespondingAgent(null);
+        //     return; // Stop processing if input is invalid
+        // }
+
         const response = await fetch(`/api/workflows/${workflowInstanceId}/resume-elicitation`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ 
-            elicitationResponse: message.trim(),
+            elicitationResponse: message, // Send the number
             agentId: elicitationPrompt?.agentId
           }),
         });
@@ -443,40 +454,58 @@ const LiveWorkflowPage = () => {
           throw new Error('Failed to submit elicitation response');
         }
 
-        // Add user message to chat immediately for better UX
-        setRealTimeData(prev => ({
-          ...prev,
-          messages: [...prev.messages, {
-            id: `elicit-response-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            from: 'User',
-            content: message,
-            timestamp: new Date(),
-            type: 'elicitation_response'
-          }]
-        }));
-
         setElicitationResponse('');
         setElicitationPrompt(null);
         setElicitationLoading(false);
+        // Note: waitingForAgent and respondingAgent will be cleared by AGENT_ACTIVATED/AGENT_COMPLETED events
       } else {
-        // Regular free chat message - for now just add to local state
-        // TODO: Implement backend API for free chat messages
-        setRealTimeData(prev => ({
-          ...prev,
-          messages: [...prev.messages, {
-            id: `free-chat-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            from: 'User',
-            content: message,
-            timestamp: new Date(),
-            type: 'user_message'
-          }]
-        }));
-        
-        console.info('📨 Free chat message sent:', message);
+        // Regular free chat message - Use new chat API
+        try {
+          const response = await fetch(`/api/workflows/${workflowInstanceId}/chat`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              message: message.trim(),
+              targetAgent: realTimeData.currentAgent // Send to current workflow agent
+            }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to send chat message');
+          }
+
+          const result = await response.json();
+          
+          // Messages will be delivered via real-time Pusher events
+          // The API handles both user message and agent response
+          logger.info('✅ [FREE CHAT] Chat message sent successfully:', result);
+          
+        } catch (chatError) {
+          console.error('Error sending free chat message:', chatError);
+          
+          // Add error message to chat
+          const errorMessage = {
+            id: `error-msg-${Date.now()}`,
+            from: 'System',
+            content: `❌ Failed to send message: ${chatError.message}`,
+            timestamp: new Date().toISOString(),
+            type: 'error'
+          };
+          
+          setRealTimeData(prev => ({
+            ...prev,
+            messages: [...prev.messages, errorMessage].slice(-50)
+          }));
+        }
       }
     } catch (error) {
       console.error('Error sending message:', error);
       setElicitationLoading(false);
+      setWaitingForAgent(false);
+      setRespondingAgent(null);
     }
   };
 
@@ -527,7 +556,6 @@ const LiveWorkflowPage = () => {
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
-        console.info('✅ File downloaded:', filename);
       } else {
         console.error('Failed to download file:', filename);
       }
@@ -549,7 +577,6 @@ const LiveWorkflowPage = () => {
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
-        console.info('✅ All files downloaded as zip');
       } else {
         console.error('Failed to download zip file');
       }
@@ -644,19 +671,19 @@ const LiveWorkflowPage = () => {
         </button>
       </div>
 
+      {/* BMAD Agent Pipeline */}
+      <AgentPipeline 
+        agents={realTimeData.agents}
+        title="BMAD Agent Pipeline"
+        formatTimestamp={formatTimestamp}
+        currentWorkflowStep={workflowInstance.progress?.currentStep}
+        totalWorkflowSteps={workflowInstance.progress?.totalSteps}
+      />
+
       {/* Progress Overview */}
       <ProgressOverview 
         progress={realTimeData.progress}
         agents={realTimeData.agents}
-      />
-
-      
-
-      {/* Agent Pipeline - Horizontal at top */}
-      <AgentPipeline 
-        agents={realTimeData.agents}
-        getAgentColor={getAgentColor}
-        formatTimestamp={formatTimestamp}
       />
 
       {/* Live Communication Feed */}
@@ -664,7 +691,9 @@ const LiveWorkflowPage = () => {
         messages={realTimeData.messages}
         isConnected={realTimeData.isConnected}
         onSendMessage={handleSendMessage}
-        loading={false}
+        loading={elicitationLoading}
+        waitingForAgent={waitingForAgent}
+        respondingAgent={respondingAgent}
         title="Live Communication"
         elicitationPrompt={elicitationPrompt}
         elicitationResponse={elicitationResponse}
@@ -672,6 +701,21 @@ const LiveWorkflowPage = () => {
         onElicitationSubmit={handleElicitationSubmit}
         elicitationLoading={elicitationLoading}
         workflowInstance={workflowInstance}
+        activeAgents={realTimeData.agents}
+        currentAgent={realTimeData.currentAgent}
+      />
+
+      {/* BMAD Document Manager */}
+      <BmadDocumentManager 
+        workflowId={workflowInstanceId}
+        artifacts={artifacts}
+        loading={loadingArtifacts}
+        onRefresh={fetchArtifacts}
+        onDownload={downloadFile}
+        onView={(filename) => {
+          // TODO: Implement document viewer
+          console.log('View document:', filename);
+        }}
       />
 
       {/* Generated Files Section */}

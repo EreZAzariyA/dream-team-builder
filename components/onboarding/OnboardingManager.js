@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import OnboardingWelcomeModal from './OnboardingWelcomeModal.js';
 import OnboardingTour from './OnboardingTour.js';
-import WorkflowLauncherModal from './WorkflowLauncherModal.js';
+import ProjectSetupWizard from './ProjectSetupWizard.js';
 
 export default function OnboardingManager({ children }) {
   const { data: session } = useSession();
@@ -14,9 +14,10 @@ export default function OnboardingManager({ children }) {
   const [onboardingState, setOnboardingState] = useState({
     showWelcome: false,
     showTour: false,
-    showWorkflowLauncher: false,
+    showProjectSetup: false,
     hasSeenOnboarding: false,
-    isFirstTimeUser: false
+    isFirstTimeUser: false,
+    selectedTemplate: null
   });
 
   // Check if user has seen onboarding before
@@ -58,17 +59,18 @@ export default function OnboardingManager({ children }) {
   const handleQuickStart = () => {
     setOnboardingState(prev => ({
       ...prev,
-      showWelcome: false,
-      showWorkflowLauncher: true
+      showWelcome: false
     }));
+    markOnboardingAsSeen();
+    // Navigate directly to workflows page for instant template selection
+    router.push('/workflows');
   };
 
   const handleSkipOnboarding = () => {
     setOnboardingState(prev => ({
       ...prev,
       showWelcome: false,
-      showTour: false,
-      showWorkflowLauncher: false
+      showTour: false
     }));
     markOnboardingAsSeen();
   };
@@ -77,9 +79,11 @@ export default function OnboardingManager({ children }) {
   const handleTourComplete = () => {
     setOnboardingState(prev => ({
       ...prev,
-      showTour: false,
-      showWorkflowLauncher: true
+      showTour: false
     }));
+    markOnboardingAsSeen();
+    // Navigate directly to workflows page for instant template selection
+    router.push('/workflows');
   };
 
   const handleTourSkip = () => {
@@ -90,36 +94,35 @@ export default function OnboardingManager({ children }) {
     markOnboardingAsSeen();
   };
 
-  // Handle workflow launcher actions
-  const handleSelectTemplate = (template) => {
-    logger.info('Selected template:', template);
+
+  // Handle project setup wizard
+  const handleProjectSetupComplete = (projectData) => {
+    console.log('Project setup completed:', projectData);
     setOnboardingState(prev => ({
       ...prev,
-      showWorkflowLauncher: false
+      showProjectSetup: false,
+      selectedTemplate: null
     }));
     markOnboardingAsSeen();
     
-    // Navigate to chat interface with template pre-selected
-    router.push(`/chat?template=${template.id}`);
-  };
-
-  const handleStartFromScratch = () => {
-    setOnboardingState(prev => ({
-      ...prev,
-      showWorkflowLauncher: false
-    }));
-    markOnboardingAsSeen();
+    // Navigate to workflows with comprehensive project data
+    const queryParams = new URLSearchParams({
+      template: projectData.template.id,
+      name: encodeURIComponent(projectData.projectName),
+      description: encodeURIComponent(projectData.compiledDescription),
+      projectType: projectData.projectType || '',
+      timeline: projectData.timeline || ''
+    });
     
-    // Navigate to chat interface
-    router.push('/chat');
+    router.push(`/workflows?autolaunch=true&${queryParams.toString()}`);
   };
 
-  const handleCloseWorkflowLauncher = () => {
+  const handleProjectSetupClose = () => {
     setOnboardingState(prev => ({
       ...prev,
-      showWorkflowLauncher: false
+      showProjectSetup: false,
+      selectedTemplate: null
     }));
-    markOnboardingAsSeen();
   };
 
   
@@ -146,13 +149,14 @@ export default function OnboardingManager({ children }) {
         />
       )}
 
-      {/* Workflow Launcher Modal */}
-      {onboardingState.showWorkflowLauncher && (
-        <WorkflowLauncherModal
-          isOpen={onboardingState.showWorkflowLauncher}
-          onClose={handleCloseWorkflowLauncher}
-          onSelectTemplate={handleSelectTemplate}
-          onStartFromScratch={handleStartFromScratch}
+
+      {/* Project Setup Wizard */}
+      {onboardingState.showProjectSetup && (
+        <ProjectSetupWizard
+          isOpen={onboardingState.showProjectSetup}
+          onClose={handleProjectSetupClose}
+          onComplete={handleProjectSetupComplete}
+          selectedTemplate={onboardingState.selectedTemplate}
         />
       )}
     </>
@@ -172,15 +176,15 @@ export function useOnboarding() {
     window.dispatchEvent(new CustomEvent('showOnboardingTour'));
   };
   
-  const showWorkflowLauncher = () => {
-    // Trigger workflow launcher
-    window.dispatchEvent(new CustomEvent('showWorkflowLauncher'));
+  const showWorkflows = () => {
+    // Navigate directly to workflows page for instant template selection
+    window.location.href = '/workflows';
   };
 
   return {
     showWelcome,
     showTour,
-    showWorkflowLauncher
+    showWorkflows
   };
 }
 
@@ -190,7 +194,7 @@ export function OnboardingManagerWithEvents({ children }) {
   const [onboardingState, setOnboardingState] = useState({
     showWelcome: false,
     showTour: false,
-    showWorkflowLauncher: false
+    showWorkflows: false
   });
 
 
@@ -204,46 +208,46 @@ export function OnboardingManagerWithEvents({ children }) {
     };
     
     const handleShowWorkflowLauncher = () => {
-      setOnboardingState(prev => ({ ...prev, showWorkflowLauncher: true }));
+      setOnboardingState(prev => ({ ...prev, showWorkflows: true }));
     };
 
     window.addEventListener('showOnboardingWelcome', handleShowWelcome);
     window.addEventListener('showOnboardingTour', handleShowTour);
-    window.addEventListener('showWorkflowLauncher', handleShowWorkflowLauncher);
+    window.addEventListener('showWorkflows', handleShowWorkflowLauncher);
 
     return () => {
       window.removeEventListener('showOnboardingWelcome', handleShowWelcome);
       window.removeEventListener('showOnboardingTour', handleShowTour);
-      window.removeEventListener('showWorkflowLauncher', handleShowWorkflowLauncher);
+      window.removeEventListener('showWorkflows', handleShowWorkflowLauncher);
     };
   }, []);
 
   // Handle workflow launcher actions
-  const handleSelectTemplate = (template) => {
-    logger.info('Selected template:', template);
+  const handleSelectTemplate = (template, workflowName, projectDescription) => {
+    console.log('Selected BMAD template:', { template, workflowName, projectDescription });
     setOnboardingState(prev => ({
       ...prev,
-      showWorkflowLauncher: false
+      showWorkflows: false
     }));
     
-    // Navigate to chat interface with template pre-selected
-    router.push(`/chat?template=${template.id}`);
+    // Navigate to workflows page with template pre-selection  
+    router.push(`/workflows?autolaunch=true&template=${template.id}&name=${encodeURIComponent(workflowName)}&description=${encodeURIComponent(projectDescription)}`);
   };
 
   const handleStartFromScratch = () => {
     setOnboardingState(prev => ({
       ...prev,
-      showWorkflowLauncher: false
+      showWorkflows: false
     }));
     
-    // Navigate to chat interface
-    router.push('/chat');
+    // Navigate to workflows page for custom BMAD workflow
+    router.push('/workflows?mode=custom');
   };
 
   const handleCloseWorkflowLauncher = () => {
     setOnboardingState(prev => ({
       ...prev,
-      showWorkflowLauncher: false
+      showWorkflows: false
     }));
   };
 
@@ -251,15 +255,6 @@ export function OnboardingManagerWithEvents({ children }) {
     <>
       {children}
       
-      {/* Workflow Launcher Modal */}
-      {onboardingState.showWorkflowLauncher && (
-        <WorkflowLauncherModal
-          isOpen={onboardingState.showWorkflowLauncher}
-          onClose={handleCloseWorkflowLauncher}
-          onSelectTemplate={handleSelectTemplate}
-          onStartFromScratch={handleStartFromScratch}
-        />
-      )}
     </>
   );
 }

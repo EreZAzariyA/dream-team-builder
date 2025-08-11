@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { pusherServer } from '../../../lib/pusher/config.js';
+import logger from '@/lib/utils/logger.js';
 
 export async function GET(request) {
   try {

@@ -6,41 +6,62 @@ export default function OnboardingTour({ isActive, onComplete, onSkip }) {
   const [currentStep, setCurrentStep] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
 
-  const tourSteps = [
+  const bmadTourSteps = [
     {
-      id: 'dashboard-overview',
-      title: '🏠 Your Mission Control Center',
-      content: 'This is your dashboard - your central hub for managing AI workflows, monitoring system health, and accessing all Dream Team features.',
+      id: 'bmad-overview',
+      title: '🎯 Welcome to BMAD Method',
+      content: 'BMAD (Breakthrough Method for Agile AI-Driven Development) follows a proven two-phase approach: Strategic Planning in Web UI, then Implementation in your IDE.',
       target: '.dashboard-main',
-      position: 'bottom'
+      position: 'bottom',
+      phase: 'Introduction'
     },
     {
-      id: 'bmad-chat',
-      title: '💬 Where the Magic Happens',
-      content: 'The BMAD chat interface is where you interact with AI agents. Simply describe your project and watch specialized agents collaborate to build it.',
-      target: '.chat-interface, .workflow-initiator',
-      position: 'left'
-    },
-    {
-      id: 'workflow-templates',
-      title: '📋 Pre-built Workflows',
-      content: 'Access proven workflow templates for common tasks like full-stack development, API documentation, and code reviews.',
+      id: 'phase-1-planning',
+      title: '📋 Phase 1: Strategic Planning',
+      content: 'Start here in the Web UI to work with Analyst, PM, and Architect agents. Create your Project Brief, PRD, and Architecture documents before any coding begins.',
       target: '.workflow-templates, .quick-start-guide',
-      position: 'top'
+      position: 'top',
+      phase: 'Planning'
     },
     {
-      id: 'real-time-monitoring',
-      title: '📊 Watch Your Agents Work',
-      content: 'Monitor your workflows in real-time, see which agents are active, and track progress as documents and code are generated.',
+      id: 'project-description',
+      title: '📝 Describe Your Project',
+      content: 'BMAD requires project descriptions before workflow execution. The Analyst agent will help you define scope, requirements, and technical constraints.',
+      target: '.chat-interface, .workflow-initiator',
+      position: 'left',
+      phase: 'Planning'
+    },
+    {
+      id: 'agent-collaboration',
+      title: '🤝 Multi-Agent Workflow',
+      content: 'Watch as specialized agents collaborate: Analyst → PM → Architect → PO. Each agent builds on the previous work, ensuring comprehensive planning.',
       target: '.monitoring-link, .system-health',
-      position: 'right'
+      position: 'right',
+      phase: 'Planning'
     },
     {
-      id: 'integrations-hub',
-      title: '🔗 Connect Your Tools',
-      content: 'Integrate with GitHub, Slack, JIRA, and other tools to automatically share workflow results and keep your team in sync.',
+      id: 'document-validation',
+      title: '✅ Document Validation',
+      content: 'The PO (Product Owner) agent validates all planning documents for completeness and integration safety before moving to development phase.',
+      target: '.workflow-progress',
+      position: 'bottom',
+      phase: 'Planning'
+    },
+    {
+      id: 'phase-2-development',
+      title: '⚒️ Phase 2: IDE Development',
+      content: 'After planning is complete, you\'ll move to your IDE (like Cursor) where SM, Dev, and QA agents handle story creation, coding, and quality assurance.',
       target: '.integrations-link',
-      position: 'bottom'
+      position: 'bottom',
+      phase: 'Development'
+    },
+    {
+      id: 'structured-approach',
+      title: '🏗️ Why This Structure Works',
+      content: 'BMAD\'s two-phase approach prevents common issues: incomplete requirements, technical debt, and scope creep. Plan thoroughly, then execute with confidence.',
+      target: '.dashboard-main',
+      position: 'center',
+      phase: 'Methodology'
     }
   ];
 
@@ -83,6 +104,7 @@ export default function OnboardingTour({ isActive, onComplete, onSkip }) {
     setTimeout(onSkip, 300);
   };
 
+  const tourSteps = bmadTourSteps; // Use BMAD tour steps
   const currentStepData = tourSteps[currentStep];
 
   if (!isActive || !isVisible) return null;
@@ -140,6 +162,11 @@ export default function OnboardingTour({ isActive, onComplete, onSkip }) {
 
         {/* Step Content */}
         <div className="mb-6">
+          {/* Phase indicator */}
+          <div className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium mb-3 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+            {currentStepData.phase} Phase
+          </div>
+          
           <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">
             {currentStepData.title}
           </h3>
@@ -189,13 +216,15 @@ export default function OnboardingTour({ isActive, onComplete, onSkip }) {
         <div className="flex items-start space-x-2">
           <div className="text-blue-600 dark:text-blue-400">💡</div>
           <div>
-            <h4 className="font-medium text-blue-900 dark:text-blue-100 text-sm">Pro Tip</h4>
+            <h4 className="font-medium text-blue-900 dark:text-blue-100 text-sm">BMAD Tip</h4>
             <p className="text-blue-700 dark:text-blue-300 text-xs mt-1">
-              {currentStep === 0 && "You can always return to this dashboard from anywhere in the app"}
-              {currentStep === 1 && "Try starting with 'Create a full-stack application' to see all agents in action"}
-              {currentStep === 2 && "Workflow templates save time and ensure best practices"}
-              {currentStep === 3 && "Real-time monitoring helps you understand what each agent is doing"}
-              {currentStep === 4 && "Integrations keep your team automatically updated on progress"}
+              {currentStep === 0 && "BMAD prevents 80% of common development issues through structured planning"}
+              {currentStep === 1 && "Never skip to coding - proper planning saves weeks of rework"}
+              {currentStep === 2 && "Always provide detailed project context for better agent collaboration"}
+              {currentStep === 3 && "Each agent builds on previous work - watch the handoff messages"}
+              {currentStep === 4 && "PO validation catches integration issues before development starts"}
+              {currentStep === 5 && "IDE phase uses your planning documents to generate precise stories"}
+              {currentStep === 6 && "This methodology scales from solo projects to enterprise teams"}
             </p>
           </div>
         </div>

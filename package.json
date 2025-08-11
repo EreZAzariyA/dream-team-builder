@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "rm -rf .next && next build",
+    "build": "next build",
     "build:vercel": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -21,6 +21,7 @@
   "dependencies": {
     "@auth/mongodb-adapter": "^3.10.0",
     "@google/generative-ai": "^0.24.1",
+    "@heroicons/react": "^2.2.0",
     "@logtail/node": "^0.5.5",
     "@logtail/winston": "^0.5.5",
     "@reduxjs/toolkit": "^2.8.2",
@@ -43,6 +44,7 @@
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.534.0",
     "markdown-it": "^14.1.0",
+    "marked": "^16.1.2",
     "mongodb": "^6.18.0",
     "mongodb-client-encryption": "^6.4.0",
     "mongoose": "^8.16.5",

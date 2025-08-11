@@ -40,7 +40,7 @@ export async function POST(request) {
       
       return NextResponse.json({
         success: true,
-        message: hasKeys ? 'AI service reinitialized with user API keys' : 'AI service reset to environment keys',
+        message: hasKeys ? 'AI service reinitialized with user API keys' : 'AI service reset to limited mode (no API keys)',
         healthStatus
       });
     } else {

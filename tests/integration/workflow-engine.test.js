@@ -1,229 +1,140 @@
 /**
- * Workflow Engine Integration Tests (Mocked for Performance)
+ * Workflow Engine Integration Tests
  * 
- * Tests the WorkflowEngine functionality including:
- * - Workflow lifecycle management
- * - Agent execution orchestration
- * - State transitions and persistence
- * - Artifact management
- * - Analytics logging
+ * Tests the WorkflowEngine class with mocked dependencies to ensure it correctly
+ * orchestrates the workflow lifecycle and agent execution.
  */
 
-// Mock the WorkflowEngine and dependencies for fast testing
-jest.mock('../../lib/bmad/WorkflowEngine', () => {
-  return jest.fn().mockImplementation(() => ({
-    initialize: jest.fn().mockResolvedValue(true),
-    startWorkflow: jest.fn().mockImplementation(async (config) => ({
-      workflowId: 'mock-workflow-' + Date.now(),
-      status: 'RUNNING'
-    })),
-    getWorkflowStatus: jest.fn().mockImplementation((workflowId) => ({
-      id: workflowId,
-      status: 'RUNNING',
-      sequence: [{ agentId: 'test-pm', name: 'Project Manager' }],
-      startTime: new Date().toISOString(),
-      currentStep: 0,
-      totalSteps: 1
-    })),
-    getActiveWorkflows: jest.fn().mockReturnValue([]),
-    cancelWorkflow: jest.fn().mockResolvedValue({ success: true }),
-    pauseWorkflow: jest.fn().mockResolvedValue({ success: true }),
-    resumeWorkflow: jest.fn().mockResolvedValue({ success: true }),
-    getWorkflowArtifacts: jest.fn().mockResolvedValue([
-      {
-        type: 'DOCUMENT',
-        name: 'test-requirements.md',
-        content: '# Test Requirements\n\nTest content...',
-        agentId: 'test-pm'
-      }
-    ]),
-    getExecutionHistory: jest.fn().mockResolvedValue([
-      {
-        workflowId: 'test-workflow',
-        completedAgents: 2,
-        status: 'COMPLETED'
-      }
-    ])
-  }))
-})
+// Mock dependencies of WorkflowEngine
+jest.mock('../../lib/bmad/AgentLoader.js');
+jest.mock('../../lib/bmad/AgentCommunicator.js');
+jest.mock('../../lib/bmad/AgentExecutor.js');
+jest.mock('../../lib/bmad/MockAgentExecutor.js');
+jest.mock('../../lib/bmad/ArtifactManager.js');
+jest.mock('../../lib/bmad/WorkflowParser.js');
+jest.mock('../../lib/bmad/engine/DynamicWorkflowHandler.js');
+jest.mock('../../lib/bmad/engine/CheckpointManager.js');
 
-jest.mock('../../lib/bmad/AgentCommunicator', () => {
-  return jest.fn().mockImplementation(() => ({
-    initialize: jest.fn().mockResolvedValue(true),
-    sendMessage: jest.fn().mockResolvedValue(true),
-    getMessageHistory: jest.fn().mockReturnValue([]),
-    on: jest.fn()
-  }))
-})
+// Mock the DatabaseService to control its behavior
+jest.mock('../../lib/bmad/engine/DatabaseService.js', () => ({
+  DatabaseService: jest.fn().mockImplementation(() => ({
+    rehydrateState: jest.fn().mockResolvedValue([]),
+  })),
+}));
 
-const WorkflowEngine = require('../../lib/bmad/WorkflowEngine')
-const AgentCommunicator = require('../../lib/bmad/AgentCommunicator')
+// Mock the service modules and their prototype methods
+jest.mock('../../lib/bmad/services/WorkflowLifecycleManager.js', () => {
+  const mockInstance = {
+    startWorkflow: jest.fn(),
+    completeWorkflow: jest.fn(),
+    pauseWorkflow: jest.fn(),
+    resumeWorkflow: jest.fn(),
+    cancelWorkflow: jest.fn(),
+  };
+  return {
+    WorkflowLifecycleManager: jest.fn(() => mockInstance),
+  };
+});
+jest.mock('../../lib/bmad/services/WorkflowStepExecutor.js', () => {
+  const mockInstance = {
+    executeNextStep: jest.fn(),
+    executeAgent: jest.fn(),
+    handleAgentCompletion: jest.fn(),
+    handleCriticalFailure: jest.fn(),
+  };
+  return {
+    WorkflowStepExecutor: jest.fn(() => mockInstance),
+  };
+});
+jest.mock('../../lib/bmad/services/WorkflowStateManager.js', () => {
+  const mockInstance = {
+    getWorkflowStatus: jest.fn(),
+    getActiveWorkflows: jest.fn(),
+    getExecutionHistory: jest.fn(),
+    getWorkflowArtifacts: jest.fn(),
+    getWorkflowCheckpoints: jest.fn(),
+    resumeFromRollback: jest.fn(),
+    resumeWorkflowWithElicitation: jest.fn(),
+  };
+  return {
+    WorkflowStateManager: jest.fn(() => mockInstance),
+  };
+});
+
+const { WorkflowEngine } = require('../../lib/bmad/WorkflowEngine.js');
+const { WorkflowLifecycleManager } = require('../../lib/bmad/services/WorkflowLifecycleManager.js');
+const { WorkflowStepExecutor } = require('../../lib/bmad/services/WorkflowStepExecutor.js');
+const { WorkflowStateManager } = require('../../lib/bmad/services/WorkflowStateManager.js');
 
 describe('Workflow Engine Integration', () => {
-  let workflowEngine
-  let agentCommunicator
-  
-  beforeEach(async () => {
-    // Initialize mocked components
-    agentCommunicator = new AgentCommunicator()
-    workflowEngine = new WorkflowEngine(agentCommunicator)
-    
-    // Initialize
-    await workflowEngine.initialize()
-  })
-  
-  afterEach(async () => {
-    // Cleanup mocked workflows
-    if (workflowEngine && workflowEngine.getActiveWorkflows) {
-      const activeWorkflows = workflowEngine.getActiveWorkflows()
-      for (const workflow of activeWorkflows) {
-        await workflowEngine.cancelWorkflow(workflow.id)
-      }
-    }
-  })
+  let workflowEngine;
+
+  beforeEach(() => {
+    // Clear all mocks before each test
+    jest.clearAllMocks();
+
+    // Instantiate the real WorkflowEngine
+    workflowEngine = new WorkflowEngine();
+  });
+
+  describe('Initialization', () => {
+    test('should initialize successfully and load agents', async () => {
+      await workflowEngine.initialize();
+      expect(workflowEngine.agentLoader.loadAllAgents).toHaveBeenCalledTimes(1);
+      expect(workflowEngine.artifactManager.initialize).toHaveBeenCalledTimes(1);
+    });
+  });
 
   describe('Workflow Lifecycle', () => {
-    test('should create and start workflow', async () => {
-      const config = {
-        userPrompt: 'Create a test application',
-        sequence: [{ agentId: 'test-pm', name: 'Project Manager' }],
-        name: 'Test Workflow',
-        userId: 'test-user-id'
-      }
-      
-      const result = await workflowEngine.startWorkflow(config)
-      
-      expect(result).toBeDefined()
-      expect(result.workflowId).toBeDefined()
-      expect(result.status).toBe('RUNNING')
-      
-      // Verify workflow is tracked
-      const status = workflowEngine.getWorkflowStatus(result.workflowId)
-      expect(status.status).toBe('RUNNING')
-      expect(status.sequence).toBeDefined()
-    })
+    test('should delegate startWorkflow to WorkflowLifecycleManager', async () => {
+      const config = { userPrompt: 'Test prompt' };
+      await workflowEngine.startWorkflow(config);
+      expect(workflowEngine.lifecycleManager.startWorkflow).toHaveBeenCalledWith(config);
+    });
 
-    test('should track workflow progress', async () => {
-      const config = {
-        userPrompt: 'Test workflow progress',
-        sequence: [{ agentId: 'test-pm', name: 'Project Manager' }],
-        userId: 'test-user-id'
-      }
-      
-      const { workflowId } = await workflowEngine.startWorkflow(config)
-      const status = workflowEngine.getWorkflowStatus(workflowId)
-      
-      expect(status.currentStep).toBeDefined()
-      expect(status.totalSteps).toBeDefined()
-      expect(status.startTime).toBeDefined()
-    })
+    test('should delegate pauseWorkflow to WorkflowLifecycleManager', async () => {
+      const workflowId = 'workflow-123';
+      await workflowEngine.pauseWorkflow(workflowId);
+      expect(workflowEngine.lifecycleManager.pauseWorkflow).toHaveBeenCalledWith(workflowId);
+    });
 
-    test('should handle workflow completion', async () => {
-      // Mock completion status
-      workflowEngine.getWorkflowStatus.mockReturnValueOnce({
-        id: 'completed-workflow',
-        status: 'COMPLETED',
-        completedAt: new Date().toISOString(),
-        duration: 1000
-      })
-      
-      const status = workflowEngine.getWorkflowStatus('completed-workflow')
-      expect(status.status).toBe('COMPLETED')
-      expect(status.completedAt).toBeDefined()
-      expect(status.duration).toBeGreaterThan(0)
-    })
-  })
+    test('should delegate resumeWorkflow to WorkflowLifecycleManager', async () => {
+      const workflowId = 'workflow-123';
+      await workflowEngine.resumeWorkflow(workflowId);
+      expect(workflowEngine.lifecycleManager.resumeWorkflow).toHaveBeenCalledWith(workflowId);
+    });
 
-  describe('Workflow Control', () => {
-    test('should pause workflow execution', async () => {
-      const config = { userPrompt: 'Pause test', userId: 'test-user' }
-      const { workflowId } = await workflowEngine.startWorkflow(config)
-      
-      const result = await workflowEngine.pauseWorkflow(workflowId)
-      expect(result.success).toBe(true)
-    })
+    test('should delegate cancelWorkflow to WorkflowLifecycleManager', async () => {
+      const workflowId = 'workflow-123';
+      await workflowEngine.cancelWorkflow(workflowId);
+      expect(workflowEngine.lifecycleManager.cancelWorkflow).toHaveBeenCalledWith(workflowId);
+    });
+  });
 
-    test('should resume paused workflow', async () => {
-      const config = { userPrompt: 'Resume test', userId: 'test-user' }
-      const { workflowId } = await workflowEngine.startWorkflow(config)
-      
-      await workflowEngine.pauseWorkflow(workflowId)
-      const result = await workflowEngine.resumeWorkflow(workflowId)
-      
-      expect(result.success).toBe(true)
-    })
+  describe('Step Execution', () => {
+    test('should delegate executeNextStep to WorkflowStepExecutor', async () => {
+      const workflowId = 'workflow-123';
+      await workflowEngine.executeNextStep(workflowId);
+      expect(workflowEngine.stepExecutor.executeNextStep).toHaveBeenCalledWith(workflowId);
+    });
+  });
 
-    test('should cancel workflow execution', async () => {
-      const config = { userPrompt: 'Cancel test', userId: 'test-user' }
-      const { workflowId } = await workflowEngine.startWorkflow(config)
-      
-      const result = await workflowEngine.cancelWorkflow(workflowId)
-      expect(result.success).toBe(true)
-    })
-  })
+  describe('State Management', () => {
+    test('should delegate getWorkflowStatus to WorkflowStateManager', async () => {
+      const workflowId = 'workflow-123';
+      await workflowEngine.getWorkflowStatus(workflowId);
+      expect(workflowEngine.stateManager.getWorkflowStatus).toHaveBeenCalledWith(workflowId);
+    });
 
-  describe('Artifact Management', () => {
-    test('should collect and store artifacts', async () => {
-      const config = { userPrompt: 'Artifact test', userId: 'test-user' }
-      const { workflowId } = await workflowEngine.startWorkflow(config)
-      
-      const artifacts = await workflowEngine.getWorkflowArtifacts(workflowId)
-      expect(artifacts).toBeDefined()
-      expect(Array.isArray(artifacts)).toBe(true)
-      expect(artifacts.length).toBeGreaterThan(0)
-      
-      const artifact = artifacts[0]
-      expect(artifact.name).toBe('test-requirements.md')
-      expect(artifact.type).toBe('DOCUMENT')
-      expect(artifact.content).toContain('Test Requirements')
-    })
+    test('should delegate getActiveWorkflows to WorkflowStateManager', () => {
+      workflowEngine.getActiveWorkflows();
+      expect(workflowEngine.stateManager.getActiveWorkflows).toHaveBeenCalledTimes(1);
+    });
 
-    test('should handle multiple artifacts from different agents', async () => {
-      // Mock multiple artifacts
-      workflowEngine.getWorkflowArtifacts.mockResolvedValueOnce([
-        {
-          type: 'DOCUMENT',
-          name: 'requirements.md',
-          content: 'Requirements...',
-          agentId: 'test-pm'
-        },
-        {
-          type: 'DOCUMENT',
-          name: 'architecture.md',
-          content: 'Architecture...',
-          agentId: 'test-architect'
-        }
-      ])
-      
-      const artifacts = await workflowEngine.getWorkflowArtifacts('test-workflow')
-      expect(artifacts.length).toBe(2)
-      
-      const pmArtifact = artifacts.find(a => a.agentId === 'test-pm')
-      const architectArtifact = artifacts.find(a => a.agentId === 'test-architect')
-      
-      expect(pmArtifact).toBeDefined()
-      expect(architectArtifact).toBeDefined()
-    })
-  })
-
-  describe('Analytics and Monitoring', () => {
-    test('should track execution history', async () => {
-      const history = await workflowEngine.getExecutionHistory(10)
-      expect(history.length).toBeGreaterThan(0)
-      
-      const workflow = history[0]
-      expect(workflow.workflowId).toBeDefined()
-      expect(workflow.completedAgents).toBeDefined()
-      expect(workflow.status).toBeDefined()
-    })
-
-    test('should provide workflow statistics', async () => {
-      const config = { userPrompt: 'Stats test', userId: 'test-user' }
-      const { workflowId } = await workflowEngine.startWorkflow(config)
-      
-      const status = workflowEngine.getWorkflowStatus(workflowId)
-      expect(status.currentStep).toBeGreaterThanOrEqual(0)
-      expect(status.totalSteps).toBeGreaterThan(0)
-    })
-  })
-})
+    test('should delegate getWorkflowArtifacts to WorkflowStateManager', async () => {
+      const workflowId = 'workflow-123';
+      await workflowEngine.getWorkflowArtifacts(workflowId);
+      expect(workflowEngine.stateManager.getWorkflowArtifacts).toHaveBeenCalledWith(workflowId);
+    });
+  });
+});

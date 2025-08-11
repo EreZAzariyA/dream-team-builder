@@ -104,7 +104,7 @@ const SettingsPage = () => {
 
       if (response.ok) {
         setApiKeys({ openai: '', gemini: '' });
-        // Reinitialize AI service without user keys (fall back to environment keys)
+        // Reinitialize AI service without user keys (will run in limited mode)
         const reinitResponse = await fetch('/api/ai/reinitialize', {
           method: 'POST',
           headers: {
@@ -117,14 +117,14 @@ const SettingsPage = () => {
         console.log('✅ API keys cleared from database');
         
         if (reinitResponse.ok) {
-          console.log('✅ AI service reset to environment keys');
+          console.log('✅ AI service reset to limited mode (no API keys)');
           
           // Invalidate AI health status cache to force refresh
           queryClient.invalidateQueries({ queryKey: ['ai-health-status'] });
           
           // No need to trigger health check - will be done on-demand when AI is used
         } else {
-          console.error('Failed to reset AI service to environment keys');
+          console.error('Failed to reset AI service to limited mode');
         }
       } else {
         const error = await response.json();

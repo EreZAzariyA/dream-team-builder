@@ -9,6 +9,7 @@ import { authOptions } from '../../../../lib/auth/config.js';
 import { getOrchestrator } from '../../../../lib/bmad/BmadOrchestrator.js';
 import { connectMongoose } from '../../../../lib/database/mongodb.js';
 import Workflow from '../../../../lib/database/models/Workflow.js';
+import logger from '@/lib/utils/logger.js';
 
 /**
  * @swagger
@@ -221,27 +222,54 @@ export async function POST(request) {
 
     const body = await request.json();
     const { userPrompt, name, description, sequence, priority, tags } = body;
+    console.log({ body });
+    
 
-    // Validate required fields
-    if (!userPrompt || userPrompt.trim().length < 10) {
+    // Validate required fields - relaxed validation since agents will gather details
+    // Allow minimal prompts since agents will ask for project details during workflow
+    if (userPrompt && userPrompt.trim().length > 0 && userPrompt.trim().length < 5) {
       return NextResponse.json(
-        { error: 'User prompt must be at least 10 characters long' },
+        { error: 'User prompt must be at least 5 characters if provided' },
         { status: 400 }
       );
     }
 
     await connectMongoose();
-    
-    // Generate a unique workflow ID
-    const workflowId = `workflow_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
+
+    // Generate a unique workflow ID before starting the orchestrator
+    const workflowId = `workflow_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
     // Try to initialize BMAD orchestrator in background (non-blocking)
     let bmadResult = null;
     try {
       const bmad = await getOrchestrator();
-      bmadResult = await bmad.startWorkflow(userPrompt, {
+      
+      // Initialize AIService with user credentials before starting workflow (optional)
+      if (bmad.aiService && session.user.id) {
+        try {
+          logger.info('Initializing AIService for workflow launch with user:', session.user.id);
+          const initResult = await bmad.aiService.initialize(null, session.user.id);
+          if (initResult) {
+            logger.info('✅ AIService initialized successfully for workflow launch');
+          } else {
+            logger.warn('⚠️ AIService initialization returned false - may need API keys');
+          }
+        } catch (aiError) {
+          logger.warn('AIService initialization failed during workflow launch:', aiError.message);
+        }
+      } else {
+        logger.warn('⚠️ No AIService available or no user ID - workflow may run in limited mode');
+      }
+      
+      // For workflows without detailed description, use a standard prompt that agents will expand on
+      const effectiveUserPrompt = userPrompt && userPrompt.trim().length >= 10 
+        ? userPrompt 
+        : 'User wants to start a development project. Project details will be gathered during the workflow through agent interactions.';
+
+      bmadResult = await bmad.startWorkflow(effectiveUserPrompt, {
+        workflowId: workflowId, // Pass the generated ID to the orchestrator
         name: name || `Workflow - ${new Date().toLocaleDateString()}`,
-        description: description || 'User-initiated BMAD workflow',
+        description: description || 'User-initiated BMAD workflow - details collected interactively',
         sequence,
         userId: session.user.id,
         priority: priority || 'medium',
@@ -253,30 +281,16 @@ export async function POST(request) {
         }
       });
     } catch (bmadError) {
-      logger.warn('BMAD orchestrator failed, continuing with basic workflow:', bmadError.message);
-      // Continue without BMAD - we'll still create the database entry
+      logger.error('BMAD orchestrator failed to start workflow:', bmadError);
+      return NextResponse.json(
+        { error: 'Failed to start BMAD workflow', details: bmadError.message },
+        { status: 500 }
+      );
     }
-
-    // Save workflow to database
-    const workflowDoc = new Workflow({
-      title: name || `Workflow - ${new Date().toLocaleDateString()}`,
-      description: description || 'User-initiated BMAD workflow',
-      prompt: userPrompt,
-      template: 'greenfield-fullstack', // Default template
-      status: 'running',
-      userId: session.user.id,
-      metadata: {
-        priority: priority === 'normal' ? 'medium' : priority || 'medium', // Map 'normal' to 'medium'
-        tags: tags || [],
-        category: 'api-generated'
-      }
-    });
-
-    await workflowDoc.save();
 
     return NextResponse.json({
       success: true,
-      workflowId: bmadResult?.workflowId || workflowId,
+      workflowId: bmadResult?.workflowId,
       status: bmadResult?.status || 'running',
       message: 'Workflow started successfully',
       bmadEnabled: !!bmadResult

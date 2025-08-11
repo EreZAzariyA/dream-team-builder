@@ -23,7 +23,23 @@ export async function GET(request) {
 
     await connectMongoose();
     
-    const user = await User.findById(session.user.id);
+    let user = null;
+    try {
+      const mongoose = require('mongoose');
+      if (mongoose.Types.ObjectId.isValid(session.user.id)) {
+        user = await User.findById(session.user.id);
+      } else {
+        // Try finding by email as fallback if ID is not valid ObjectId
+        user = await User.findByEmail(session.user.email);
+      }
+    } catch (dbError) {
+      console.error('Database error finding user:', dbError);
+      return NextResponse.json(
+        { error: 'Database error' },
+        { status: 500 }
+      );
+    }
+    
     if (!user) {
       return NextResponse.json(
         { error: 'User not found' },
@@ -123,7 +139,23 @@ export async function POST(request) {
 
     await connectMongoose();
     
-    const user = await User.findById(session.user.id);
+    let user = null;
+    try {
+      const mongoose = require('mongoose');
+      if (mongoose.Types.ObjectId.isValid(session.user.id)) {
+        user = await User.findById(session.user.id);
+      } else {
+        // Try finding by email as fallback if ID is not valid ObjectId
+        user = await User.findByEmail(session.user.email);
+      }
+    } catch (dbError) {
+      console.error('Database error finding user in API keys POST:', dbError);
+      return NextResponse.json(
+        { error: 'Database error' },
+        { status: 500 }
+      );
+    }
+    
     if (!user) {
       return NextResponse.json(
         { error: 'User not found' },

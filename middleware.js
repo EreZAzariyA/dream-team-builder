@@ -32,7 +32,13 @@ const isUserRoute = (pathname) => {
 export async function middleware(request) {
   const { pathname } = request.nextUrl;
   
-  const token = await getToken({ req: request });
+  let token = null;
+  try {
+    token = await getToken({ req: request });
+  } catch (error) {
+    console.warn('Token validation failed in middleware:', error.message);
+    // Continue with null token to allow proper redirect handling
+  }
   
   // Check admin access for admin routes
   if (isAdminRoute(pathname)) {
@@ -65,14 +71,12 @@ export async function middleware(request) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api/auth (NextAuth.js routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public files (public folder)
-     */
-    '/((?!api/auth|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/admin/:path*',
+    '/dashboard/:path*',
+    '/profile/:path*',
+    '/settings/:path*',
+    '/workflows/:path*',
+    '/agents/:path*',
+    '/api/((?!auth).+)', // All API routes except /api/auth
   ],
 };

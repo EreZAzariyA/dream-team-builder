@@ -2,16 +2,36 @@
 
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../common/Card';
-import { Activity } from 'lucide-react';
+import { Activity, CheckCircle, Play, Clock, XCircle } from 'lucide-react';
 
-const ProgressOverview = ({ 
-  progress = 0,
-  agents = [],
+const ProgressOverview = ({
+  currentStepIndex = 0,
+  totalWorkflowSteps = 0,
+  workflowSteps = [], // New prop: array of step details
   title = "Overall Progress",
   className = ""
 }) => {
-  const completedAgents = agents.filter(a => a.status === 'completed').length;
-  const totalAgents = agents.length;
+  const progress = totalWorkflowSteps > 0 ? ((currentStepIndex + 1) / totalWorkflowSteps) * 100 : 0;
+
+  const getStepStatusIcon = (stepIndex) => {
+    if (stepIndex < currentStepIndex) {
+      return <CheckCircle className="w-4 h-4 text-green-500" />;
+    } else if (stepIndex === currentStepIndex) {
+      return <Play className="w-4 h-4 text-blue-500 animate-pulse" />;
+    } else {
+      return <Clock className="w-4 h-4 text-gray-400" />;
+    }
+  };
+
+  const getStepStatusColor = (stepIndex) => {
+    if (stepIndex < currentStepIndex) {
+      return 'bg-green-100 dark:bg-green-900/30';
+    } else if (stepIndex === currentStepIndex) {
+      return 'bg-blue-100 dark:bg-blue-900/30';
+    } else {
+      return 'bg-gray-100 dark:bg-gray-700';
+    }
+  };
 
   return (
     <Card className={`border-l-4 border-blue-500 ${className}`}>
@@ -38,8 +58,38 @@ const ProgressOverview = ({
             />
           </div>
           <div className="text-xs text-gray-500 dark:text-gray-400">
-            {completedAgents} of {totalAgents} agents completed
+            Step {currentStepIndex + 1} of {totalWorkflowSteps}
           </div>
+
+          {/* Detailed Step Progress */}
+          {workflowSteps.length > 0 && (
+            <div className="mt-6">
+              <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Workflow Steps:</h4>
+              <div className="space-y-2">
+                {workflowSteps.map((step, index) => (
+                  <div 
+                    key={index} 
+                    className={`flex items-center gap-3 p-3 rounded-lg border ${getStepStatusColor(index)} ${index === currentStepIndex ? 'border-blue-500' : 'border-gray-200 dark:border-gray-600'}`}
+                  >
+                    <div className="flex-shrink-0">
+                      {getStepStatusIcon(index)}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                        {step.stepName || `Step ${index + 1}`}
+                      </p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">
+                        Agent: {step.agentId} {step.command && `(${step.command})`}
+                      </p>
+                    </div>
+                    {index === currentStepIndex && (
+                      <span className="text-xs text-blue-600 dark:text-blue-400">Active</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
