@@ -14,6 +14,20 @@ export async function POST(request, { params }) {
 
     const body = await request.json();
     const { elicitationResponse, agentId } = body;
+    
+    // Debug: Log the received request body
+    logger.info('🔍 [DEBUG] Resume elicitation request body received:', {
+      body,
+      elicitationResponse,
+      elicitationResponseType: typeof elicitationResponse,
+      elicitationResponseString: String(elicitationResponse),
+      agentId,
+      workflowId,
+      workflowIdType: typeof workflowId
+    });
+    
+    // Additional debug: Log the exact workflowId being processed
+    logger.info(`🎯 [WORKFLOW ID] Resuming elicitation for workflowId: "${workflowId}" (type: ${typeof workflowId})`);
 
     if (!elicitationResponse) {
       return NextResponse.json({ error: 'Elicitation response is required' }, { status: 400 });

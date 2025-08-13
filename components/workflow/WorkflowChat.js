@@ -39,6 +39,8 @@ const WorkflowChat = memo(({
   }, []);
 
   const getAgentIcon = useCallback((agentId) => {
+    // Ensure agentId is a string and handle edge cases
+    if (!agentId || typeof agentId !== 'string') return '🤖';
     if (agentId.includes('/') || agentId === 'various') return '🔄';
 
     const icons = {
@@ -57,6 +59,9 @@ const WorkflowChat = memo(({
   }, []);
 
   const getAgentRole = useCallback((agentId) => {
+    // Ensure agentId is a string and handle edge cases
+    if (!agentId || typeof agentId !== 'string') return 'Assistant';
+    
     const roles = {
       'analyst': 'Business Analyst',
       'pm': 'Product Manager',
@@ -90,16 +95,29 @@ const WorkflowChat = memo(({
     
     // Add elicitation agent activity
     if (elicitationPrompt?.agentId) {
-      agentActivity.set(elicitationPrompt.agentId, new Date());
-      // Auto-set active agent for elicitation
-      if (activeAgentId !== elicitationPrompt.agentId) {
-        setActiveAgentId(elicitationPrompt.agentId);
+      // ROOT FIX: Ensure agentId is always a string
+      const agentId = typeof elicitationPrompt.agentId === 'string' ? elicitationPrompt.agentId : 
+                     (typeof elicitationPrompt.agentId === 'object' && elicitationPrompt.agentId?.id) ? elicitationPrompt.agentId.id :
+                     (typeof elicitationPrompt.agentId === 'object' && elicitationPrompt.agentId?.agentId) ? elicitationPrompt.agentId.agentId : null;
+      
+      if (agentId) {
+        agentActivity.set(agentId, new Date());
+        // Auto-set active agent for elicitation
+        if (activeAgentId !== agentId) {
+          setActiveAgentId(agentId);
+        }
       }
     }
     
     // Auto-set current agent as active if no active agent selected
     if (!activeAgentId && currentAgent) {
-      setActiveAgentId(currentAgent);
+      // ROOT FIX: Ensure currentAgent is always a string before setting
+      const agentId = typeof currentAgent === 'string' ? currentAgent : 
+                     (typeof currentAgent === 'object' && currentAgent?.id) ? currentAgent.id :
+                     (typeof currentAgent === 'object' && currentAgent?.agentId) ? currentAgent.agentId : null;
+      if (agentId) {
+        setActiveAgentId(agentId);
+      }
     }
     
     // Prioritize workflow agents (activeAgents) and show them in order
@@ -110,9 +128,11 @@ const WorkflowChat = memo(({
       // Process workflow agents in order
       activeAgents.forEach(agent => {
         const agentId = typeof agent === 'string' ? agent : agent.id;
+        // ROOT FIX: Ensure agentId is a string before using charAt()
+        const safeAgentId = typeof agentId === 'string' ? agentId : String(agentId || 'unknown');
         const agentName = typeof agent === 'string' ? 
-          (agentId.charAt(0).toUpperCase() + agentId.slice(1).replace(/-/g, ' ')) : 
-          (agent.name || agentId);
+          (safeAgentId.charAt(0).toUpperCase() + safeAgentId.slice(1).replace(/-/g, ' ')) : 
+          (agent.name || safeAgentId);
         const agentStatus = typeof agent === 'object' ? agent.status : 'pending';
         
         workflowAgents.push({
@@ -134,9 +154,11 @@ const WorkflowChat = memo(({
     agentActivity.forEach((activity, agentId) => {
       const isInWorkflow = workflowAgents.some(wa => wa.id === agentId);
       if (!isInWorkflow) {
+        // ROOT FIX: Ensure agentId is a string before using charAt()
+        const safeAgentId = typeof agentId === 'string' ? agentId : String(agentId || 'unknown');
         additionalAgents.push({
           id: agentId,
-          name: agentId.charAt(0).toUpperCase() + agentId.slice(1).replace(/-/g, ' '),
+          name: safeAgentId.charAt(0).toUpperCase() + safeAgentId.slice(1).replace(/-/g, ' '),
           role: getAgentRole(agentId),
           icon: getAgentIcon(agentId),
           isActive: agentId === activeAgentId,
@@ -303,7 +325,11 @@ const WorkflowChat = memo(({
                 <div className="flex items-center gap-2 ml-4 px-3 py-1 bg-blue-50 dark:bg-blue-900/20 rounded-full">
                   <span className="text-lg">{getAgentIcon(activeAgentId)}</span>
                   <span className="text-sm text-blue-700 dark:text-blue-300">
-                    Talking with {activeAgentId.charAt(0).toUpperCase() + activeAgentId.slice(1)}
+                    Talking with {(() => {
+                      // ROOT FIX: Ensure activeAgentId is a string before using charAt()
+                      const safeActiveAgentId = typeof activeAgentId === 'string' ? activeAgentId : String(activeAgentId || 'unknown');
+                      return safeActiveAgentId.charAt(0).toUpperCase() + safeActiveAgentId.slice(1);
+                    })()}
                   </span>
                 </div>
               )}
@@ -362,7 +388,11 @@ const WorkflowChat = memo(({
                     <div className="flex items-center gap-2">
                       <span className="text-lg">{getAgentIcon(respondingAgent)}</span>
                       <span className="text-sm font-medium capitalize">
-                        {respondingAgent.replace(/-/g, ' ')}
+                        {(() => {
+                          // ROOT FIX: Ensure respondingAgent is a string before using replace()
+                          const safeRespondingAgent = typeof respondingAgent === 'string' ? respondingAgent : String(respondingAgent || 'Agent');
+                          return safeRespondingAgent.replace(/-/g, ' ');
+                        })()}
                       </span>
                       <div className="flex gap-1 ml-2">
                         <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>

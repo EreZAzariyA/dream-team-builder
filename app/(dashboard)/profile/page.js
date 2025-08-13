@@ -1,59 +1,27 @@
 'use client';
 
-import { useSession, signOut } from 'next-auth/react';
+import { signOut } from 'next-auth/react';
 import { useAuth } from '../../../lib/store/hooks/authHooks.js';
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image.js';
 
 export default function ProfilePage() {
-  const { data: session, status } = useSession();
-  const { user, isAuthenticated, authStatus } = useAuth();
+  const { session, status, user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
 
   const [formData, setFormData] = useState({
-    name: user?.name || session?.user?.name || '',
-    email: user?.email || session?.user?.email || '',
+    name: user?.name || '',
+    email: user?.email || '',
     bio: '',
     location: '',
     website: '',
     company: '',
     jobTitle: '',
   });
-
-  if (status === 'loading' || authStatus === 'loading') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-300">Loading profile...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (status === 'unauthenticated' || !isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-orange-100 dark:from-gray-900 dark:to-gray-800">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-            Access Denied
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">
-            You must be signed in to access your profile.
-          </p>
-          <Link
-            href="/auth/signin"
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          >
-            Sign In
-          </Link>
-        </div>
-      </div>
-    );
-  }
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -106,6 +74,17 @@ export default function ProfilePage() {
     setSuccess('');
   };
 
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-300">Loading profile...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
       <div className="container mx-auto px-4 py-8 max-w-4xl">
@@ -116,7 +95,7 @@ export default function ProfilePage() {
             <div className="flex items-center space-x-4">
               <div className="relative">
                 {session?.user?.image ? (
-                  <img
+                  <Image
                     className="h-20 w-20 rounded-full border-4 border-blue-200 dark:border-blue-700"
                     src={session.user.image}
                     alt={session.user.name || 'User avatar'}

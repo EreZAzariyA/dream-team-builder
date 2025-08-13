@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
 import { Bell, UserCircle, Sun, Moon } from 'lucide-react';
+import { useTheme } from 'next-themes';
+import { useUserTheme } from '../../lib/hooks/useUserTheme';
 import AIProviderStatus from '../system/AIProviderStatus';
 
 // Page mapping (moved outside component to prevent recreation)
@@ -18,18 +20,10 @@ const PAGE_MAP = {
   '/settings': 'Settings'
 };
 
-// A placeholder for a theme toggle hook (memoized)
-const useTheme = () => {
-  const theme = 'dark';
-  const setTheme = useCallback((newTheme) => {
-    console.log(`Setting theme to ${newTheme}`);
-  }, []);
-  return { theme, setTheme };
-};
-
 const Header = () => {
   const { data: session } = useSession();
-  const { theme, setTheme } = useTheme();
+  const { setTheme, resolvedTheme } = useTheme();
+  const { saveThemeToDatabase } = useUserTheme();
   const pathname = usePathname();
 
   // Memoize page title calculation
@@ -38,9 +32,15 @@ const Header = () => {
   }, [pathname]);
 
   // Memoize theme toggle handler
-  const handleThemeToggle = useCallback(() => {
-    setTheme(theme === 'dark' ? 'light' : 'dark');
-  }, [theme, setTheme]);
+  const handleThemeToggle = useCallback(async () => {
+    const newTheme = resolvedTheme === 'dark' ? 'light' : 'dark';
+    
+    // Update theme in UI immediately
+    setTheme(newTheme);
+    
+    // Save to database for logged-in users
+    await saveThemeToDatabase(newTheme);
+  }, [setTheme, resolvedTheme, saveThemeToDatabase]);
 
   return (
     <header className="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6">
@@ -51,8 +51,16 @@ const Header = () => {
         {/* AI Provider Status Indicator */}
         <AIProviderStatus />
         
-        <button onClick={handleThemeToggle} className="btn-ghost p-2 rounded-full">
-          {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+        <button 
+          onClick={handleThemeToggle} 
+          className="btn-ghost p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
+          title={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} mode`}
+        >
+          {resolvedTheme === 'dark' ? (
+            <Sun className="w-5 h-5 text-yellow-500" />
+          ) : (
+            <Moon className="w-5 h-5 text-blue-600" />
+          )}
         </button>
         <button className="btn-ghost p-2 rounded-full">
           <Bell className="w-5 h-5" />

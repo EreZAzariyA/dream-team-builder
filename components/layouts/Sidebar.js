@@ -43,12 +43,14 @@ const Sidebar = () => {
             </Link>
           );
         })}
+      </nav>
+      <div className="px-4 py-6 border-t border-gray-200 dark:border-gray-700">
         {/* Sign Out Button */}
-        <button onClick={() => signOut({ callbackUrl: '/auth/signin' })} className={`${navLinkClasses} ${inactiveNavLinkClasses} w-full`}>
+        <button onClick={() => signOut({ callbackUrl: '/auth/signin' })} className={`flex items-center space-x-3 px-4 py-1 rounded-md text-body font-medium transition-colors ${inactiveNavLinkClasses} w-full`}>
           <LucideIcons.LogOut className="w-5 h-5 flex-shrink-0" />
           <span>Sign Out</span>
         </button>
-      </nav>
+      </div>
     </aside>
   );
 };

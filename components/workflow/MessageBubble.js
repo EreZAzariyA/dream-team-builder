@@ -15,7 +15,7 @@ const MessageBubble = memo(({
   const isUser = message.from === 'User' || message.from === 'user';
   const isSystem = message.from === 'System' || message.from === 'BMAD System' || message.from === 'system';
   const isElicitation = message.isElicitation || message.type === 'elicitation';
-  const agentId = message.agentId || message.from?.toLowerCase().replace(/\s+/g, '-');
+  const agentId = message.agentId || (message.from && typeof message.from === 'string' ? message.from.toLowerCase().replace(/\s+/g, '-') : 'unknown');
   const agentIcon = getAgentIcon(agentId);
   const displayName = isUser ? 'You' : isSystem ? 'System' : (message.from?.charAt(0).toUpperCase() + message.from?.slice(1) || 'Agent');
 

@@ -1,7 +1,6 @@
 
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '../../../../../lib/auth/config.js';
+import { authenticateRoute } from '../../../../../lib/utils/routeAuth.js';
 import { getOrchestrator } from '../../../../../lib/bmad/BmadOrchestrator.js';
 import { connectMongoose } from '../../../../../lib/database/mongodb.js';
 import Workflow from '../../../../../lib/database/models/Workflow.js';
@@ -24,23 +23,8 @@ export async function POST(request, { params }) {
     }
 
     // Get authenticated session
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json({ 
-        success: false,
-        error: 'Unauthorized',
-        details: 'Authentication required'
-      }, { status: 401 });
-    }
-
-    // Validate user ID exists
-    if (!session.user?.id) {
-      return NextResponse.json({ 
-        success: false,
-        error: 'Invalid session',
-        details: 'User ID not found in session'
-      }, { status: 401 });
-    }
+    const { user, session, error } = await authenticateRoute(request);
+    if (error) return error;
 
     await connectMongoose();
 

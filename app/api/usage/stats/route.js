@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from "next-auth/next";
 import { authOptions } from '../../../../lib/auth/config.js';
-import { aiService } from '../../../../lib/ai/AIService.js';
+import { AIService } from '../../../../lib/ai/AIService.js';
 
 export async function GET(request) {
   try {
@@ -16,7 +16,8 @@ export async function GET(request) {
     const timeframe = searchParams.get('timeframe'); // hour, day, week
     const userId = searchParams.get('userId') || session.user.id;
 
-    // Use AI service singleton instance (already imported)
+    // Use AI service singleton instance
+    const aiService = AIService.getInstance();
     
     // Get detailed usage statistics (now async)
     const stats = await aiService.getDetailedUsageStats(userId, timeframe);
@@ -59,7 +60,8 @@ export async function POST(request) {
     const body = await request.json();
     const { action, timeframe, userId } = body;
 
-    // Use AI service singleton instance (already imported)
+    // Use AI service singleton instance
+    const aiService = AIService.getInstance();
 
     if (action === 'export') {
       // Export detailed usage data

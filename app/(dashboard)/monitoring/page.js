@@ -1,32 +1,9 @@
 'use client';
 
 import React from 'react';
-import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
 import SystemHealthDashboard from '../../../components/monitoring/SystemHealthDashboard.js';
 
 export default function MonitoringPage() {
-  const { data: session, status } = useSession();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (status === 'loading') return; // Still loading
-    if (!session) router.push('/auth/signin'); // Not signed in
-  }, [session, status, router]);
-
-  if (status === 'loading') {
-    return (
-      <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
-
-  if (!session) {
-    return null; // Will redirect
-  }
-
   return (
     <div className="space-y-6">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">

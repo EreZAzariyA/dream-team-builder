@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server';
+import { authenticateRoute } from '../../../lib/utils/routeAuth.js';
 import fs from 'fs';
 import path from 'path';
 import yaml from 'js-yaml';
 
-export async function GET() {
+export async function GET(request) {
   try {
+    const { user, session, error } = await authenticateRoute(request);
+    if (error) return error;
+
     const agentTeamsPath = path.join(process.cwd(), '.bmad-core', 'agent-teams');
     
     // Check if directory exists

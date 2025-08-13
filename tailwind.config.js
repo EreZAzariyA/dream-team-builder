@@ -1,17 +1,17 @@
 /** @type {import('tailwindcss').Config} */
 
-// Dream Team Custom Tailwind Configuration
-// Integrates with professional design token system
-// Generated from UI/UX Specification v1.0
+// Dream Team Custom Tailwind Configuration for v4
+// Dark mode is now configured in CSS via @variant directive
 
 module.exports = {
+  // Content scanning for Tailwind v4
   content: [
     './pages/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
     './app/**/*.{js,ts,jsx,tsx,mdx}',
     './lib/**/*.{js,ts,jsx,tsx,mdx}',
   ],
-  darkMode: 'class', // Enable class-based dark mode
+  // Note: darkMode config moved to CSS @variant in globals.css
   theme: {
     extend: {
       // Colors - Professional AI Platform Palette

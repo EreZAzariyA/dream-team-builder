@@ -26,10 +26,22 @@ const ChatInput = memo(({
   const [errorLoadingCommands, setErrorLoadingCommands] = useState(null);
 
   useEffect(() => {
+    // Only fetch commands if we're not on an auth page
+    const isAuthPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/auth');
+    if (isAuthPage) {
+      setIsLoadingCommands(false);
+      return;
+    }
+
     const fetchCommands = async () => {
       try {
         const response = await fetch('/api/bmad/commands/metadata');
         if (!response.ok) {
+          if (response.status === 401) {
+            // User not authenticated, silently skip loading commands
+            setIsLoadingCommands(false);
+            return;
+          }
           throw new Error('Failed to fetch BMAD commands');
         }
         const data = await response.json();

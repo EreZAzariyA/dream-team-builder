@@ -4,8 +4,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '../../../../lib/auth/config.js';
+import { authenticateRoute } from '../../../../lib/utils/routeAuth.js';
 import { getOrchestrator } from '../../../../lib/bmad/BmadOrchestrator.js';
 import { connectMongoose } from '../../../../lib/database/mongodb.js';
 import Workflow from '../../../../lib/database/models/Workflow.js';
@@ -89,13 +88,8 @@ import logger from '@/lib/utils/logger.js';
  */
 export async function GET(request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const { user, session, error } = await authenticateRoute(request);
+    if (error) return error;
 
     await connectMongoose();
     const bmad = await getOrchestrator();
@@ -212,13 +206,8 @@ export async function GET(request) {
  */
 export async function POST(request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const { user, session, error } = await authenticateRoute(request);
+    if (error) return error;
 
     const body = await request.json();
     const { userPrompt, name, description, sequence, priority, tags } = body;
@@ -364,13 +353,8 @@ export async function POST(request) {
  */
 export async function PUT(request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const { user, session, error } = await authenticateRoute(request);
+    if (error) return error;
 
     const body = await request.json();
     const { workflowId, action } = body;

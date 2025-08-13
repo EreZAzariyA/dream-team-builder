@@ -1,31 +1,41 @@
 
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '../../../../../lib/auth/config.js';
+import { authenticateRoute } from '../../../../../lib/utils/routeAuth.js';
 import { getOrchestrator } from '../../../../../lib/bmad/BmadOrchestrator.js';
 import { connectMongoose } from '../../../../../lib/database/mongodb.js';
 import Workflow from '../../../../../lib/database/models/Workflow.js';
+import AgentTeam from '../../../../../lib/database/models/AgentTeam.js';
 import logger from '@/lib/utils/logger.js';
 
 export async function GET(request, { params }) {
   try {
     const { workflowInstanceId } = await params;
+    logger.info(`🔍 [LiveWorkflow] API called with workflowInstanceId: ${workflowInstanceId}`);
     
     // Get authenticated session
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const { user, session, error } = await authenticateRoute(request);
+    if (error) return error;
 
     await connectMongoose();
 
     // First check database for workflow
     let workflowDoc = null;
+    let agentTeamDoc = null;
+    
     try {
-      // Always search by workflowId field - our standardized approach
+      // Search in Workflow collection first
       workflowDoc = await Workflow.findOne({ workflowId: workflowInstanceId });
+      logger.info(`🔍 [LiveWorkflow] Workflow collection search: ${workflowDoc ? 'FOUND' : 'NOT FOUND'}`);
+      
+      // If not found in Workflow, check AgentTeam collection (for team deployments)
+      if (!workflowDoc) {
+        agentTeamDoc = await AgentTeam.findOne({ 
+          'deployment.workflowInstanceId': workflowInstanceId 
+        });
+        logger.info(`🔍 [LiveWorkflow] AgentTeam collection search: ${agentTeamDoc ? 'FOUND' : 'NOT FOUND'}`);
+      }
     } catch (error) {
-      logger.warn(`Workflow ${workflowInstanceId} not found:`, error.message);
+      logger.error(`Database search error for ${workflowInstanceId}:`, error.message);
     }
 
     // Get singleton BMAD orchestrator to maintain workflow state
@@ -35,12 +45,13 @@ export async function GET(request, { params }) {
     try {
       orchestrator = await getOrchestrator();
       bmadWorkflowState = await orchestrator.getWorkflowStatus(workflowInstanceId);
+      logger.info(`🔍 [LiveWorkflow] BMAD orchestrator search for ${workflowInstanceId}: ${bmadWorkflowState ? 'FOUND' : 'NOT FOUND'}`);
     } catch (bmadError) {
       logger.warn('BMAD orchestrator not available:', bmadError.message);
     }
 
-    // If no workflow found in either source
-    if (!workflowDoc && !bmadWorkflowState) {
+    // If no workflow found in any source
+    if (!workflowDoc && !agentTeamDoc && !bmadWorkflowState) {
       return NextResponse.json({ error: 'Workflow instance not found' }, { status: 404 });
     }
 
@@ -58,22 +69,39 @@ export async function GET(request, { params }) {
     // Build comprehensive workflow instance response
     const workflowInstance = {
       id: workflowInstanceId,
-      status: bmadWorkflowState?.status || workflowDoc?.status || 'unknown',
+      status: bmadWorkflowState?.status || workflowDoc?.status || agentTeamDoc?.deployment?.status || 'unknown',
       workflow: {
-        name: workflowDoc?.title || bmadWorkflowState?.name || `Workflow ${workflowInstanceId}`,
-        description: workflowDoc?.description || bmadWorkflowState?.description || 'AI-powered workflow execution',
-        template: workflowDoc?.template || 'default',
+        name: workflowDoc?.title || 
+              agentTeamDoc?.deployment?.selectedWorkflow?.workflowName || 
+              bmadWorkflowState?.name || 
+              `Workflow ${workflowInstanceId}`,
+        description: workflowDoc?.description || 
+                    agentTeamDoc?.description || 
+                    bmadWorkflowState?.description || 
+                    'AI-powered workflow execution',
+        template: workflowDoc?.template || 
+                 agentTeamDoc?.deployment?.selectedWorkflow?.workflowId || 
+                 'default',
         agents: bmadWorkflowState?.sequence ? 
           // Extract unique agents from workflow sequence steps
           [...new Set(bmadWorkflowState.sequence.map(step => step.agentId || step.agent).filter(Boolean))] :
-          []
+          // Use team agents if available
+          agentTeamDoc?.teamConfig?.agentIds || []
       },
       metadata: {
-        initiatedBy: workflowDoc?.userId || session.user.id,
-        startTime: workflowDoc?.createdAt || bmadWorkflowState?.startTime || new Date(),
-        priority: workflowDoc?.metadata?.priority || 'medium',
-        tags: workflowDoc?.metadata?.tags || [],
-        category: workflowDoc?.metadata?.category || 'user-generated'
+        initiatedBy: workflowDoc?.userId || agentTeamDoc?.userId || session.user.id,
+        startTime: workflowDoc?.createdAt || 
+                  agentTeamDoc?.deployment?.createdAt || 
+                  bmadWorkflowState?.startTime || 
+                  new Date(),
+        priority: workflowDoc?.metadata?.priority || 
+                 agentTeamDoc?.metadata?.priority || 
+                 'medium',
+        tags: workflowDoc?.metadata?.tags || 
+             agentTeamDoc?.metadata?.tags || 
+             [],
+        category: workflowDoc?.metadata?.category || 
+                 (agentTeamDoc ? 'team-deployment' : 'user-generated')
       },
       progress: {
         currentStep: bmadWorkflowState?.currentStep || 0,
@@ -93,7 +121,15 @@ export async function GET(request, { params }) {
       artifacts: bmadWorkflowState?.artifacts || [],
       checkpoints: bmadWorkflowState?.checkpoints || [],
       elicitationDetails: bmadWorkflowState?.elicitationDetails || workflowDoc?.elicitationDetails || null,
-      currentAgent: bmadWorkflowState?.currentAgent || workflowDoc?.currentAgent?.agentId || null
+      currentAgent: (() => {
+        // CRITICAL FIX: Ensure currentAgent is always a string or null
+        const agent = bmadWorkflowState?.currentAgent || workflowDoc?.currentAgent;
+        if (!agent) return null;
+        if (typeof agent === 'string') return agent;
+        if (typeof agent === 'object' && agent.agentId) return agent.agentId;
+        if (typeof agent === 'object' && agent.id) return agent.id;
+        return null;
+      })()
     };
 
     // logger.info('🔍 [API DEBUG] Workflow status sources:', {

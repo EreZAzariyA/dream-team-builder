@@ -4,21 +4,15 @@
  */
 
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '../../../../lib/auth/config.js';
+import { authenticateRoute } from '../../../../lib/utils/routeAuth.js';
 
 /**
  * GET /api/bmad/agents - Get all available agents
  */
-export async function GET() {
+export async function GET(request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const { user, session, error } = await authenticateRoute(request);
+    if (error) return error;
 
     // Load agents directly from .bmad-core/agents/
     const agents = await loadBmadAgents();

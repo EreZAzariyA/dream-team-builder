@@ -7,7 +7,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../../../../lib/auth/config.js';
 import { compose, withMethods, withErrorHandling, withRateLimit, withSecurityHeaders } from '../../../../lib/api/middleware.js';
-import { aiService } from '../../../../lib/ai/AIService.js';
+import { AIService } from '../../../../lib/ai/AIService.js';
 
 /**
  * GET /api/ai/usage
@@ -25,6 +25,7 @@ async function GET() {
     }
     
     const userId = session.user.id;
+    const aiService = AIService.getInstance();
     const userStats = aiService.getUsageStats(userId);
     const globalStats = aiService.getGlobalUsageStats();
     

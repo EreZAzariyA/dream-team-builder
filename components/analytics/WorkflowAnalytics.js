@@ -2,19 +2,19 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { fetchWithAuth } from '@/lib/react-query';
+import { useAuth } from '@/lib/store/hooks/authHooks';
 
 async function fetchWorkflowAnalytics() {
-  const response = await fetch('/api/analytics/workflows');
-  if (!response.ok) {
-    throw new Error('Failed to fetch workflow analytics');
-  }
-  return response.json();
+  return await fetchWithAuth('/api/analytics/workflows');
 }
 
 export default function WorkflowAnalytics() {
+  const { isAuthenticated } = useAuth();
   const { data, error, isLoading } = useQuery({
     queryKey: ['workflow-analytics'],
     queryFn: fetchWorkflowAnalytics,
+    enabled: isAuthenticated, // Only run when authenticated
   });
 
   if (isLoading) return <div>Loading analytics...</div>;
