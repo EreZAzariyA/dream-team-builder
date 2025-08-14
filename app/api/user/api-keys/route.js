@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../../../../lib/auth/config.js';
-import { connectMongoose } from '../../../../lib/database/mongodb.js';
-import { User } from '../../../../lib/database/models/index.js';
+import { validateSessionAndGetUser } from '../../../../lib/utils/userLookup.js';
 import { ApiKeyValidator } from '../../../../lib/ai/AIService.js';
 import logger from '@/lib/utils/logger.js';
 
@@ -13,38 +12,10 @@ import logger from '@/lib/utils/logger.js';
 export async function GET(request) {
   try {
     const session = await getServerSession(authOptions);
+    const { user, error, status } = await validateSessionAndGetUser(session);
     
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
-
-    await connectMongoose();
-    
-    let user = null;
-    try {
-      const mongoose = require('mongoose');
-      if (mongoose.Types.ObjectId.isValid(session.user.id)) {
-        user = await User.findById(session.user.id);
-      } else {
-        // Try finding by email as fallback if ID is not valid ObjectId
-        user = await User.findByEmail(session.user.email);
-      }
-    } catch (dbError) {
-      console.error('Database error finding user:', dbError);
-      return NextResponse.json(
-        { error: 'Database error' },
-        { status: 500 }
-      );
-    }
-    
-    if (!user) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
+    if (error) {
+      return NextResponse.json({ error }, { status });
     }
 
     // Get decrypted API keys
@@ -93,12 +64,10 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const session = await getServerSession(authOptions);
+    const { user, error, status } = await validateSessionAndGetUser(session);
     
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
+    if (error) {
+      return NextResponse.json({ error }, { status });
     }
 
     const { apiKeys } = await request.json();
@@ -137,32 +106,6 @@ export async function POST(request) {
       );
     }
 
-    await connectMongoose();
-    
-    let user = null;
-    try {
-      const mongoose = require('mongoose');
-      if (mongoose.Types.ObjectId.isValid(session.user.id)) {
-        user = await User.findById(session.user.id);
-      } else {
-        // Try finding by email as fallback if ID is not valid ObjectId
-        user = await User.findByEmail(session.user.email);
-      }
-    } catch (dbError) {
-      console.error('Database error finding user in API keys POST:', dbError);
-      return NextResponse.json(
-        { error: 'Database error' },
-        { status: 500 }
-      );
-    }
-    
-    if (!user) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
-    }
-
     // Set API keys
     logger.info('📝 About to call user.setApiKeys with:', { hasOpenai: !!apiKeys.openai, hasGemini: !!apiKeys.gemini });
     user.setApiKeys(apiKeys);
@@ -170,9 +113,10 @@ export async function POST(request) {
     await user.save();
             logger.info('✅ User saved successfully');
 
-    // Reinitialize AI service with new keys
+    // Reinitialize AI service with new keys - use singleton instance
     logger.info('🔄 Reinitializing AI service with new keys...');
-    const { aiService } = await import('../../../../lib/ai/AIService.js');
+    const { AIService } = await import('../../../../lib/ai/AIService.js');
+    const aiService = AIService.getInstance();
     await aiService.initialize(apiKeys, session.user.id);
     logger.info('✅ AI service reinitialized successfully');
 
@@ -202,27 +146,119 @@ export async function POST(request) {
 }
 
 /**
+ * PATCH /api/user/api-keys - Update individual API key
+ */
+export async function PATCH(request) {
+  try {
+    const session = await getServerSession(authOptions);
+    const { user, error, status } = await validateSessionAndGetUser(session);
+    
+    if (error) {
+      return NextResponse.json({ error }, { status });
+    }
+
+    const { provider, apiKey, action } = await request.json();
+    
+    // Validate provider
+    if (!provider || !['openai', 'gemini'].includes(provider)) {
+      return NextResponse.json(
+        { error: 'Invalid provider. Must be "openai" or "gemini"' },
+        { status: 400 }
+      );
+    }
+
+    // Handle different actions
+    if (action === 'clear') {
+      // Clear specific provider key
+      const currentKeys = user.getApiKeys();
+      const updatedKeys = { ...currentKeys };
+      updatedKeys[provider] = null;
+      
+      // Remove null values for setApiKeys
+      const keysToSave = {};
+      if (updatedKeys.openai) keysToSave.openai = updatedKeys.openai;
+      if (updatedKeys.gemini) keysToSave.gemini = updatedKeys.gemini;
+      
+      user.setApiKeys(keysToSave);
+      await user.save();
+
+      // Reinitialize AI service
+      const { AIService } = await import('../../../../lib/ai/AIService.js');
+      const aiService = AIService.getInstance();
+      await aiService.initialize(keysToSave, session.user.id);
+
+      return NextResponse.json({
+        success: true,
+        message: `${provider} API key cleared successfully`,
+        provider,
+        action: 'cleared'
+      });
+    } else {
+      // Save/update API key
+      if (!apiKey || !apiKey.trim()) {
+        return NextResponse.json(
+          { error: 'API key is required' },
+          { status: 400 }
+        );
+      }
+
+      // Validate API key format
+      const keysToValidate = { [provider]: apiKey.trim() };
+      const validation = ApiKeyValidator.validateAll(keysToValidate);
+      
+      if (!validation.valid) {
+        return NextResponse.json(
+          { error: `Invalid ${provider} API key format`, details: validation.errors },
+          { status: 400 }
+        );
+      }
+
+      // Get current keys and update specific provider
+      const currentKeys = user.getApiKeys();
+      const updatedKeys = {
+        openai: currentKeys.openai || '',
+        gemini: currentKeys.gemini || '',
+        [provider]: apiKey.trim()
+      };
+
+      // Remove empty values
+      const keysToSave = {};
+      if (updatedKeys.openai) keysToSave.openai = updatedKeys.openai;
+      if (updatedKeys.gemini) keysToSave.gemini = updatedKeys.gemini;
+
+      user.setApiKeys(keysToSave);
+      await user.save();
+
+      // Reinitialize AI service
+      const { AIService } = await import('../../../../lib/ai/AIService.js');
+      const aiService = AIService.getInstance();
+      await aiService.initialize(keysToSave, session.user.id);
+
+      return NextResponse.json({
+        success: true,
+        message: `${provider} API key saved successfully`,
+        provider,
+        action: 'saved'
+      });
+    }
+
+  } catch (error) {
+    logger.error('Update API key error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error', details: error.message },
+      { status: 500 }
+    );
+  }
+}
+
+/**
  * DELETE /api/user/api-keys - Clear user's API keys
  */
 export async function DELETE() {
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
-
-    await connectMongoose();
-    
-    const user = await User.findById(session.user.id);
-    if (!user) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
+    const { user, session, error } = await validateSessionAndGetUser(await getServerSession(authOptions));
+    if (error) {
+      return NextResponse.json({ error }, { status: error === 'Authentication required' ? 401 : 404 });
     }
 
     // Clear API keys

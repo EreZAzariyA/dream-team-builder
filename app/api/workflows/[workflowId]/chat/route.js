@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '../../../../../lib/auth/config.js';
+import { authenticateRoute } from '../../../../../lib/utils/routeAuth.js';
 import { getOrchestrator } from '../../../../../lib/bmad/BmadOrchestrator.js';
+import { MessageType } from '../../../../../lib/bmad/types.js';
 import logger from '../../../../../lib/utils/logger.js';
 
 /**
@@ -14,10 +14,8 @@ export async function POST(request, { params }) {
   const { workflowId } = await params;
   
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const { user, session, error } = await authenticateRoute(request);
+    if (error) return error;
 
     const body = await request.json();
     const { message, targetAgent } = body;
@@ -48,7 +46,7 @@ export async function POST(request, { params }) {
       toName: currentAgent.charAt(0).toUpperCase() + currentAgent.slice(1),
       content: message,
       timestamp: new Date().toISOString(),
-      type: 'user_message'
+      type: MessageType.USER_INPUT
     };
 
     // Add message to workflow communication
@@ -110,7 +108,7 @@ export async function POST(request, { params }) {
         toName: session.user.name || session.user.email?.split('@')[0] || 'User',
         content: agentResponse,
         timestamp: new Date().toISOString(),
-        type: 'agent_response',
+        type: MessageType.INTER_AGENT,
         metadata: {
           responseTime: Date.now() - new Date(userMessage.timestamp).getTime(),
           chatMode: true
@@ -145,7 +143,7 @@ export async function POST(request, { params }) {
         toName: session.user.name || session.user.email?.split('@')[0] || 'User',
         content: "I apologize, but I encountered an issue processing your message. Could you please try again or rephrase your question?",
         timestamp: new Date().toISOString(),
-        type: 'agent_response',
+        type: MessageType.INTER_AGENT,
         metadata: {
           error: true,
           originalError: agentError.message

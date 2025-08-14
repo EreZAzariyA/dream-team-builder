@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../../../../lib/auth/config.js';
-import { aiService } from '../../../../lib/ai/AIService.js';
+import { AIService } from '../../../../lib/ai/AIService.js';
 import logger from '@/lib/utils/logger.js';
 
 /**
@@ -30,8 +30,9 @@ export async function POST(request) {
       );
     }
 
-    // Initialize the AI service with user keys and current user's ID
+    // Initialize the AI service with user keys and current user's ID - use singleton instance
     const userId = session?.user?.id || null;
+    const aiService = AIService.getInstance();
     const success = await aiService.initialize(apiKeys, userId);
     
     if (success) {

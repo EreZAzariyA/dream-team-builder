@@ -1,5 +1,6 @@
 
 import { NextResponse } from 'next/server';
+import { authenticateRoute } from '../../../../../lib/utils/routeAuth.js';
 import { promises as fs } from 'fs';
 import path from 'path';
 import yaml from 'js-yaml';
@@ -168,6 +169,9 @@ async function loadAvailableFiles() {
 
 export async function GET(request) {
   try {
+    const { user, session, error } = await authenticateRoute(request);
+    if (error) return error;
+
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type');
 

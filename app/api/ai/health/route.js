@@ -7,7 +7,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../../../../lib/auth/config.js';
 import { compose, withMethods, withAuth, withErrorHandling, withRateLimit, withSecurityHeaders } from '../../../../lib/api/middleware.js';
-import { aiService } from '../../../../lib/ai/AIService.js';
+import { AIService } from '../../../../lib/ai/AIService.js';
 
 /**
  * GET /api/ai/health
@@ -19,6 +19,7 @@ async function GET() {
     const userId = session?.user?.id || null;
     
     // Ensure AI service is initialized with user context
+    const aiService = AIService.getInstance();
     if (!aiService.initialized) {
       await aiService.initialize(null, userId);
     }
@@ -47,6 +48,7 @@ async function GET() {
 async function POST() {
   try {
     // Force a fresh health check
+    const aiService = AIService.getInstance();
     await aiService.performHealthChecks();
     const healthStatus = await aiService.healthCheck();
     
@@ -74,6 +76,7 @@ async function PATCH(req) {
     const { action, data } = body;
     
     if (action === 'reset-circuit-breakers') {
+      const aiService = AIService.getInstance();
       aiService.resetCircuitBreakers();
       return NextResponse.json({
         message: 'Circuit breakers reset successfully',
@@ -82,6 +85,7 @@ async function PATCH(req) {
     }
     
     if (action === 'update-provider-priority' && data?.priority) {
+      const aiService = AIService.getInstance();
       aiService.setProviderPriority(data.priority);
       return NextResponse.json({
         message: 'Provider priority updated',

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import AgentChatLauncher from '@/components/workflow/AgentChatLauncher';
-import { MessageCircle, Bot, Users, Sparkles, Activity, Clock } from 'lucide-react';
+import { MessageCircle, Bot, Sparkles, Activity, Clock, Workflow } from 'lucide-react';
 import { Card, CardContent } from '@/components/common/Card';
 
 const AgentChatPage = () => {
@@ -14,7 +14,18 @@ const AgentChatPage = () => {
     userSatisfaction: '94%'
   });
   const [loading, setLoading] = useState(true);
+  const [chatMode, setChatMode] = useState('agent'); // 'agent' or 'workflow'
+  const [selectedWorkflow, setSelectedWorkflow] = useState(null);
   const searchParams = useSearchParams();
+  
+  // Check URL params for workflow context
+  useEffect(() => {
+    const workflowId = searchParams.get('workflowId');
+    if (workflowId) {
+      setChatMode('workflow');
+      setSelectedWorkflow({ workflowInstanceId: workflowId });
+    }
+  }, [searchParams]);
   
   useEffect(() => {
     // Simulate loading chat statistics
@@ -42,17 +53,45 @@ const AgentChatPage = () => {
     <div className="p-8">
       {/* Header */}
       <div className="mb-8">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
-            <MessageCircle className="w-6 h-6 text-white" />
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+              <MessageCircle className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-1">
+                Agent Chat
+              </h1>
+              <p className="text-lg text-gray-600 dark:text-gray-400">
+                Chat with AI agents directly or interact with live workflows
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-1">
+          
+          {/* Chat Mode Toggle */}
+          <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+            <button
+              onClick={() => setChatMode('agent')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${
+                chatMode === 'agent'
+                  ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
+              }`}
+            >
+              <Bot className="w-4 h-4" />
               Agent Chat
-            </h1>
-            <p className="text-lg text-gray-600 dark:text-gray-400">
-              Chat directly with AI agent personas without workflow overhead
-            </p>
+            </button>
+            <button
+              onClick={() => setChatMode('workflow')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${
+                chatMode === 'workflow'
+                  ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
+              }`}
+            >
+              <Workflow className="w-4 h-4" />
+              Workflow Chat
+            </button>
           </div>
         </div>
 

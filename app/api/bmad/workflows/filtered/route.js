@@ -4,6 +4,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { authenticateRoute } from '../../../../../lib/utils/routeAuth.js';
 import WorkflowParser from '@/lib/bmad/WorkflowParser.js';
 import logger from '@/lib/utils/logger.js';
 
@@ -89,6 +90,9 @@ import logger from '@/lib/utils/logger.js';
  */
 export async function POST(request) {
   try {
+    const { user, session, error } = await authenticateRoute(request);
+    if (error) return error;
+
     const { workflowFiles, projectContext } = await request.json();
 
     logger.info(`🔍 [FilteredWorkflows] Processing ${workflowFiles?.length || 0} workflows with context:`, projectContext);
@@ -140,6 +144,9 @@ export async function POST(request) {
  */
 export async function GET(request) {
   try {
+    const { user, session, error } = await authenticateRoute(request);
+    if (error) return error;
+
     const { searchParams } = new URL(request.url);
     const workflowFilesParam = searchParams.get('workflowFiles');
     

@@ -6,7 +6,7 @@
 import { NextResponse } from 'next/server';
 import { pusherServer, CHANNELS, EVENTS } from '../../../../lib/pusher/config';
 import { getOrchestrator } from '../../../../lib/bmad/BmadOrchestrator.js';
-import { aiService } from '../../../../lib/ai/AIService.js';
+import { AIService } from '../../../../lib/ai/AIService.js';
 import { connectMongoose } from '../../../../lib/database/mongodb.js';
 import AgentMessage from '../../../../lib/database/models/AgentMessage.js';
 import { compose, withMethods, withAIRateLimit, withSecurityHeaders, withErrorHandling } from '../../../../lib/api/middleware.js';
@@ -100,6 +100,7 @@ async function processUserMessageWithAgents(orchestrator, content, workflowId, t
       if (agentDefinition) {
         try {
           // Generate AI response with agent persona using the correct method
+          const aiService = AIService.getInstance();
           const aiResponse = await aiService.call(
             `Acting as ${agentDefinition.agent?.name || finalTargetAgentId} (${agentDefinition.agent?.title || 'Assistant'}): ${agentDefinition.persona?.identity || 'I am a helpful assistant'}.
             

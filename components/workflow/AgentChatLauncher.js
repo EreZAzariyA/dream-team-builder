@@ -143,15 +143,15 @@ const AgentChatLauncher = ({ className = "" }) => {
               key={agent.id}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className={`bg-white dark:bg-gray-800 border-2 ${agentStyle.borderColor} rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer`}
+              className={`bg-white dark:bg-gray-800 border-2 ${agentStyle.borderColor} rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow cursor-pointer`}
             >
               {/* Agent Header */}
-              <div className="flex items-center mb-3">
-                <div className={`${agentStyle.bgColor} p-2 rounded-lg mr-3 flex items-center justify-center`}>
-                  <span className="text-lg">{agent.icon}</span>
+              <div className="flex items-center mb-2">
+                <div className={`${agentStyle.bgColor} p-2 rounded-lg mr-2 flex items-center justify-center`}>
+                  <span className="text-base">{agent.icon}</span>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-gray-900 dark:text-white">{agent.name}</h3>
+                  <h3 className="font-semibold text-gray-900 dark:text-white text-base">{agent.name}</h3>
                   <p className="text-sm text-gray-600 dark:text-gray-400">{agent.title}</p>
                 </div>
               </div>

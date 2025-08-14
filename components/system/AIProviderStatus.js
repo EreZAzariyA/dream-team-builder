@@ -7,6 +7,8 @@
 
 import React, { useState, useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { fetchWithAuth } from '../../lib/react-query'; // Import the authenticated fetcher
+import { useAuth } from '../../lib/store/hooks/authHooks';
 import { 
   Brain, 
   Zap, 
@@ -22,15 +24,13 @@ import Link from 'next/link';
 const AIProviderStatus = React.memo(({ className = '' }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const { isAuthenticated } = useAuth();
 
   // Fetch AI service health status
   const { data: healthStatus, isLoading } = useQuery({
     queryKey: ['ai-health-status'],
-    queryFn: async () => {
-      const response = await fetch('/api/ai/health');
-      if (!response.ok) throw new Error('Failed to fetch AI health');
-      return response.json();
-    },
+    queryFn: () => fetchWithAuth('/api/ai/health'),
+    enabled: isAuthenticated, // Only run when authenticated
     refetchInterval: false, // Disable automatic refetching
     retry: 1,
     staleTime: Infinity, // Data never goes stale
@@ -44,23 +44,8 @@ const AIProviderStatus = React.memo(({ className = '' }) => {
   // Fetch user-specific usage statistics  
   const { data: userUsage, isLoading: isUsageLoading } = useQuery({
     queryKey: ['ai-user-usage'],
-    queryFn: async () => {
-      const response = await fetch('/api/ai/usage', {
-        credentials: 'include'
-      });
-      if (!response.ok) {
-        if (response.status === 401) {
-          return {
-            user: {
-              stats: { requests: 0, tokens: 0, cost: 0, providers: {} }
-            },
-            limits: { dailyRequests: 1000, dailyCost: 10 }
-          };
-        }
-        throw new Error('Failed to fetch user usage');
-      }
-      return response.json();
-    },
+    queryFn: () => fetchWithAuth('/api/ai/usage'),
+    enabled: isAuthenticated, // Only run when authenticated
     refetchInterval: false, // Disable automatic refetching
     retry: 1,
     staleTime: Infinity,
@@ -74,18 +59,8 @@ const AIProviderStatus = React.memo(({ className = '' }) => {
   // Fetch detailed usage statistics from new enhanced tracking
   const { data: detailedUsage, isLoading: isDetailedUsageLoading } = useQuery({
     queryKey: ['ai-detailed-usage'],
-    queryFn: async () => {
-      const response = await fetch('/api/usage/stats?timeframe=day', {
-        credentials: 'include'
-      });
-      if (!response.ok) {
-        if (response.status === 401) {
-          return { success: true, data: { detailed: { totalEntries: 0, totalTokens: 0, totalCost: 0, providers: {} } } };
-        }
-        throw new Error('Failed to fetch detailed usage');
-      }
-      return response.json();
-    },
+    queryFn: () => fetchWithAuth('/api/usage/stats?timeframe=day'),
+    enabled: isAuthenticated, // Only run when authenticated
     refetchInterval: false,
     retry: 1,
     staleTime: Infinity,

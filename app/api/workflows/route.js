@@ -1,7 +1,6 @@
 
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '../../../lib/auth/config.js';
+import { withRouteAuth } from '../../../lib/utils/routeAuth.js';
 import fs from 'fs';
 import path from 'path';
 import yaml from 'js-yaml';
@@ -9,14 +8,7 @@ import logger from '@/lib/utils/logger.js';
 import { compose, withMethods, withDatabase, withErrorHandling, withLogging } from '../../../lib/api/middleware.js';
 
 const handler = async (req) => {
-  // Check authentication with NextAuth session
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json(
-      { error: 'Authentication required' },
-      { status: 401 }
-    );
-  }
+  // Authentication is handled by withRouteAuth wrapper
   const workflowsDir = path.join(process.cwd(), '.bmad-core', 'workflows');
   
   // Check if directory exists
@@ -57,5 +49,5 @@ export const GET = compose(
   withDatabase,
   withLogging,
   withErrorHandling
-)(handler);
+)(withRouteAuth(handler));
 

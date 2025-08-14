@@ -25,10 +25,6 @@ const nextConfig = {
         destination: '/settings',
       },
       {
-        source: '/admin/profile',
-        destination: '/profile',
-      },
-      {
         source: '/admin/agents',
         destination: '/agents',
       },

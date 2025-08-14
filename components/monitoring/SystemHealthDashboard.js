@@ -2,9 +2,11 @@
 
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { fetchWithAuth } from '@/lib/react-query';
+import { useAuth } from '@/lib/store/hooks/authHooks';
 
 async function fetchHealthStatus() {
-  const response = await fetch('/api/health');
+  const response = await fetch('/api/health'); // No auth required
   if (!response.ok) {
     throw new Error('Failed to fetch health status');
   }
@@ -12,11 +14,7 @@ async function fetchHealthStatus() {
 }
 
 async function fetchMonitoringStats(period = '24h') {
-  const response = await fetch(`/api/monitoring/stats?period=${period}`);
-  if (!response.ok) {
-    throw new Error('Failed to fetch monitoring stats');
-  }
-  return response.json();
+  return await fetchWithAuth(`/api/monitoring/stats?period=${period}`);
 }
 
 async function fetchAlerts(category = null, type = null) {
@@ -26,16 +24,13 @@ async function fetchAlerts(category = null, type = null) {
   if (type) params.append('type', type);
   if (params.toString()) url += `?${params.toString()}`;
   
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error('Failed to fetch alerts');
-  }
-  return response.json();
+  return await fetchWithAuth(url);
 }
 
 export default function SystemHealthDashboard() {
   const [selectedPeriod, setSelectedPeriod] = useState('24h');
   const [alertFilter, setAlertFilter] = useState('all');
+  const { isAuthenticated } = useAuth();
 
   const { data: healthData, error: healthError, isLoading: healthLoading } = useQuery({
     queryKey: ['health-status'],
@@ -46,6 +41,7 @@ export default function SystemHealthDashboard() {
   const { data: statsData, error: statsError, isLoading: statsLoading } = useQuery({
     queryKey: ['monitoring-stats', selectedPeriod],
     queryFn: () => fetchMonitoringStats(selectedPeriod),
+    enabled: isAuthenticated, // Only run when authenticated
     refetchInterval: 60000, // Refresh every minute
   });
 
@@ -65,6 +61,7 @@ export default function SystemHealthDashboard() {
           return fetchAlerts();
       }
     },
+    enabled: isAuthenticated, // Only run when authenticated
     refetchInterval: 30000,
   });
 

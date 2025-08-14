@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../../../lib/auth/config.js';
-import { aiService } from '../../../lib/ai/AIService.js';
+import { AIService } from '../../../lib/ai/AIService.js';
 import { compose, withMethods, withRateLimit, withErrorHandling } from '../../../lib/api/middleware.js';
 import logger from '@/lib/utils/logger.js';
 
@@ -20,6 +20,7 @@ async function POST(request) {
     }
 
     // Test health check first
+    const aiService = AIService.getInstance();
     const healthStatus = await aiService.healthCheck();
         logger.info('Health check result:', healthStatus);
 
