@@ -98,35 +98,40 @@ const AgentChat = ({
   useEffect(() => {
     const initRef = initializationRef.current;
     
-    if (agentId && user && status === 'authenticated' && !conversationId && !isLoading && !initRef.isInitializing && !initRef.hasInitialized) {
-      initRef.isInitializing = true;
-      
-      // Check for existing session in localStorage first
-      const savedSession = loadSession(agentId);
-      if (savedSession) {
-        setConversationId(savedSession.conversationId);
+    const initializeSession = async () => {
+      if (agentId && user && status === 'authenticated' && !conversationId && !isLoading && !initRef.isInitializing && !initRef.hasInitialized) {
+        initRef.isInitializing = true;
         
-        // Try to restore from localStorage first - but ONLY if messages array is empty
-        if (messages.length === 0) {
-          const persistedMessages = loadPersistedMessages(savedSession.conversationId);
-          if (persistedMessages.length > 0) {
-            // Restore persisted messages
-            setMessages(persistedMessages);
-            setupPusherForChat(savedSession.conversationId);
-            initRef.hasInitialized = true;
-            initRef.isInitializing = false;
-            return;
+        // Check for existing session in localStorage first
+        const savedSession = loadSession(agentId);
+        if (savedSession) {
+          setConversationId(savedSession.conversationId);
+          
+          // Try to restore from localStorage first - but ONLY if messages array is empty
+          if (messages.length === 0) {
+            const persistedMessages = loadPersistedMessages(savedSession.conversationId);
+            if (persistedMessages.length > 0) {
+              // Restore persisted messages
+              setMessages(persistedMessages);
+              setupPusherForChat(savedSession.conversationId);
+              
+              initRef.hasInitialized = true;
+              initRef.isInitializing = false;
+              return;
+            }
           }
+          
+          // Fallback to API if no persisted messages
+          await handleLoadChatHistory(savedSession.conversationId);
+          return;
         }
         
-        // Fallback to API if no persisted messages
-        handleLoadChatHistory(savedSession.conversationId);
-        return;
+        // Initialize new chat session
+        await handleInitializeChat();
       }
-      
-      // Initialize new chat session
-      handleInitializeChat();
-    }
+    };
+
+    initializeSession();
     
     return () => {
       // Only cleanup on actual unmount, not hot reload
@@ -179,6 +184,7 @@ const AgentChat = ({
 
   const handleInitializeChat = async () => {
     try {
+      // Always initialize with regular chat first
       const result = await initializeChat();
       
       setConversationId(result.chatId);
@@ -261,50 +267,18 @@ const AgentChat = ({
     );
   }
 
-  // Show API key guard if no API keys are available
-  if (status === 'authenticated' && !apiKeysLoading && !hasAnyKeys) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        className={`fixed bottom-4 right-4 z-50 ${className}`}
-        style={{ width: '400px' }}
-      >
-        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl">
-          <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-            <h3 className="font-semibold text-gray-900 dark:text-white">
-              Chat with {agentId}
-            </h3>
-            {onClose && (
-              <button
-                onClick={onClose}
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              >
-                ✕
-              </button>
-            )}
-          </div>
-          <ApiKeyGuard 
-            title="API Keys Required"
-            subtitle="Connect your AI providers to start chatting with this agent"
-            missingProviders={missingProviders}
-            className="p-6"
-          />
-        </div>
-      </motion.div>
-    );
-  }
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      className={`fixed bottom-4 right-4 bg-white border border-gray-200 rounded-lg shadow-xl z-50 ${className}`}
+      initial={{ opacity: 0, scale: 0.95, y: 20 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.95, y: 20 }}
+      transition={{ duration: 0.2, ease: "easeOut" }}
+      className={`fixed bottom-4 right-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden ${className}`}
       style={{ 
-        width: isMinimized ? '320px' : '400px', 
-        height: isMinimized ? '60px' : '600px' 
+        width: isMinimized ? '300px' : '450px', 
+        height: isMinimized ? '50px' : '580px',
+        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
       }}
     >
       <ChatHeader

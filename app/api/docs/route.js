@@ -4,7 +4,7 @@ import path from 'path';
 
 const docsDirectory = path.join(process.cwd(), 'docs');
 
-export async function GET() {
+export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const file = searchParams.get('file');
 
