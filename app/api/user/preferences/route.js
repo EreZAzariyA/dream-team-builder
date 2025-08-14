@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../../auth/[...nextauth]/route.js';
+import { authOptions } from '../../../../lib/auth/config.js';
 import User from '../../../../lib/database/models/User.js';
-import dbConnect from '../../../../lib/database/mongodb.js';
+import { connectMongoose } from '../../../../lib/database/mongodb.js';
 
 export async function GET(request) {
   try {
@@ -12,7 +12,7 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
-    await dbConnect();
+    await connectMongoose();
     
     const user = await User.findByEmail(session.user.email);
     if (!user) {
@@ -46,7 +46,7 @@ export async function PATCH(request) {
       return NextResponse.json({ error: 'Preferences are required' }, { status: 400 });
     }
 
-    await dbConnect();
+    await connectMongoose();
     
     const user = await User.findByEmail(session.user.email);
     if (!user) {
@@ -92,7 +92,7 @@ export async function PUT(request) {
       }, { status: 400 });
     }
 
-    await dbConnect();
+    await connectMongoose();
     
     const user = await User.findByEmail(session.user.email);
     if (!user) {

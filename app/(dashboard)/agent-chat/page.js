@@ -3,9 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import AgentChatLauncher from '@/components/workflow/AgentChatLauncher';
-import WorkflowSelector from '@/components/agent-chat/components/WorkflowSelector';
-import WorkflowChatInterface from '@/components/agent-chat/components/WorkflowChatInterface';
-import { MessageCircle, Bot, Users, Sparkles, Activity, Clock, Workflow } from 'lucide-react';
+import { MessageCircle, Bot, Sparkles, Activity, Clock, Workflow } from 'lucide-react';
 import { Card, CardContent } from '@/components/common/Card';
 
 const AgentChatPage = () => {

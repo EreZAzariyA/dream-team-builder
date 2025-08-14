@@ -171,56 +171,56 @@ module.exports = {
         display: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
       },
       fontSize: {
-        'display': ['48px', { lineHeight: '1.1', letterSpacing: '-0.02em' }],
-        'h1': ['36px', { lineHeight: '1.2', letterSpacing: '-0.01em' }],
-        'h2': ['30px', { lineHeight: '1.3', letterSpacing: '0em' }],
-        'h3': ['24px', { lineHeight: '1.4', letterSpacing: '0em' }],
-        'h4': ['20px', { lineHeight: '1.5', letterSpacing: '0em' }],
-        'h5': ['18px', { lineHeight: '1.5', letterSpacing: '0em' }],
-        'h6': ['16px', { lineHeight: '1.5', letterSpacing: '0em' }],
-        'body-large': ['18px', { lineHeight: '1.6', letterSpacing: '0em' }],
-        'body': ['16px', { lineHeight: '1.6', letterSpacing: '0em' }],
-        'body-small': ['14px', { lineHeight: '1.5', letterSpacing: '0em' }],
-        'caption': ['12px', { lineHeight: '1.4', letterSpacing: '0.01em' }],
-        'code': ['14px', { lineHeight: '1.4', letterSpacing: '0em' }],
-        'button': ['16px', { lineHeight: '1.5', letterSpacing: '0em' }],
+        'display': ['40px', { lineHeight: '1.1', letterSpacing: '-0.02em' }],
+        'h1': ['30px', { lineHeight: '1.2', letterSpacing: '-0.01em' }],
+        'h2': ['26px', { lineHeight: '1.3', letterSpacing: '0em' }],
+        'h3': ['20px', { lineHeight: '1.4', letterSpacing: '0em' }],
+        'h4': ['18px', { lineHeight: '1.5', letterSpacing: '0em' }],
+        'h5': ['16px', { lineHeight: '1.5', letterSpacing: '0em' }],
+        'h6': ['14px', { lineHeight: '1.5', letterSpacing: '0em' }],
+        'body-large': ['16px', { lineHeight: '1.6', letterSpacing: '0em' }],
+        'body': ['14px', { lineHeight: '1.6', letterSpacing: '0em' }],
+        'body-small': ['12px', { lineHeight: '1.5', letterSpacing: '0em' }],
+        'caption': ['10px', { lineHeight: '1.4', letterSpacing: '0.01em' }],
+        'code': ['12px', { lineHeight: '1.4', letterSpacing: '0em' }],
+        'button': ['14px', { lineHeight: '1.5', letterSpacing: '0em' }],
       },
 
-      // Spacing - 8px Grid System
+      // Spacing - 6px Grid System
       spacing: {
-        '0.5': '2px',   // 0.25 * 8px
-        '1': '4px',     // 0.5 * 8px
-        '1.5': '6px',   // 0.75 * 8px
-        '2': '8px',     // 1 * 8px
-        '2.5': '10px',  // 1.25 * 8px
-        '3': '12px',    // 1.5 * 8px
-        '3.5': '14px',  // 1.75 * 8px
-        '4': '16px',    // 2 * 8px
-        '5': '20px',    // 2.5 * 8px
-        '6': '24px',    // 3 * 8px
-        '7': '28px',    // 3.5 * 8px
-        '8': '32px',    // 4 * 8px
-        '9': '36px',    // 4.5 * 8px
-        '10': '40px',   // 5 * 8px
-        '11': '44px',   // 5.5 * 8px - Mobile touch target
-        '12': '48px',   // 6 * 8px
-        '14': '56px',   // 7 * 8px
-        '16': '64px',   // 8 * 8px
-        '20': '80px',   // 10 * 8px
-        '24': '96px',   // 12 * 8px
-        '28': '112px',  // 14 * 8px
-        '32': '128px',  // 16 * 8px
-        '36': '144px',  // 18 * 8px
-        '40': '160px',  // 20 * 8px
-        '44': '176px',  // 22 * 8px
-        '48': '192px',  // 24 * 8px
-        '52': '208px',  // 26 * 8px
-        '56': '224px',  // 28 * 8px
-        '60': '240px',  // 30 * 8px
-        '64': '256px',  // 32 * 8px
-        '72': '288px',  // 36 * 8px
-        '80': '320px',  // 40 * 8px
-        '96': '384px',  // 48 * 8px
+        '0.5': '2px',
+        '1': '3px',
+        '1.5': '5px',
+        '2': '6px',
+        '2.5': '8px',
+        '3': '9px',
+        '3.5': '11px',
+        '4': '12px',
+        '5': '15px',
+        '6': '18px',
+        '7': '21px',
+        '8': '24px',
+        '9': '27px',
+        '10': '30px',
+        '11': '33px',
+        '12': '36px',
+        '14': '42px',
+        '16': '48px',
+        '20': '60px',
+        '24': '72px',
+        '28': '84px',
+        '32': '96px',
+        '36': '108px',
+        '40': '120px',
+        '44': '132px',
+        '48': '144px',
+        '52': '156px',
+        '56': '168px',
+        '60': '180px',
+        '64': '192px',
+        '72': '216px',
+        '80': '240px',
+        '96': '288px',
       },
 
       // Professional Shadow System
@@ -298,18 +298,18 @@ module.exports = {
 
       // Component-Specific Spacing
       padding: {
-        'agent-card': '24px',
-        'workflow-timeline': '32px',
-        'chat-message': '16px',
-        'modal': '24px',
-        'button-x': '16px',
-        'button-y': '8px',
+        'agent-card': '18px',
+        'workflow-timeline': '24px',
+        'chat-message': '12px',
+        'modal': '18px',
+        'button-x': '12px',
+        'button-y': '6px',
       },
       margin: {
-        'agent-card': '16px',
-        'workflow-timeline': '24px',
-        'chat-message': '8px',
-        'section': '32px',
+        'agent-card': '12px',
+        'workflow-timeline': '18px',
+        'chat-message': '6px',
+        'section': '24px',
       },
 
       // Professional Animations
@@ -425,7 +425,7 @@ module.exports = {
           backgroundColor: theme('colors.status.active-bg'),
           border: `1px solid ${theme('colors.status.active')}`,
           borderRadius: theme('borderRadius.full'),
-          padding: `${theme('spacing.1')} ${theme('spacing.3')}`,
+          padding: `${theme('spacing.0.5')} ${theme('spacing.2')}`,
           fontSize: theme('fontSize.caption[0]'),
           fontWeight: theme('fontWeight.medium'),
         },
@@ -435,7 +435,7 @@ module.exports = {
           backgroundColor: theme('colors.status.busy-bg'),
           border: `1px solid ${theme('colors.status.busy')}`,
           borderRadius: theme('borderRadius.full'),
-          padding: `${theme('spacing.1')} ${theme('spacing.3')}`,
+          padding: `${theme('spacing.0.5')} ${theme('spacing.2')}`,
           fontSize: theme('fontSize.caption[0]'),
           fontWeight: theme('fontWeight.medium'),
         },
@@ -445,7 +445,7 @@ module.exports = {
           backgroundColor: theme('colors.status.error-bg'),
           border: `1px solid ${theme('colors.status.error')}`,
           borderRadius: theme('borderRadius.full'),
-          padding: `${theme('spacing.1')} ${theme('spacing.3')}`,
+          padding: `${theme('spacing.0.5')} ${theme('spacing.2')}`,
           fontSize: theme('fontSize.caption[0]'),
           fontWeight: theme('fontWeight.medium'),
         },

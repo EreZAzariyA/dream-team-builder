@@ -7,9 +7,11 @@ import { useSession } from 'next-auth/react';
 import ChatHeader from './components/ChatHeader';
 import MessagesList from './components/MessagesList';
 import ChatInput from './components/ChatInput';
+import ApiKeyGuard from '../ui/ApiKeyGuard';
 import { usePusherChat } from './hooks/usePusherChat';
 import { useChatPersistence } from './hooks/useChatPersistence';
 import { useChatAPI } from './hooks/useChatAPI';
+import { useApiKeys } from '../../lib/hooks/useApiKeys';
 
 /**
  * Main Agent Chat Interface Component
@@ -30,6 +32,7 @@ const AgentChat = ({
 }) => {
   const { data: session, status } = useSession();
   const user = session?.user;
+  const { hasAnyKeys, missingProviders, loading: apiKeysLoading } = useApiKeys();
   
   // UI State
   const [isOpen, setIsOpen] = useState(true);
@@ -255,6 +258,41 @@ const AgentChat = ({
           <p className="text-sm text-red-600">Please log in to chat with agents.</p>
         </div>
       </div>
+    );
+  }
+
+  // Show API key guard if no API keys are available
+  if (status === 'authenticated' && !apiKeysLoading && !hasAnyKeys) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className={`fixed bottom-4 right-4 z-50 ${className}`}
+        style={{ width: '400px' }}
+      >
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl">
+          <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 className="font-semibold text-gray-900 dark:text-white">
+              Chat with {agentId}
+            </h3>
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+          <ApiKeyGuard 
+            title="API Keys Required"
+            subtitle="Connect your AI providers to start chatting with this agent"
+            missingProviders={missingProviders}
+            className="p-6"
+          />
+        </div>
+      </motion.div>
     );
   }
 

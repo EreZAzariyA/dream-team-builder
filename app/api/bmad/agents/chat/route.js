@@ -164,8 +164,8 @@ async function handleChatStart(user, agent, conversationId, mockMode, userApiKey
     messages: []
   });
 
-  // Create agent greeting based on persona
-  const greeting = generateAgentGreeting(agent);
+  // Generate AI-powered greeting based on agent persona
+  const greeting = await generateAIAgentGreeting(agent, user, mockMode, userApiKeys);
   
   // Add greeting to session
   const greetingMessage = {
@@ -410,27 +410,40 @@ async function handleChatEnd(user, agent, conversationId) {
 }
 
 /**
- * Generate persona-appropriate greeting for agent
+ * Generate AI-powered greeting based on agent persona
  */
-function generateAgentGreeting(agent) {
-  const name = agent.agent?.name || agent.id;
-  const title = agent.agent?.title || 'AI Agent';
-  const icon = agent.agent?.icon || '🤖';
-  // Style could be used for future greeting customization
-  
-  // Persona-based greetings
-  const greetings = {
-    pm: `Hello! I'm ${name} ${icon}, your ${title}. I'm here to help with product strategy, requirements gathering, and project planning. What product challenge can we tackle together?`,
-    architect: `Greetings! I'm ${name} ${icon}, your ${title}. I specialize in system design and technical architecture. Whether you need to design a new system or optimize an existing one, I'm here to help. What are you building?`,
-    dev: `Hey there! I'm ${name} ${icon}, your ${title}. Ready to dive into some code? I can help with implementation, debugging, best practices, or technical problem-solving. What are we working on?`,
-    'ux-expert': `Hi! I'm ${name} ${icon}, your ${title}. I'm passionate about creating amazing user experiences. Let's talk about user research, interface design, or user journey optimization. What UX challenge are you facing?`,
-    qa: `Hello! I'm ${name} ${icon}, your ${title}. Quality is my priority! I can help with testing strategies, quality assurance, and ensuring your software meets the highest standards. What do you need tested or reviewed?`,
-    analyst: `Hello! I'm ${name} ${icon}, your ${title}. I love diving deep into data and uncovering insights. Whether you need market research, user analysis, or strategic recommendations, I'm here to help. What would you like to analyze?`,
-    po: `Hi there! I'm ${name} ${icon}, your ${title}. I focus on maximizing product value and ensuring alignment between business goals and development. Need help with backlogs, user stories, or product strategy? I'm here for you!`,
-    sm: `Hello! I'm ${name} ${icon}, your ${title}. I facilitate great teamwork and smooth project delivery. Need help with agile processes, team coordination, or removing blockers? Let's make it happen together!`
-  };
+async function generateAIAgentGreeting(agent, user, mockMode, userApiKeys) {
+  if (mockMode || !userApiKeys || (!userApiKeys.openai && !userApiKeys.gemini)) {
+    throw new Error('AI service is required for agent greetings. Please configure your API keys.');
+  }
 
-  return greetings[agent.id] || `Hello! I'm ${name} ${icon}, your ${title}. I'm here to help with ${agent.persona?.focus || 'various tasks'}. How can I assist you today?`;
+  try {
+    const AIServiceModule = await import('@/lib/ai/AIService.js');
+    const aiService = AIServiceModule.default;
+    
+    // Initialize with user's available API keys
+    await aiService.initialize(userApiKeys, user._id.toString());
+
+    const userName = user.profile?.name || user.email.split('@')[0];
+    const greetingPrompt = `You are ${agent.agent?.name || agent.id}, and this is your first interaction with ${userName}. Based on your persona and role, provide your initial greeting to start this conversation.`;
+
+    const response = await aiService.generateAgentResponse(
+      agent,
+      greetingPrompt,
+      [],
+      user._id.toString()
+    );
+
+    if (!response?.content) {
+      throw new Error('AI service returned empty greeting response');
+    }
+    
+    return response.content;
+
+  } catch (error) {
+    console.error('Failed to generate AI greeting:', error);
+    throw new Error(`Unable to generate agent greeting: ${error.message}`);
+  }
 }
 
 /**

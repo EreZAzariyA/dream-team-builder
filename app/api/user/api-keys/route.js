@@ -146,6 +146,112 @@ export async function POST(request) {
 }
 
 /**
+ * PATCH /api/user/api-keys - Update individual API key
+ */
+export async function PATCH(request) {
+  try {
+    const session = await getServerSession(authOptions);
+    const { user, error, status } = await validateSessionAndGetUser(session);
+    
+    if (error) {
+      return NextResponse.json({ error }, { status });
+    }
+
+    const { provider, apiKey, action } = await request.json();
+    
+    // Validate provider
+    if (!provider || !['openai', 'gemini'].includes(provider)) {
+      return NextResponse.json(
+        { error: 'Invalid provider. Must be "openai" or "gemini"' },
+        { status: 400 }
+      );
+    }
+
+    // Handle different actions
+    if (action === 'clear') {
+      // Clear specific provider key
+      const currentKeys = user.getApiKeys();
+      const updatedKeys = { ...currentKeys };
+      updatedKeys[provider] = null;
+      
+      // Remove null values for setApiKeys
+      const keysToSave = {};
+      if (updatedKeys.openai) keysToSave.openai = updatedKeys.openai;
+      if (updatedKeys.gemini) keysToSave.gemini = updatedKeys.gemini;
+      
+      user.setApiKeys(keysToSave);
+      await user.save();
+
+      // Reinitialize AI service
+      const { AIService } = await import('../../../../lib/ai/AIService.js');
+      const aiService = AIService.getInstance();
+      await aiService.initialize(keysToSave, session.user.id);
+
+      return NextResponse.json({
+        success: true,
+        message: `${provider} API key cleared successfully`,
+        provider,
+        action: 'cleared'
+      });
+    } else {
+      // Save/update API key
+      if (!apiKey || !apiKey.trim()) {
+        return NextResponse.json(
+          { error: 'API key is required' },
+          { status: 400 }
+        );
+      }
+
+      // Validate API key format
+      const keysToValidate = { [provider]: apiKey.trim() };
+      const validation = ApiKeyValidator.validateAll(keysToValidate);
+      
+      if (!validation.valid) {
+        return NextResponse.json(
+          { error: `Invalid ${provider} API key format`, details: validation.errors },
+          { status: 400 }
+        );
+      }
+
+      // Get current keys and update specific provider
+      const currentKeys = user.getApiKeys();
+      const updatedKeys = {
+        openai: currentKeys.openai || '',
+        gemini: currentKeys.gemini || '',
+        [provider]: apiKey.trim()
+      };
+
+      // Remove empty values
+      const keysToSave = {};
+      if (updatedKeys.openai) keysToSave.openai = updatedKeys.openai;
+      if (updatedKeys.gemini) keysToSave.gemini = updatedKeys.gemini;
+
+      user.setApiKeys(keysToSave);
+      await user.save();
+
+      // Reinitialize AI service
+      const { AIService } = await import('../../../../lib/ai/AIService.js');
+      const aiService = AIService.getInstance();
+      await aiService.initialize(keysToSave, session.user.id);
+
+      return NextResponse.json({
+        success: true,
+        message: `${provider} API key saved successfully`,
+        provider,
+        action: 'saved'
+      });
+    }
+
+  } catch (error) {
+    logger.error('Update API key error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error', details: error.message },
+      { status: 500 }
+    );
+  }
+}
+
+/**
  * DELETE /api/user/api-keys - Clear user's API keys
  */
 export async function DELETE() {

@@ -2,6 +2,8 @@
 
 A comprehensive Next.js application featuring AI-powered workflow automation, autonomous agent collaboration, and intelligent development assistance through the BMAD (Business Methodology for Autonomous Development) system.
 
+🌐 **Live Demo**: [https://dream-team-builder.vercel.app](https://dream-team-builder.vercel.app)
+
 ## ✨ Key Features
 
 ### 🤖 AI Agent Collaboration

@@ -10,7 +10,6 @@ const adminRoutes = [
 // Define user-only routes (admin cannot access)
 const userRoutes = [
   '/dashboard',
-  '/profile',
   '/settings',
   '/workflows',
   '/agents',
@@ -94,7 +93,6 @@ export const config = {
   matcher: [
     '/admin/:path*',
     '/dashboard/:path*',
-    '/profile/:path*',
     '/settings/:path*',
     '/workflows/:path*',
     '/agents/:path*',
