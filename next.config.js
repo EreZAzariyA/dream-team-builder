@@ -5,7 +5,7 @@ const nextConfig = {
   
   // Fix for Vercel deployment issues
   experimental: {
-    optimizePackageImports: ['lucide-react', '@tanstack/react-query']
+    optimizePackageImports: ['@tanstack/react-query']
   },
   
   // Disable ESLint during build to avoid issues
@@ -21,6 +21,10 @@ const nextConfig = {
   async rewrites() {
     return [
       {
+        source: '/admin',
+        destination: '/dashboard',
+      },
+      {
         source: '/admin/settings',
         destination: '/settings',
       },
@@ -32,15 +36,11 @@ const nextConfig = {
         source: '/admin/analytics',
         destination: '/analytics',
       },
-      {
-        source: '/admin/monitoring',
-        destination: '/monitoring',
-      },
     ];
   },
 
   // Webpack configuration
-  webpack: (config, { isServer }) => {
+  webpack: (config, { isServer, webpack }) => {
     // Handle MongoDB and native modules
     if (!isServer) {
       // For client-side, completely ignore these server-only modules
@@ -86,8 +86,7 @@ const nextConfig = {
         'zlib': false,
       };
       
-      // Get webpack from the config context
-      const webpack = require('webpack');
+      // webpack is now available as parameter from Next.js
       
       // Add plugin to ignore .node files completely
       config.plugins.push(
@@ -119,6 +118,7 @@ const nextConfig = {
   env: {
     NEXTAUTH_URL: process.env.NEXTAUTH_URL,
     NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
+    JWT_SECRET: process.env.JWT_SECRET,
   },
   
   // Disable source maps in production for better performance
@@ -127,7 +127,20 @@ const nextConfig = {
   // Image optimization
   images: {
     formats: ['image/webp', 'image/avif'],
-    domains: ['localhost', 'lh3.googleusercontent.com'], // Add allowed image domains
+    remotePatterns: [
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+      },
+      {
+        protocol: 'https',
+        hostname: 'localhost',
+      },
+      {
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com',
+      },
+    ],
   },
   
   // Compression

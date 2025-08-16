@@ -11,7 +11,7 @@ import { authenticateRoute } from '../../../../lib/utils/routeAuth.js';
  */
 export async function GET(request) {
   try {
-    const { user, session, error } = await authenticateRoute(request);
+    const { error } = await authenticateRoute();
     if (error) return error;
 
     // Load agents directly from .bmad-core/agents/

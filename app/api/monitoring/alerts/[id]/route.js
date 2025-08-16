@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '../../../../../lib/auth/config.js';
 import { alertManager } from '../../../../../lib/monitoring/alert-manager.js';
 import { withMonitoring } from '../../../../../lib/monitoring/api-middleware.js';
+import logger from '../../../../../lib/utils/logger.js';
 
 async function patchHandler(request, { params }) {
   try {

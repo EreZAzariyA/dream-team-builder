@@ -5,15 +5,27 @@ import { getToken } from 'next-auth/jwt';
 const adminRoutes = [
   '/admin',
   '/api/admin',
+  '/api/monitoring'
+];
+
+// Define protected routes that require authentication (both user and admin can access)
+const protectedRoutes = [
+  '/api/user',
+  '/api/usage',
+  '/api/ai',
+  '/api/bmad',
+  '/api/chat',
+  '/api/integrations',
+  '/api/pusher',
+  '/api/workflow-templates'
 ];
 
 // Define user-only routes (admin cannot access)
 const userRoutes = [
   '/dashboard',
   '/settings',
-  '/workflows',
+  '/agent-teams',
   '/agents',
-  '/api/user',
   '/api/workflows',
   '/api/agents',
 ];
@@ -21,6 +33,11 @@ const userRoutes = [
 // Helper function to check if route is admin-only
 const isAdminRoute = (pathname) => {
   return adminRoutes.some(route => pathname.startsWith(route));
+};
+
+// Helper function to check if route requires authentication
+const isProtectedRoute = (pathname) => {
+  return protectedRoutes.some(route => pathname.startsWith(route));
 };
 
 // Helper function to check if route is user-only
@@ -72,9 +89,18 @@ export async function middleware(request) {
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
   }
+  // Check authentication for protected routes (both user and admin can access)
+  else if (isProtectedRoute(pathname)) {
+    if (!token) {
+      const signInUrl = new URL('/auth/signin', request.url);
+      signInUrl.searchParams.set('callbackUrl', request.url);
+      return NextResponse.redirect(signInUrl);
+    }
+    // Both users and admins can access these routes, so no role restriction
+  }
   
-  // Check user access for user routes (prevent admin access)
-  if (isUserRoute(pathname)) {
+  // Check user access for user-only routes (prevent admin access)
+  else if (isUserRoute(pathname)) {
     if (!token) {
       const signInUrl = new URL('/auth/signin', request.url);
       signInUrl.searchParams.set('callbackUrl', request.url);
@@ -94,7 +120,7 @@ export const config = {
     '/admin/:path*',
     '/dashboard/:path*',
     '/settings/:path*',
-    '/workflows/:path*',
+    '/agent-teams/:path*',
     '/agents/:path*',
     '/api/((?!auth).+)', // All API routes except /api/auth
   ],

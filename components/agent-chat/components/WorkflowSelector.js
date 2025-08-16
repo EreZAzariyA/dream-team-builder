@@ -299,7 +299,7 @@ const WorkflowSelector = ({
                   </h4>
                   <ul className="text-blue-700 dark:text-blue-200 text-sm space-y-1">
                     <li>• Messages are sent to the currently active agent in the workflow</li>
-                    <li>• You'll see real-time updates as agents respond and collaborate</li>
+                    <li>• You&apos;ll see real-time updates as agents respond and collaborate</li>
                     <li>• Chat history is preserved for the entire workflow session</li>
                   </ul>
                 </div>

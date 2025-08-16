@@ -87,7 +87,21 @@ const ChatMessage = ({ message, agent, showAvatar = true, isGrouped = false }) =
         >
           {/* Message Content */}
           <div className="text-sm leading-snug whitespace-pre-wrap break-words">
-            {message.content}
+            {message.metadata?.contentType === 'markdown' ? (
+              <div 
+                className="prose prose-sm dark:prose-invert max-w-none"
+                dangerouslySetInnerHTML={{ 
+                  __html: message.content
+                    .replace(/^# (.+)$/gm, '<h1 class="text-lg font-bold mb-2 mt-0">$1</h1>')
+                    .replace(/^## (.+)$/gm, '<h2 class="text-base font-semibold mb-1 mt-2">$1</h2>')
+                    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">$1</a>')
+                    .replace(/\n/g, '<br>')
+                }}
+              />
+            ) : (
+              message.content
+            )}
           </div>
 
           {/* Typing indicator or status */}

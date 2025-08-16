@@ -1,17 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { 
   FileText, 
   Book, 
-  Code, 
-  Zap, 
   ChevronRight, 
   Search,
-  BookOpen,
   GitBranch,
   Layers,
   Cloud
@@ -22,71 +20,52 @@ import {
  * Prepared for AWS S3 integration
  */
 const DocsPage = () => {
+  const searchParams = useSearchParams();
   const [doc, setDoc] = useState(null);
   const [files, setFiles] = useState([]);
+  const [tree, setTree] = useState({});
   const [loading, setLoading] = useState(true);
   const [selectedFile, setSelectedFile] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-
-  // Document categories for better organization
-  const docCategories = [
-    {
-      id: 'getting-started',
-      name: 'Getting Started',
-      icon: <Zap className="w-5 h-5" />,
-      description: 'Quick start guides and setup',
-      color: 'text-green-600 dark:text-green-400',
-      bgColor: 'bg-green-100 dark:bg-green-900',
-      borderColor: 'border-green-200 dark:border-green-800',
-      files: ['README.md', 'quickstart.md', 'installation.md']
-    },
-    {
-      id: 'api',
-      name: 'API Documentation',
-      icon: <Code className="w-5 h-5" />,
-      description: 'REST API endpoints and examples',
-      color: 'text-blue-600 dark:text-blue-400',
-      bgColor: 'bg-blue-100 dark:bg-blue-900',
-      borderColor: 'border-blue-200 dark:border-blue-800',
-      files: ['api.md', 'endpoints.md', 'authentication.md']
-    },
-    {
-      id: 'bmad',
-      name: 'BMAD System',
-      icon: <GitBranch className="w-5 h-5" />,
-      description: 'Agent orchestration and workflows',
-      color: 'text-orange-600 dark:text-orange-400',
-      bgColor: 'bg-orange-100 dark:bg-orange-900',
-      borderColor: 'border-orange-200 dark:border-orange-800',
-      files: ['bmad.md', 'agents.md', 'orchestration.md']
-    },
-    {
-      id: 'guides',
-      name: 'User Guides',
-      icon: <BookOpen className="w-5 h-5" />,
-      description: 'Step-by-step tutorials',
-      color: 'text-purple-600 dark:text-purple-400',
-      bgColor: 'bg-purple-100 dark:bg-purple-900',
-      borderColor: 'border-purple-200 dark:border-purple-800',
-      files: ['user-guide.md', 'workflows.md', 'best-practices.md']
-    }
-  ];
+  const [expandedFolders, setExpandedFolders] = useState(new Set());
 
   useEffect(() => {
     fetchDocs();
   }, []);
 
+  // Handle URL file parameter
+  useEffect(() => {
+    const fileParam = searchParams.get('file');
+    if (fileParam && files.length > 0) {
+      // Find the file in our files list
+      const file = files.find(f => f.path === fileParam || f.key === fileParam);
+      if (file) {
+        loadDoc(file.path || file.key);
+      }
+    }
+  }, [searchParams, files]);
+
   const fetchDocs = async () => {
     try {
-      // TODO: Replace with AWS S3 integration
-      // Future implementation will use: await documentService.listFiles()
+      // Fetch only current user's S3 agent documents
       const res = await fetch('/api/docs');
       const data = await res.json();
-      setFiles(data.files || []);
+      if (data.success) {
+        setFiles(data.files || []);
+        setTree(data.tree || {});
+        
+        // Auto-expand first level folders
+        const firstLevelFolders = Object.keys(data.tree.folders || {});
+        setExpandedFolders(new Set(firstLevelFolders));
+      } else {
+        console.error('Failed to fetch docs:', data.error);
+        setFiles([]);
+        setTree({});
+      }
     } catch (error) {
       console.error('Failed to fetch docs:', error);
-      // TODO: Implement S3 fallback strategy
       setFiles([]);
+      setTree({});
     } finally {
       setLoading(false);
     }
@@ -96,14 +75,16 @@ const DocsPage = () => {
     setLoading(true);
     setSelectedFile(file);
     try {
-      // TODO: Replace with AWS S3 integration
-      // Future implementation will use: await documentService.getDocument(file)
-      const res = await fetch(`/api/docs?file=${file}`);
+      // Handle S3 files vs local files
+      const res = await fetch(`/api/docs?file=${encodeURIComponent(file)}`);
       const data = await res.json();
-      setDoc(data.content);
+      if (data.success) {
+        setDoc(data.content);
+      } else {
+        setDoc('Error loading document: ' + (data.error || 'Unknown error'));
+      }
     } catch (error) {
       console.error(`Failed to fetch ${file}:`, error);
-      // TODO: Implement S3 error handling and caching
       setDoc('Error loading document. Please try again.');
     }
     setLoading(false);
@@ -111,22 +92,90 @@ const DocsPage = () => {
 
   // Filter files by search query
   const filteredFiles = files.filter(file => 
-    file.toLowerCase().includes(searchQuery.toLowerCase())
+    (file.name || file).toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Categorize files
-  const getCategoryFiles = (categoryFiles) => {
-    return filteredFiles.filter(file => 
-      categoryFiles.some(catFile => file.includes(catFile.replace('.md', '')))
-    );
+  // Helper functions for tree management
+  const toggleFolder = (folderPath) => {
+    const newExpanded = new Set(expandedFolders);
+    if (newExpanded.has(folderPath)) {
+      newExpanded.delete(folderPath);
+    } else {
+      newExpanded.add(folderPath);
+    }
+    setExpandedFolders(newExpanded);
   };
 
-  // Get uncategorized files
-  const uncategorizedFiles = filteredFiles.filter(file => {
-    return !docCategories.some(category => 
-      category.files.some(catFile => file.includes(catFile.replace('.md', '')))
+  // Tree node component
+  const TreeNode = ({ node, path = '', level = 0 }) => {
+    const isExpanded = expandedFolders.has(path);
+    
+    return (
+      <div style={{ marginLeft: `${level * 12}px` }}>
+        {/* Folders */}
+        {node.folders && Object.entries(node.folders).map(([folderName, folder]) => {
+          const folderPath = path ? `${path}/${folderName}` : folderName;
+          const isCurrentlyExpanded = expandedFolders.has(folderPath);
+          
+          return (
+            <div key={folderPath}>
+              <button
+                onClick={() => toggleFolder(folderPath)}
+                className="w-full flex items-center p-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg text-left group"
+              >
+                <div className="flex items-center space-x-2">
+                  <ChevronRight 
+                    className={`w-4 h-4 text-gray-400 transition-transform ${
+                      isCurrentlyExpanded ? 'rotate-90' : ''
+                    }`} 
+                  />
+                  <Layers className="w-4 h-4 text-blue-500" />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {folderName}
+                  </span>
+                </div>
+              </button>
+              
+              {isCurrentlyExpanded && (
+                <TreeNode 
+                  node={folder} 
+                  path={folderPath} 
+                  level={level + 1} 
+                />
+              )}
+            </div>
+          );
+        })}
+        
+        {/* Files */}
+        {node.files && node.files.map((file) => (
+          <button
+            key={file.key}
+            onClick={() => loadDoc(file.key)}
+            className={`w-full flex items-center justify-between p-2 rounded-lg transition-all duration-200 text-left group ${
+              selectedFile === file.key
+                ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-gray-900 dark:text-white'
+                : 'hover:bg-gray-50 dark:hover:bg-gray-700/50 text-gray-700 dark:text-gray-300'
+            }`}
+          >
+            <div className="flex items-center space-x-2">
+              <div style={{ width: '16px' }} /> {/* Spacer for alignment */}
+              <FileText className="w-4 h-4 text-gray-400" />
+              <div>
+                <div className="text-sm font-medium">
+                  {file.name.replace('.md', '').replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                </div>
+                <div className="text-xs text-gray-500">
+                  {new Date(file.lastModified).toLocaleDateString()}
+                </div>
+              </div>
+            </div>
+            <ChevronRight className="w-3 h-3 text-gray-400 group-hover:text-gray-600" />
+          </button>
+        ))}
+      </div>
     );
-  });
+  };
 
   return (
     <div className="h-full flex flex-col">
@@ -168,87 +217,38 @@ const DocsPage = () => {
               </div>
             </div>
 
-            {/* Navigation Categories */}
+            {/* File Tree */}
             <div className="flex-1 overflow-y-auto p-3">
               <nav className="space-y-1">
-                {docCategories.map((category) => {
-                  const categoryFiles = getCategoryFiles(category.files);
-                  if (categoryFiles.length === 0) return null;
-
-                  return (
-                    <div key={category.id} className="mb-4">
-                      {/* Category Header */}
-                      <div className="px-2 py-2 mb-2">
-                        <div className="flex items-center space-x-2">
-                          <div className={`w-6 h-6 rounded-lg ${category.bgColor} flex items-center justify-center`}>
-                            <span className={category.color}>{category.icon}</span>
-                          </div>
-                          <div>
-                            <h3 className="font-medium text-gray-900 dark:text-white text-sm">
-                              {category.name}
-                            </h3>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                              {category.description}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Category Files */}
-                      <div className="space-y-1 ml-2">
-                        {categoryFiles.map(file => (
-                          <button
-                            key={file}
-                            onClick={() => loadDoc(file)}
-                            className={`w-full flex items-center justify-between p-2 rounded-lg transition-all duration-200 text-left group ${
-                              selectedFile === file
-                                ? `${category.bgColor} ${category.borderColor} border text-gray-900 dark:text-white`
-                                : 'hover:bg-gray-50 dark:hover:bg-gray-700/50 text-gray-700 dark:text-gray-300'
-                            }`}
-                          >
-                            <div className="flex items-center space-x-2">
-                              <FileText className="w-4 h-4 text-gray-400" />
-                              <span className="text-sm font-medium">
-                                {file.replace('.md', '').replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                              </span>
-                            </div>
-                            <ChevronRight className="w-3 h-3 text-gray-400 group-hover:text-gray-600" />
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-
-                {/* Uncategorized Files */}
-                {uncategorizedFiles.length > 0 && (
+                {Object.keys(tree).length > 0 ? (
                   <div className="mb-4">
                     <div className="px-2 py-2 mb-2">
-                      <h3 className="font-medium text-gray-900 dark:text-white text-sm">
-                        Other Documents
-                      </h3>
+                      <div className="flex items-center space-x-2">
+                        <div className="w-6 h-6 rounded-lg bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+                          <span className="text-blue-600 dark:text-blue-400">
+                            <GitBranch className="w-4 h-4" />
+                          </span>
+                        </div>
+                        <div>
+                          <h3 className="font-medium text-gray-900 dark:text-white text-sm">
+                            Your Documents
+                          </h3>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            Files organized by type and agent
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                    <div className="space-y-1 ml-2">
-                      {uncategorizedFiles.map(file => (
-                        <button
-                          key={file}
-                          onClick={() => loadDoc(file)}
-                          className={`w-full flex items-center justify-between p-2 rounded-lg transition-all duration-200 text-left group ${
-                            selectedFile === file
-                              ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-gray-900 dark:text-white'
-                              : 'hover:bg-gray-50 dark:hover:bg-gray-700/50 text-gray-700 dark:text-gray-300'
-                          }`}
-                        >
-                          <div className="flex items-center space-x-2">
-                            <FileText className="w-4 h-4 text-gray-400" />
-                            <span className="text-sm font-medium">
-                              {file.replace('.md', '').replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                            </span>
-                          </div>
-                          <ChevronRight className="w-3 h-3 text-gray-400 group-hover:text-gray-600" />
-                        </button>
-                      ))}
+                    <div className="space-y-1">
+                      <TreeNode node={tree} />
                     </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <FileText className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                    <p className="text-gray-500 dark:text-gray-400 text-sm">
+                      No documents found. Start chatting with agents to create documents.
+                    </p>
                   </div>
                 )}
               </nav>

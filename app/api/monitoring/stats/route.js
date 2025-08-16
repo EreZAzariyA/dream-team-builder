@@ -4,6 +4,7 @@ import { authOptions } from '../../../../lib/auth/config.js';
 import { healthMonitor } from '../../../../lib/monitoring/health-monitor.js';
 import { alertManager } from '../../../../lib/monitoring/alert-manager.js';
 import { withMonitoring } from '../../../../lib/monitoring/api-middleware.js';
+import logger from '../../../../lib/utils/logger.js';
 
 async function handler(request) {
   try {
