@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { checkDatabaseHealth, getConnectionState } from '../../../lib/database/mongodb.js';
 import { healthMonitor } from '../../../lib/monitoring/health-monitor.js';
+import logger from '../../../lib/utils/logger.js';
+import { withDatabase } from '../../../lib/api/middleware.js';
 
-
-export async function GET() {
+async function healthHandler() {
   try {
     // Get enhanced health status from health monitor
     const healthStatus = await healthMonitor.getHealthStatus();
@@ -68,6 +69,9 @@ export async function GET() {
     }, { status: 503 });
   }
 }
+
+// Export the wrapped handler
+export const GET = withDatabase(healthHandler);
 
 /**
  * @swagger

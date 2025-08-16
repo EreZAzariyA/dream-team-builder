@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchWithAuth } from '@/lib/react-query';
 import { useAuth } from '@/lib/store/hooks/authHooks';
+import AlertCard from './AlertCard';
 
 async function fetchHealthStatus() {
   const response = await fetch('/api/health'); // No auth required
@@ -27,22 +28,50 @@ async function fetchAlerts(category = null, type = null) {
   return await fetchWithAuth(url);
 }
 
+async function resolveAlert(alertId) {
+  return await fetchWithAuth(`/api/monitoring/alerts/${alertId}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ action: 'resolve' }),
+  });
+}
+
+async function bulkResolveAlerts(alertIds) {
+  return await fetchWithAuth('/api/monitoring/alerts/bulk-resolve', {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ alertIds, action: 'resolve' }),
+  });
+}
+
 export default function SystemHealthDashboard() {
   const [selectedPeriod, setSelectedPeriod] = useState('24h');
   const [alertFilter, setAlertFilter] = useState('all');
+  const [resolvingAlerts, setResolvingAlerts] = useState(new Set());
+  const [isBulkResolving, setIsBulkResolving] = useState(false);
   const { isAuthenticated } = useAuth();
+  const queryClient = useQueryClient();
 
   const { data: healthData, error: healthError, isLoading: healthLoading } = useQuery({
     queryKey: ['health-status'],
     queryFn: fetchHealthStatus,
     refetchInterval: 30000, // Refresh every 30 seconds
+    refetchIntervalInBackground: false, // Don't refetch when tab is not active
+    staleTime: 15000, // Consider data fresh for 15 seconds
   });
 
   const { data: statsData, error: statsError, isLoading: statsLoading } = useQuery({
     queryKey: ['monitoring-stats', selectedPeriod],
     queryFn: () => fetchMonitoringStats(selectedPeriod),
-    enabled: isAuthenticated, // Only run when authenticated
-    refetchInterval: 60000, // Refresh every minute
+    enabled: !!isAuthenticated, // Only run when authenticated
+    refetchInterval: isAuthenticated ? 60000 : false, // Only refetch when authenticated
+    refetchIntervalInBackground: false, // Don't refetch when tab is not active
+    staleTime: isAuthenticated ? 30000 : 0, // Consider data fresh for 30 seconds
+    retry: isAuthenticated ? 3 : false // Only retry when authenticated
   });
 
   const { data: alertsData, isLoading: alertsLoading } = useQuery({
@@ -61,9 +90,188 @@ export default function SystemHealthDashboard() {
           return fetchAlerts();
       }
     },
-    enabled: isAuthenticated, // Only run when authenticated
-    refetchInterval: 30000,
+    enabled: !!isAuthenticated, // Only run when authenticated
+    refetchInterval: isAuthenticated ? 45000 : false, // Longer interval - 45 seconds
+    refetchIntervalInBackground: false, // Don't refetch when tab is not active
+    staleTime: isAuthenticated ? 20000 : 0, // Consider data fresh for 20 seconds
+    retry: isAuthenticated ? 2 : false, // Reduce retry attempts
+    refetchOnWindowFocus: false, // Don't refetch when window regains focus
   });
+
+  // Mutation for resolving alerts
+  const resolveAlertMutation = useMutation({
+    mutationFn: resolveAlert,
+    onMutate: async (alertId) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries(['alerts']);
+      
+      // Snapshot the previous value
+      const previousAlerts = queryClient.getQueryData(['alerts', alertFilter]);
+      
+      // Optimistically update to the new value
+      queryClient.setQueryData(['alerts', alertFilter], (old) => {
+        if (!old?.data) return old;
+        
+        return {
+          ...old,
+          data: old.data.map(alert => 
+            alert._id === alertId 
+              ? { ...alert, isResolved: true, resolvedAt: new Date().toISOString() }
+              : alert
+          )
+        };
+      });
+      
+      // Update resolving state
+      setResolvingAlerts(prev => new Set(prev).add(alertId));
+      
+      // Return a context object with the snapshotted value
+      return { previousAlerts };
+    },
+    onSuccess: (data, alertId) => {
+      // Remove from resolving set
+      setResolvingAlerts(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(alertId);
+        return newSet;
+      });
+      
+      // Update the specific alert data in cache without triggering a refetch
+      queryClient.setQueryData(['alerts', alertFilter], (old) => {
+        if (!old?.data) return old;
+        
+        return {
+          ...old,
+          data: old.data.map(alert => 
+            alert._id === alertId 
+              ? { ...alert, isResolved: true, resolvedAt: data.data?.resolvedAt || new Date().toISOString() }
+              : alert
+          )
+        };
+      });
+      
+      // Only invalidate after a delay to batch multiple operations
+      setTimeout(() => {
+        queryClient.invalidateQueries({ 
+          queryKey: ['alerts'], 
+          exact: false,
+          refetchType: 'none' // Don't automatically refetch
+        });
+      }, 2000);
+    },
+    onError: (error, alertId, context) => {
+      // Remove from resolving set
+      setResolvingAlerts(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(alertId);
+        return newSet;
+      });
+      
+      // Roll back to the previous value
+      if (context?.previousAlerts) {
+        queryClient.setQueryData(['alerts', alertFilter], context.previousAlerts);
+      }
+      
+      console.error('Failed to resolve alert:', error);
+    },
+  });
+
+  // Mutation for bulk resolving alerts
+  const bulkResolveAlertsMutation = useMutation({
+    mutationFn: bulkResolveAlerts,
+    onMutate: async (alertIds) => {
+      setIsBulkResolving(true);
+      
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries(['alerts']);
+      
+      // Snapshot the previous value
+      const previousAlerts = queryClient.getQueryData(['alerts', alertFilter]);
+      
+      // Optimistically update all alerts to resolved
+      queryClient.setQueryData(['alerts', alertFilter], (old) => {
+        if (!old?.data) return old;
+        
+        return {
+          ...old,
+          data: old.data.map(alert => 
+            alertIds.includes(alert._id)
+              ? { ...alert, isResolved: true, resolvedAt: new Date().toISOString() }
+              : alert
+          )
+        };
+      });
+      
+      return { previousAlerts };
+    },
+    onSuccess: (data) => {
+      setIsBulkResolving(false);
+      
+      // Update with actual server response
+      queryClient.setQueryData(['alerts', alertFilter], (old) => {
+        if (!old?.data || !data?.results?.resolved) return old;
+        
+        const resolvedIds = data.results.resolved.map(result => result.alertId);
+        
+        return {
+          ...old,
+          data: old.data.map(alert => 
+            resolvedIds.includes(alert._id)
+              ? { ...alert, isResolved: true, resolvedAt: new Date().toISOString() }
+              : alert
+          )
+        };
+      });
+      
+      // Show success message
+      console.log(`✅ Bulk resolution completed: ${data.resolved} resolved, ${data.failed} failed`);
+    },
+    onError: (error, alertIds, context) => {
+      setIsBulkResolving(false);
+      
+      // Roll back to the previous value
+      if (context?.previousAlerts) {
+        queryClient.setQueryData(['alerts', alertFilter], context.previousAlerts);
+      }
+      
+      console.error('Failed to bulk resolve alerts:', error);
+    },
+  });
+
+  const handleResolveAlert = (alertId) => {
+    // Prevent multiple clicks on the same alert
+    if (resolvingAlerts.has(alertId)) {
+      return;
+    }
+    
+    resolveAlertMutation.mutate(alertId);
+  };
+
+  const handleBulkResolveAlerts = () => {
+    // Prevent multiple bulk operations
+    if (isBulkResolving) {
+      return;
+    }
+
+    // Get all unresolved alerts
+    const unresolvedAlerts = alerts.filter(alert => !alert.isResolved);
+    
+    if (unresolvedAlerts.length === 0) {
+      console.log('No unresolved alerts to resolve');
+      return;
+    }
+
+    // Confirm bulk operation for large numbers
+    if (unresolvedAlerts.length > 10) {
+      const confirmed = window.confirm(
+        `This will resolve ${unresolvedAlerts.length} alerts. Are you sure you want to continue?`
+      );
+      if (!confirmed) return;
+    }
+
+    const alertIds = unresolvedAlerts.map(alert => alert._id);
+    bulkResolveAlertsMutation.mutate(alertIds);
+  };
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -257,17 +465,17 @@ export default function SystemHealthDashboard() {
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600 dark:text-gray-400">Connection Status:</span>
                 <span className={`text-sm font-medium ${
-                  stats?.performance?.database?.isConnected 
+                  health?.monitoring?.database?.isConnected 
                     ? 'text-green-600 dark:text-green-400' 
                     : 'text-red-600 dark:text-red-400'
                 }`}>
-                  {stats?.performance?.database?.isConnected ? 'Connected' : 'Disconnected'}
+                  {health?.monitoring?.database?.isConnected ? 'Connected' : 'Disconnected'}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-gray-600 dark:text-gray-400">Avg Connection Time:</span>
+                <span className="text-sm text-gray-600 dark:text-gray-400">Connection Time:</span>
                 <span className="text-sm font-medium">
-                  {(stats?.performance?.database?.avgConnectionTime || 0).toFixed(0)}ms
+                  {health?.monitoring?.database?.connectionTime || 0}ms
                 </span>
               </div>
               <div className="flex justify-between">
@@ -293,17 +501,42 @@ export default function SystemHealthDashboard() {
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
             🚨 System Alerts
           </h3>
-          <select
-            value={alertFilter}
-            onChange={(e) => setAlertFilter(e.target.value)}
-            className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-          >
-            <option value="all">All Alerts</option>
-            <option value="critical">Critical Only</option>
-            <option value="database">Database</option>
-            <option value="api">API</option>
-            <option value="system">System</option>
-          </select>
+          <div className="flex items-center space-x-3">
+            {/* Resolve All Button */}
+            {alerts.filter(alert => !alert.isResolved).length > 0 && (
+              <button
+                onClick={handleBulkResolveAlerts}
+                disabled={isBulkResolving}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${
+                  isBulkResolving
+                    ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                    : 'bg-green-600 hover:bg-green-700 text-white dark:bg-green-500 dark:hover:bg-green-600'
+                }`}
+              >
+                {isBulkResolving ? (
+                  <div className="flex items-center space-x-2">
+                    <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                    <span>Resolving...</span>
+                  </div>
+                ) : (
+                  `Resolve All (${alerts.filter(alert => !alert.isResolved).length})`
+                )}
+              </button>
+            )}
+            
+            {/* Filter Dropdown */}
+            <select
+              value={alertFilter}
+              onChange={(e) => setAlertFilter(e.target.value)}
+              className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            >
+              <option value="all">All Alerts</option>
+              <option value="critical">Critical Only</option>
+              <option value="database">Database</option>
+              <option value="api">API</option>
+              <option value="system">System</option>
+            </select>
+          </div>
         </div>
 
         {alertsLoading ? (
@@ -315,51 +548,12 @@ export default function SystemHealthDashboard() {
         ) : (
           <div className="space-y-3">
             {alerts.slice(0, 10).map((alert) => (
-              <div
+              <AlertCard
                 key={alert._id}
-                className={`p-4 rounded-lg border-l-4 ${
-                  alert.type === 'critical'
-                    ? 'border-red-500 bg-red-50 dark:bg-red-900/20'
-                    : alert.type === 'warning'
-                    ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20'
-                    : 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                }`}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-1">
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        alert.type === 'critical'
-                          ? 'bg-red-200 text-red-800 dark:bg-red-800 dark:text-red-200'
-                          : alert.type === 'warning'
-                          ? 'bg-yellow-200 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-200'
-                          : 'bg-blue-200 text-blue-800 dark:bg-blue-800 dark:text-blue-200'
-                      }`}>
-                        {alert.type.toUpperCase()}
-                      </span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400 uppercase">
-                        {alert.category}
-                      </span>
-                      <span className={`w-2 h-2 rounded-full ${
-                        alert.isResolved 
-                          ? 'bg-green-500' 
-                          : 'bg-red-500'
-                      }`}></span>
-                    </div>
-                    <p className="text-sm text-gray-800 dark:text-gray-200">
-                      {alert.message}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      {new Date(alert.createdAt).toLocaleString()}
-                    </p>
-                  </div>
-                  {!alert.isResolved && (
-                    <button className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
-                      Resolve
-                    </button>
-                  )}
-                </div>
-              </div>
+                alert={alert}
+                isResolving={resolvingAlerts.has(alert._id)}
+                onResolve={handleResolveAlert}
+              />
             ))}
           </div>
         )}

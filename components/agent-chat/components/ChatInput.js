@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Send, Smile, Paperclip, Mic } from 'lucide-react';
+import AgentCommands from './AgentCommands';
 
 /**
  * Modern chat input component inspired by LinkedIn's design
@@ -147,31 +148,13 @@ const ChatInput = ({
         )}
       </div>
 
-      {/* Quick Actions Bar (Optional) */}
-      {agent && !isLoading && newMessage.length === 0 && (
-        <div className="px-3 pb-3">
-          <div className="flex space-x-2 overflow-x-auto">
-            <button
-              onClick={() => setNewMessage("Hi! Can you help me with...")}
-              className="flex-shrink-0 px-3 py-1.5 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs rounded-full border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
-            >
-              👋 Ask for help
-            </button>
-            <button
-              onClick={() => setNewMessage("Can you explain how to...")}
-              className="flex-shrink-0 px-3 py-1.5 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs rounded-full border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
-            >
-              ❓ Get explanation
-            </button>
-            <button
-              onClick={() => setNewMessage("What are the best practices for...")}
-              className="flex-shrink-0 px-3 py-1.5 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs rounded-full border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
-            >
-              💡 Best practices
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Agent Commands Bar */}
+      <AgentCommands 
+        agent={agent} 
+        isLoading={isLoading} 
+        newMessage={newMessage}
+        onCommandSelect={setNewMessage}
+      />
     </div>
   );
 };

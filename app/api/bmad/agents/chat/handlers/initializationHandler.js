@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import AgentChat from '@/lib/database/models/AgentChat';
-import { generateAIAgentGreeting } from './greetingGenerator.js';
 
 const { PusherService } = require('@/lib/bmad/orchestration/PusherService.js');
 
@@ -48,8 +47,8 @@ export async function handleChatStart(user, agent, conversationId, mockMode, use
     messages: []
   });
 
-  // Generate AI-powered greeting based on agent persona
-  const greeting = await generateAIAgentGreeting(agent, user, mockMode, userApiKeys);
+  // Let agent handle greeting naturally according to their YAML activation instructions
+  const greeting = await executeAgentGreeting(agent, user, mockMode, userApiKeys);
   
   // Add greeting to session
   const greetingMessage = {
@@ -203,4 +202,57 @@ export async function handleChatEnd(user, agent, conversationId) {
     endedAt: chatSession.endedAt,
     messageCount: chatSession.messages.length
   });
+}
+
+/**
+ * Execute agent greeting naturally according to YAML activation instructions
+ * Instead of hardcoded prompts, let agents follow their defined behavior
+ */
+async function executeAgentGreeting(agent, user, mockMode, userApiKeys) {
+  const userName = user.profile?.name || user.email.split('@')[0];
+  
+  if (mockMode) {
+    // Simple mock greeting that doesn't override agent behavior
+    return `Hello ${userName}! I'm ${agent.agent?.name || agent.id} ${agent.agent?.icon || '🤖'}, your ${agent.agent?.title || 'AI assistant'}. How can I help you today?`;
+  }
+
+  try {
+    // Import AI service dynamically
+    const { aiService } = await import('@/lib/ai/AIService.js');
+    
+    // Initialize AI service with user API keys if needed
+    if (!aiService.initialized && userApiKeys) {
+      await aiService.initialize(userApiKeys, user._id.toString());
+    }
+
+    // Let the agent execute their natural activation instructions
+    // STEP 3 in YAML: "Greet user with your name/role and mention `*help` command"
+    const activationContext = {
+      action: 'activate',
+      userName: userName,
+      isGreeting: true,
+      chatMode: true
+    };
+
+    // BMAD Activation: Send full agent context for proper activation
+    const fullAgentContext = JSON.stringify(agent, null, 2);
+    
+    const prompt = `${fullAgentContext}
+
+User: ${userName}`;
+
+    const response = await aiService.call(prompt, agent, 1, activationContext, user._id.toString());
+    
+    if (response && response.content) {
+      return response.content.trim();
+    } else {
+      // Fallback if AI fails
+      return `Hello ${userName}! I'm ${agent.agent?.name || agent.id} ${agent.agent?.icon || '🤖'}, your ${agent.agent?.title || 'AI assistant'}. Type *help to see what I can do for you.`;
+    }
+
+  } catch (error) {
+    console.error('Agent greeting execution failed:', error);
+    // Fallback greeting
+    return `Hello ${userName}! I'm ${agent.agent?.name || agent.id} ${agent.agent?.icon || '🤖'}, your ${agent.agent?.title || 'AI assistant'}. Type *help to see what I can do for you.`;
+  }
 }

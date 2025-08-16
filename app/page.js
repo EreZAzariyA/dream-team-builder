@@ -13,14 +13,8 @@ export default function DashboardRedirect() {
     if (status === 'loading') return; // Do nothing while session is loading
 
     if (session) {
-      const userRole = session.user?.role || 'user';
-      if (userRole === 'admin') {
-        router.replace('/admin/dashboard');
-      } else {
-        // Redirect regular users to their main dashboard page
-        // Redirect regular users to workflows page
-        router.replace('/workflows'); 
-      }
+      // Redirect regular users to their main dashboard page
+      router.replace('/dashboard'); 
     } else {
       // If not authenticated, redirect to sign-in page
       router.replace('/auth/signin');

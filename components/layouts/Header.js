@@ -5,16 +5,16 @@ import { useSession } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
 import { Bell, UserCircle, Sun, Moon } from 'lucide-react';
 import { useTheme } from 'next-themes';
-import { useUserTheme } from '../../lib/hooks/useUserTheme';
+import { useSaveTheme } from '../../lib/hooks/useUserTheme';
 import AIProviderStatus from '../system/AIProviderStatus';
 
 // Page mapping (moved outside component to prevent recreation)
 const PAGE_MAP = {
   '/dashboard': 'Dashboard',
-  '/workflows': 'Workflows',
+  '/agent-teams': 'Agent Teams',
   '/agents': 'Agents',
   '/analytics': 'Analytics',
-  '/monitoring': 'Monitoring',
+  '/admin/monitoring': 'Monitoring',
   '/integrations': 'Integrations',
   '/docs': 'Documentation',
   '/settings': 'Settings'
@@ -23,7 +23,7 @@ const PAGE_MAP = {
 const Header = () => {
   const { data: session } = useSession();
   const { setTheme, resolvedTheme } = useTheme();
-  const { saveThemeToDatabase } = useUserTheme();
+  const { saveThemeToDatabase } = useSaveTheme();
   const pathname = usePathname();
 
   // Memoize page title calculation

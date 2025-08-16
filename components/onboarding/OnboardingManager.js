@@ -62,8 +62,8 @@ export default function OnboardingManager({ children }) {
       showWelcome: false
     }));
     markOnboardingAsSeen();
-    // Navigate directly to workflows page for instant template selection
-    router.push('/workflows');
+    // Navigate directly to agent-teams page for instant template selection
+    router.push('/agent-teams');
   };
 
   const handleSkipOnboarding = () => {
@@ -82,8 +82,8 @@ export default function OnboardingManager({ children }) {
       showTour: false
     }));
     markOnboardingAsSeen();
-    // Navigate directly to workflows page for instant template selection
-    router.push('/workflows');
+    // Navigate directly to agent-teams page for instant template selection
+    router.push('/agent-teams');
   };
 
   const handleTourSkip = () => {
@@ -114,7 +114,7 @@ export default function OnboardingManager({ children }) {
       timeline: projectData.timeline || ''
     });
     
-    router.push(`/workflows?autolaunch=true&${queryParams.toString()}`);
+    router.push(`/agent-teams?autolaunch=true&${queryParams.toString()}`);
   };
 
   const handleProjectSetupClose = () => {
@@ -177,84 +177,32 @@ export function useOnboarding() {
   };
   
   const showWorkflows = () => {
-    // Navigate directly to workflows page for instant template selection
-    window.location.href = '/workflows';
+    // Navigate directly to agent-teams page for instant template selection
+    window.location.href = '/agent-teams';
+  };
+
+  const resetOnboarding = () => {
+    // Clear onboarding localStorage for current user to trigger onboarding again
+    if (typeof window !== 'undefined') {
+      // Remove all onboarding keys (we don't know the exact userId format)
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('hasSeenOnboarding_')) {
+          localStorage.removeItem(key);
+        }
+      });
+      // Reload page to trigger onboarding
+      window.location.reload();
+    }
   };
 
   return {
     showWelcome,
     showTour,
-    showWorkflows
+    showWorkflows,
+    resetOnboarding
   };
 }
 
-// Enhanced OnboardingManager that listens to custom events
-export function OnboardingManagerWithEvents({ children }) {
-  const router = useRouter();
-  const [onboardingState, setOnboardingState] = useState({
-    showWelcome: false,
-    showTour: false,
-    showWorkflows: false
-  });
 
-
-  useEffect(() => {
-    const handleShowWelcome = () => {
-      setOnboardingState(prev => ({ ...prev, showWelcome: true }));
-    };
-    
-    const handleShowTour = () => {
-      setOnboardingState(prev => ({ ...prev, showTour: true }));
-    };
-    
-    const handleShowWorkflowLauncher = () => {
-      setOnboardingState(prev => ({ ...prev, showWorkflows: true }));
-    };
-
-    window.addEventListener('showOnboardingWelcome', handleShowWelcome);
-    window.addEventListener('showOnboardingTour', handleShowTour);
-    window.addEventListener('showWorkflows', handleShowWorkflowLauncher);
-
-    return () => {
-      window.removeEventListener('showOnboardingWelcome', handleShowWelcome);
-      window.removeEventListener('showOnboardingTour', handleShowTour);
-      window.removeEventListener('showWorkflows', handleShowWorkflowLauncher);
-    };
-  }, []);
-
-  // Handle workflow launcher actions
-  const handleSelectTemplate = (template, workflowName, projectDescription) => {
-    console.log('Selected BMAD template:', { template, workflowName, projectDescription });
-    setOnboardingState(prev => ({
-      ...prev,
-      showWorkflows: false
-    }));
-    
-    // Navigate to workflows page with template pre-selection  
-    router.push(`/workflows?autolaunch=true&template=${template.id}&name=${encodeURIComponent(workflowName)}&description=${encodeURIComponent(projectDescription)}`);
-  };
-
-  const handleStartFromScratch = () => {
-    setOnboardingState(prev => ({
-      ...prev,
-      showWorkflows: false
-    }));
-    
-    // Navigate to workflows page for custom BMAD workflow
-    router.push('/workflows?mode=custom');
-  };
-
-  const handleCloseWorkflowLauncher = () => {
-    setOnboardingState(prev => ({
-      ...prev,
-      showWorkflows: false
-    }));
-  };
-
-  return (
-    <>
-      {children}
-      
-    </>
-  );
-}
+// Note: OnboardingManagerWithEvents was removed as it was incomplete and redundant.
+// The main OnboardingManager above provides all necessary onboarding functionality.

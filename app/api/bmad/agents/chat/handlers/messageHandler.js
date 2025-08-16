@@ -65,20 +65,47 @@ export async function handleChatMessage(user, agent, message, conversationId, mo
   };
 
 
-  // Execute agent response (regular)
+  // Execute agent via BMAD AgentExecutor (pure BMAD approach)
   let agentResponse;
   try {
     if (mockMode) {
       agentResponse = await executeMockAgentChat(agent, chatContext);
     } else {
-      agentResponse = await executeRealAgentChat(agent, chatContext, userApiKeys);
+      // Always use AgentExecutor - let agent handle everything per YAML
+      agentResponse = await executeViaAgentExecutor(agent, message, chatContext, userApiKeys);
     }
   } catch (error) {
-    console.error('Error executing agent chat:', error);
+    console.error('Error executing agent:', error);
     agentResponse = {
       content: `I apologize, but I encountered an error while processing your message. Please try again.`,
       type: 'error_response'
     };
+  }
+
+  // Handle content that exceeds chat message limits
+  let messageContent = agentResponse.content;
+  let documentUrl = null;
+  
+  // If content is too long for chat, truncate it intelligently
+  if (agentResponse.content && agentResponse.content.length > 4500) {
+    let truncateAt = 4200; // Leave room for the truncation message
+    
+    // Try to find a good break point (end of paragraph, sentence, or section)
+    const breakPoints = [
+      agentResponse.content.lastIndexOf('\n\n', truncateAt),
+      agentResponse.content.lastIndexOf('. ', truncateAt),
+      agentResponse.content.lastIndexOf('.\n', truncateAt),
+      agentResponse.content.lastIndexOf('---', truncateAt)
+    ];
+    
+    const bestBreak = Math.max(...breakPoints.filter(pos => pos > 3000)); // Ensure we don't truncate too early
+    if (bestBreak > 0) {
+      truncateAt = bestBreak + (agentResponse.content[bestBreak] === '.' ? 1 : 0);
+    }
+    
+    messageContent = agentResponse.content.substring(0, truncateAt) + 
+      '\n\n--- Message truncated due to length ---\n' +
+      '💡 **Tip:** For creating documents, use agent commands like `*create-architecture` or `*help` to see available commands.';
   }
 
   // Add agent response to session
@@ -88,13 +115,17 @@ export async function handleChatMessage(user, agent, message, conversationId, mo
     fromName: agent.agent?.name || agent.id,
     to: 'user',
     toName: user.profile?.name || user.email.split('@')[0],
-    content: agentResponse.content,
+    content: messageContent,
     timestamp: new Date(),
     type: 'agent_response',
     metadata: {
       executionTime: agentResponse.executionTime || 0,
       tokensUsed: agentResponse.tokensUsed || 0,
-      model: agentResponse.model || (mockMode ? 'mock' : 'ai')
+      model: agentResponse.model || (mockMode ? 'mock' : 'ai'),
+      fullDocumentUrl: documentUrl,
+      originalLength: agentResponse.content.length,
+      contentType: 'markdown',
+      hasDocument: !!documentUrl
     }
   };
 
@@ -133,96 +164,68 @@ async function executeMockAgentChat(agent, chatContext) {
   // Simulate processing time
   await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
   
-  const responses = [
-    `Thanks for your message! As ${agent.agent?.name || agent.id}, I'm here to help you with ${agent.persona?.focus || 'your needs'}.`,
-    `I understand your request. Let me think about the best approach based on my expertise in ${agent.persona?.role || 'this area'}.`,
-    `That's an interesting point. From my perspective as ${agent.agent?.title || 'an AI assistant'}, I would suggest...`,
-    `Great question! Based on my experience, I can help you with that. Let me break it down...`
-  ];
-  
-  const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-  
+  // In mock mode, indicate that AI is not available but keep response minimal
   return {
-    content: randomResponse,
+    content: `[Mock mode - AI service not available. Agent ${agent.agent?.name || agent.id} would respond here based on their expertise in ${agent.persona?.focus || 'this area'}.]`,
     executionTime: Math.floor(1000 + Math.random() * 2000),
-    tokensUsed: Math.floor(50 + Math.random() * 200),
+    tokensUsed: 0,
     model: 'mock'
   };
 }
 
+// Singleton instances to prevent memory leaks
+let sharedAgentLoader = null;
+let sharedAgentExecutor = null;
+
 /**
- * Execute real agent chat using AI
+ * Execute via AgentExecutor for actual BMAD workflow
  */
-async function executeRealAgentChat(agent, chatContext, userApiKeys) {
-  const startTime = Date.now();
-  
+async function executeViaAgentExecutor(agent, message, chatContext, userApiKeys) {
   try {
-    // Import AI service dynamically to avoid circular dependencies
-    const { aiService } = await import('@/lib/ai/AIService.js');
+    const { AgentExecutor } = require('@/lib/bmad/AgentExecutor/index.js');
+    const { AgentLoader } = require('@/lib/bmad/AgentLoader.js');
     
-    // Initialize AI service with user API keys if needed
+    const workflowContext = {
+      userPrompt: message,
+      userId: chatContext.userId,
+      userName: chatContext.userName,
+      chatMode: true
+    };
+    
+    // Reuse singleton AgentLoader to prevent memory leaks
+    if (!sharedAgentLoader) {
+      sharedAgentLoader = new AgentLoader();
+      await sharedAgentLoader.loadAllAgents();
+    }
+    
+    const { aiService } = await import('@/lib/ai/AIService.js');
     if (!aiService.initialized && userApiKeys) {
       await aiService.initialize(userApiKeys, chatContext.userId);
     }
     
-    // Build agent prompt
-    const persona = agent.persona || {};
-    const agentInfo = agent.agent || {};
-    
-    let prompt = '';
-    
-    // Add agent identity and role
-    if (persona.identity) {
-      prompt += `Identity: ${persona.identity}\n\n`;
-    }
-    if (persona.role) {
-      prompt += `Role: ${persona.role}\n`;
-    }
-    if (persona.focus) {
-      prompt += `Focus: ${persona.focus}\n`;
+    // Reuse singleton AgentExecutor to prevent memory leaks
+    if (!sharedAgentExecutor) {
+      sharedAgentExecutor = new AgentExecutor(sharedAgentLoader, aiService);
     }
     
-    // Add core principles
-    if (persona.core_principles && Array.isArray(persona.core_principles)) {
-      prompt += `\nCore Principles:\n${persona.core_principles.map(p => `- ${p}`).join('\n')}\n\n`;
-    }
+    const result = await sharedAgentExecutor.executeAgent(agent, workflowContext);
     
-    // Add conversation history
-    if (chatContext.chatHistory && chatContext.chatHistory.length > 0) {
-      prompt += 'Recent conversation:\n';
-      chatContext.chatHistory.slice(-5).forEach(msg => {
-        const role = msg.from === 'user' ? 'User' : 'Assistant';
-        prompt += `${role}: ${msg.content}\n`;
-      });
-      prompt += '\n';
-    }
-    
-    // Add current user message
-    prompt += `User: ${chatContext.userPrompt}\n\nRespond as ${agentInfo.name || 'the assistant'} with your expertise and personality. Be helpful, engaging, and stay in character:`;
-    
-    // Call AI service
-    const response = await aiService.call(prompt, agent, 1, chatContext, chatContext.userId);
-    
-    const executionTime = Date.now() - startTime;
+    // Cleanup caches to prevent memory leaks
+    sharedAgentExecutor.cleanupCaches();
     
     return {
-      content: response.content,
-      executionTime,
-      tokensUsed: response.usage?.total_tokens || response.usage?.totalTokens || 0,
-      model: response.provider || 'ai'
+      content: result.content || 'Workflow executed successfully!',
+      executionTime: result.executionTime || 0,
+      tokensUsed: result.tokensUsed || 0,
+      model: 'workflow',
+      documentUrl: result.documentUrl || null,
+      hasDocument: !!result.documentUrl
     };
     
   } catch (error) {
-    console.error('Real agent chat execution failed:', error);
-    
-    const executionTime = Date.now() - startTime;
-    
     return {
-      content: `I apologize, but I'm experiencing technical difficulties. Please ensure your AI provider keys are configured properly and try again.`,
-      executionTime,
-      tokensUsed: 0,
-      model: 'error',
-      error: error.message
+      content: `Workflow execution failed: ${error.message}`,
+      type: 'error_response'
     };
   }
 }

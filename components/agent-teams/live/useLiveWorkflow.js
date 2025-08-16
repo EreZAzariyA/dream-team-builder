@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { WorkflowId } from '../../../lib/utils/workflowId';
 import { CHANNELS, EVENTS } from '../../../lib/pusher/config';
 import { usePusherSimple } from '../../../lib/pusher/SimplePusherClient';

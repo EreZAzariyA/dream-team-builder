@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import SystemHealthDashboard from '../../../components/monitoring/SystemHealthDashboard.js';
+import SystemHealthDashboard from '../../../../components/monitoring/SystemHealthDashboard.js';
 
 export default function MonitoringPage() {
   return (
