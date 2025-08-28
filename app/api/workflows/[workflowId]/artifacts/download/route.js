@@ -4,7 +4,8 @@
  */
 
 import { NextResponse } from 'next/server';
-const { ArtifactManager } = require('../../../../../../lib/bmad/ArtifactManager');
+import { BmadOrchestrator } from '../../../../../../lib/bmad/index.js';
+import logger from '../../../../../../lib/utils/logger.js';
 const archiver = require('archiver');
 
 
@@ -19,7 +20,8 @@ export async function GET(request, { params }) {
       );
     }
 
-    const bmad = await getOrchestrator();
+    const bmad = new BmadOrchestrator();
+    await bmad.initialize();
     const artifactManager = bmad.artifactManager;
 
     // Get artifacts for the workflow

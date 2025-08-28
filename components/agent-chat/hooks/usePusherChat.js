@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useCallback } from 'react';
-import { pusherClient } from '@/lib/pusher/config';
+import { pusherClient, EVENTS } from '@/lib/pusher/config';
 
 /**
  * Custom hook for managing Pusher chat subscriptions
@@ -10,7 +10,7 @@ import { pusherClient } from '@/lib/pusher/config';
 export const usePusherChat = () => {
   const pusherChannelRef = useRef(null);
 
-  const setupPusherSubscriptionWithClient = useCallback((client, chatId, onMessage, onChatStarted, onChatEnded) => {
+  const setupPusherSubscriptionWithClient = useCallback((client, chatId, channelPrefix, onMessage, onChatStarted, onChatEnded, onWorkflowUpdate) => {
     // Check Pusher connection state
     const connectionState = client.connection.state;
     
@@ -22,7 +22,7 @@ export const usePusherChat = () => {
       }
     }
 
-    const channelName = `workflow-${chatId}`;
+    const channelName = `${channelPrefix}-${chatId}`;
     
     // Check if already subscribed to this channel
     if (pusherChannelRef.current === channelName) {
@@ -43,7 +43,7 @@ export const usePusherChat = () => {
       pusherChannelRef.current = channelName;
       
       // Bind event handlers
-      channel.bind('chat:message', (data) => {
+      channel.bind(EVENTS.AGENT_MESSAGE, (data) => {
         try {
           if (data && data.agentResponse) {
             onMessage(data.agentResponse);
@@ -53,6 +53,103 @@ export const usePusherChat = () => {
         }
       });
       
+      // Interactive agent correspondence events
+      channel.bind(EVENTS.AGENT_TASK_INTRO, (data) => {
+        if (data) {
+          onMessage({
+            ...data,
+            type: 'agent-intro',
+            isInteractive: false
+          });
+        }
+      });
+
+      channel.bind(EVENTS.AGENT_QUESTION, (data) => {
+        if (data) {
+          onMessage({
+            ...data,
+            type: 'agent-question',
+            isInteractive: true,
+            requiresResponse: true
+          });
+        }
+      });
+
+      channel.bind(EVENTS.AGENT_WORKING, (data) => {
+        if (data) {
+          onMessage({
+            ...data,
+            type: 'agent-working',
+            isInteractive: false
+          });
+        }
+      });
+
+      channel.bind(EVENTS.AGENT_WORK_COMPLETE, (data) => {
+        if (data) {
+          onMessage({
+            ...data,
+            type: 'agent-work-complete',
+            isInteractive: true,
+            requiresResponse: true
+          });
+        }
+      });
+
+      channel.bind(EVENTS.AGENT_WORK_REVISED, (data) => {
+        if (data) {
+          onMessage({
+            ...data,
+            type: 'agent-work-revised',
+            isInteractive: true,
+            requiresResponse: true
+          });
+        }
+      });
+
+      channel.bind(EVENTS.AGENT_MODIFYING, (data) => {
+        if (data) {
+          onMessage({
+            ...data,
+            type: 'agent-modifying',
+            isInteractive: false
+          });
+        }
+      });
+
+      channel.bind(EVENTS.AGENT_COMPLETE, (data) => {
+        if (data) {
+          onMessage({
+            ...data,
+            type: 'agent-complete',
+            isInteractive: false
+          });
+        }
+      });
+
+      channel.bind(EVENTS.AGENT_ERROR, (data) => {
+        if (data) {
+          onMessage({
+            ...data,
+            type: 'agent-error',
+            isInteractive: false,
+            isError: true
+          });
+        }
+      });
+      
+      channel.bind(EVENTS.WORKFLOW_UPDATE, (data) => {
+        if (data) {
+          onWorkflowUpdate(data);
+        }
+      });
+
+      channel.bind(EVENTS.AGENT_COMPLETED, (data) => {
+        if (data.message) {
+          onWorkflowUpdate(data);
+        }
+      });
+
       channel.bind('chat:started', (data) => {
         if (data.message) {
           onChatStarted(data.message);
@@ -73,7 +170,7 @@ export const usePusherChat = () => {
     }
   }, []);
 
-  const setupPusherSubscription = useCallback((chatId, onMessage, onChatStarted, onChatEnded) => {
+  const setupPusherSubscription = useCallback((chatId, channelPrefix = 'workflow', onMessage, onChatStarted, onChatEnded, onWorkflowUpdate) => {
     if (!pusherClient) {
       console.warn('Pusher client not available! Real-time updates disabled');
       
@@ -86,7 +183,7 @@ export const usePusherChat = () => {
             forceTLS: true,
             enabledTransports: ['ws', 'wss'],
           });
-          setupPusherSubscriptionWithClient(newClient, chatId, onMessage, onChatStarted, onChatEnded);
+          setupPusherSubscriptionWithClient(newClient, chatId, channelPrefix, onMessage, onChatStarted, onChatEnded, onWorkflowUpdate);
         } catch (error) {
           console.error('Failed to create fallback Pusher client:', error);
         }
@@ -96,7 +193,7 @@ export const usePusherChat = () => {
       return;
     }
 
-    return setupPusherSubscriptionWithClient(pusherClient, chatId, onMessage, onChatStarted, onChatEnded);
+    return setupPusherSubscriptionWithClient(pusherClient, chatId, channelPrefix, onMessage, onChatStarted, onChatEnded, onWorkflowUpdate);
   }, [setupPusherSubscriptionWithClient]);
 
   const cleanup = useCallback(() => {

@@ -8,9 +8,8 @@
 // Mock dependencies of WorkflowEngine
 jest.mock('../../lib/bmad/AgentLoader.js');
 jest.mock('../../lib/bmad/AgentCommunicator.js');
-jest.mock('../../lib/bmad/AgentExecutor.js');
+jest.mock('../../lib/bmad/SimplifiedAgentExecutor.js');
 jest.mock('../../lib/bmad/MockAgentExecutor.js');
-jest.mock('../../lib/bmad/ArtifactManager.js');
 jest.mock('../../lib/bmad/WorkflowParser.js');
 jest.mock('../../lib/bmad/engine/DynamicWorkflowHandler.js');
 jest.mock('../../lib/bmad/engine/CheckpointManager.js');
@@ -23,48 +22,27 @@ jest.mock('../../lib/bmad/engine/DatabaseService.js', () => ({
 }));
 
 // Mock the service modules and their prototype methods
-jest.mock('../../lib/bmad/services/WorkflowLifecycleManager.js', () => {
+jest.mock('../../lib/bmad/ConsolidatedWorkflowManager.js', () => {
   const mockInstance = {
     startWorkflow: jest.fn(),
     completeWorkflow: jest.fn(),
     pauseWorkflow: jest.fn(),
     resumeWorkflow: jest.fn(),
     cancelWorkflow: jest.fn(),
-  };
-  return {
-    WorkflowLifecycleManager: jest.fn(() => mockInstance),
-  };
-});
-jest.mock('../../lib/bmad/services/WorkflowStepExecutor.js', () => {
-  const mockInstance = {
-    executeNextStep: jest.fn(),
-    executeAgent: jest.fn(),
-    handleAgentCompletion: jest.fn(),
-    handleCriticalFailure: jest.fn(),
-  };
-  return {
-    WorkflowStepExecutor: jest.fn(() => mockInstance),
-  };
-});
-jest.mock('../../lib/bmad/services/WorkflowStateManager.js', () => {
-  const mockInstance = {
     getWorkflowStatus: jest.fn(),
     getActiveWorkflows: jest.fn(),
-    getExecutionHistory: jest.fn(),
     getWorkflowArtifacts: jest.fn(),
-    getWorkflowCheckpoints: jest.fn(),
-    resumeFromRollback: jest.fn(),
-    resumeWorkflowWithElicitation: jest.fn(),
+    executeNextStep: jest.fn(),
   };
   return {
-    WorkflowStateManager: jest.fn(() => mockInstance),
+    ConsolidatedWorkflowManager: jest.fn(() => mockInstance),
   };
 });
+// WorkflowStepExecutor removed - functionality moved to WorkflowEngine
+// WorkflowStateManager removed - functionality moved to ConsolidatedWorkflowManager
 
 const { WorkflowEngine } = require('../../lib/bmad/WorkflowEngine.js');
-const { WorkflowLifecycleManager } = require('../../lib/bmad/services/WorkflowLifecycleManager.js');
-const { WorkflowStepExecutor } = require('../../lib/bmad/services/WorkflowStepExecutor.js');
-const { WorkflowStateManager } = require('../../lib/bmad/services/WorkflowStateManager.js');
+const { ConsolidatedWorkflowManager } = require('../../lib/bmad/ConsolidatedWorkflowManager.js');
 
 describe('Workflow Engine Integration', () => {
   let workflowEngine;

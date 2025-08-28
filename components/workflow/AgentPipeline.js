@@ -19,7 +19,9 @@ import {
   CheckSquare
 } from 'lucide-react';
 
-// BMAD Agent Definitions
+// BMAD Agent Definitions - UI METADATA ONLY
+// TODO: Replace with API call to load agent definitions from .bmad-core folder
+// These values should match the agent definitions in .bmad-core/agents/*.md
 const BMAD_AGENT_INFO = {
   'analyst': { name: 'Mary - Business Analyst', icon: '🧠', color: 'blue', title: 'Market Research & Analysis' },
   'pm': { name: 'John - Product Manager', icon: '📋', color: 'purple', title: 'Product Requirements & Planning' },

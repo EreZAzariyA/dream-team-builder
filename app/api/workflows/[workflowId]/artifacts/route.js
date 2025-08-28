@@ -7,7 +7,7 @@ import logger from '@/lib/utils/logger';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../../../../lib/auth/config.js';
-import { getOrchestrator } from '../../../../../lib/bmad/BmadOrchestrator.js';
+import { BmadOrchestrator } from '../../../../../lib/bmad/BmadOrchestrator.js';
 
 export async function GET(request, { params }) {
   try {
@@ -29,11 +29,11 @@ export async function GET(request, { params }) {
       );
     }
 
-    const bmad = await getOrchestrator();
-    const artifactManager = bmad.artifactManager;
+    const bmad = new BmadOrchestrator();
+    await bmad.initialize();
 
     // Get artifacts for the workflow
-    const artifacts = await artifactManager.getWorkflowArtifacts(workflowId);
+    const artifacts = await bmad.getWorkflowArtifacts(workflowId);
     
     return NextResponse.json({
       success: true,

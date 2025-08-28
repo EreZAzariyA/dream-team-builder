@@ -4,7 +4,8 @@
  */
 
 import { NextResponse } from 'next/server';
-const { ArtifactManager } = require('../../../../../../lib/bmad/ArtifactManager');
+import { BmadOrchestrator } from '../../../../../../lib/bmad/index.js';
+import logger from '../../../../../../lib/utils/logger.js';
 const path = require('path');
 
 export async function GET(request, { params }) {
@@ -18,7 +19,8 @@ export async function GET(request, { params }) {
       );
     }
 
-    const bmad = await getOrchestrator();
+    const bmad = new BmadOrchestrator();
+    await bmad.initialize();
     const artifactManager = bmad.artifactManager;
 
     // Get the specific artifact content

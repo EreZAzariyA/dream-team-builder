@@ -4,7 +4,7 @@
 
 import { NextResponse } from 'next/server';
 import { connectMongoose } from '../../../../lib/database/mongodb.js';
-import AgentMessage from '../../../../lib/database/models/AgentMessage.js';
+// REMOVED: AgentMessage - Eliminated duplication, using only Workflow.bmadWorkflowData.messages[]
 import logger from '@/lib/utils/logger.js';
 
 export async function GET(request) {

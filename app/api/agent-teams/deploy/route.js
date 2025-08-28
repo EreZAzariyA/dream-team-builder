@@ -8,14 +8,17 @@ import { authenticateRoute } from '@/lib/utils/routeAuth.js';
 import { connectMongoose } from '@/lib/database/mongodb.js';
 import AgentTeam from '@/lib/database/models/AgentTeam.js';
 // Workflow model will be used for future team-workflow relationship tracking
-import { getOrchestrator } from '@/lib/bmad/BmadOrchestrator.js';
+import WorkflowManager from '@/lib/bmad/WorkflowManager.js';
 import WorkflowParser from '@/lib/bmad/WorkflowParser.js';
 import { pusherServer } from '@/lib/pusher/config.js';
 import { WorkflowId } from '@/lib/utils/workflowId.js';
 import logger from '@/lib/utils/logger.js';
-import fs from 'fs';
+import fs from 'fs/promises';
+import fsSync from 'fs';
 import path from 'path';
 import yaml from 'js-yaml';
+
+// Configuration cache has been removed
 
 /**
  * @swagger
@@ -31,7 +34,7 @@ import yaml from 'js-yaml';
  *         application/json:
  *           schema:
  *             type: object
- *             required: [teamId, userPrompt]
+ *             required: [teamId]
  *             properties:
  *               teamId:
  *                 type: string
@@ -50,8 +53,7 @@ import yaml from 'js-yaml';
  *                     description: Project scope (e.g., "mvp", "feature")
  *               userPrompt:
  *                 type: string
- *                 description: User's project requirements and prompt
- *                 minLength: 10
+ *                 description: Optional initial project prompt. If omitted, agents will ask for clarification during workflow (following official BMAD methodology)
  *     responses:
  *       201:
  *         description: Team deployed successfully
@@ -88,7 +90,7 @@ export async function POST(request) {
     // Parse and validate request body
     const { teamId, workflowId, projectContext = {}, userPrompt } = await request.json();
 
-    // Validate required fields
+    // Validate required fields with security checks
     if (!teamId || typeof teamId !== 'string') {
       return NextResponse.json({
         success: false,
@@ -96,12 +98,16 @@ export async function POST(request) {
       }, { status: 400 });
     }
 
-    if (!userPrompt || typeof userPrompt !== 'string' || userPrompt.trim().length < 10) {
+    // Security: Validate teamId format to prevent path traversal
+    if (!/^[a-zA-Z0-9\-_]+$/.test(teamId)) {
       return NextResponse.json({
         success: false,
-        error: 'userPrompt is required and must be at least 10 characters'
+        error: 'Invalid teamId format. Only alphanumeric characters, hyphens, and underscores are allowed.'
       }, { status: 400 });
     }
+
+    // userPrompt is optional - if empty/null, agents will ask for clarification during workflow
+    // This follows the official BMAD methodology where workflows can start without detailed descriptions
 
     await connectMongoose();
 
@@ -151,10 +157,10 @@ export async function POST(request) {
         agentIds: teamConfig.data.agents || [],
         availableWorkflows: teamConfig.data.workflows || [],
         constraints: {
-          maxConcurrentWorkflows: 1,
-          allowedProjectTypes: extractAllowedProjectTypes(teamConfig.data),
-          maxWorkflowDuration: 480, // 8 hours
-          requiresApproval: false,
+          maxConcurrentWorkflows: teamConfig.data.constraints?.maxConcurrentWorkflows || 1,
+          allowedProjectTypes: await extractAllowedProjectTypes(teamConfig.data),
+          maxWorkflowDuration: teamConfig.data.constraints?.maxWorkflowDuration || 480, // 8 hours
+          requiresApproval: teamConfig.data.constraints?.requiresApproval || false,
         },
         capabilities: {
           complexityLevel: determineComplexityLevel(teamConfig.data),
@@ -169,7 +175,7 @@ export async function POST(request) {
           workflowName: selectedWorkflow.name,
         } : null,
         projectContext: projectContext,
-        userPrompt: userPrompt.trim(),
+        userPrompt: userPrompt?.trim() || '',
       },
       settings: {
         notifications: {
@@ -209,16 +215,24 @@ export async function POST(request) {
     teamInstance.deployment.status = 'deploying';
     await teamInstance.save();
 
+    let workflowResult = null;
+    let workflowChannelName = null;
+    let teamChannelName = null;
+
     try {
-      const orchestrator = await getOrchestrator();
+      const orchestrator = new BmadOrchestrator();
+      await orchestrator.initialize();
 
       // For story-driven teams (no workflow), use a default workflow or direct agent interaction
-      const workflowTemplate = workflowId || 'greenfield-fullstack'; // Default workflow for story-driven
+      const workflowTemplate = workflowId || teamConfig.data.defaultWorkflow || 'greenfield-fullstack';
 
       // Start workflow - WorkflowLifecycleManager already handles async execution
       let workflowResult;
       try {
-        workflowResult = await orchestrator.startWorkflow(userPrompt.trim(), {
+        // Use userPrompt if provided, otherwise let agents initiate conversation naturally
+        const workflowPrompt = (userPrompt && userPrompt.trim()) || "Hello! I'd like to start working on a project. Can you help me get started?";
+        
+        workflowResult = await orchestrator.startWorkflow(workflowPrompt, {
           workflowId: null, // Let it generate one
           sequence: workflowTemplate,
           name: `${teamConfig.data.name} - ${projectContext.type || 'Custom'} Project`,
@@ -240,11 +254,21 @@ export async function POST(request) {
       } catch (workflowStartError) {
         logger.error(`❌ [TeamDeploy] Failed to start workflow:`, workflowStartError);
         
-        // Only fail deployment if we can't even START the workflow
-        await teamInstance.fail(`Failed to start workflow: ${workflowStartError.message}`, {
-          workflowError: workflowStartError.message,
-          workflowTemplate,
-        });
+        // Enhanced error recovery with proper cleanup
+        try {
+          await teamInstance.fail(`Failed to start workflow: ${workflowStartError.message}`, {
+            workflowError: workflowStartError.message,
+            workflowTemplate,
+            timestamp: new Date().toISOString(),
+            step: 'workflow_start',
+          });
+          
+          // Clean up any orphaned resources
+          await cleanupFailedDeployment(teamInstance.teamInstanceId, null);
+          
+        } catch (cleanupError) {
+          logger.error(`❌ [TeamDeploy] Cleanup failed:`, cleanupError);
+        }
 
         return NextResponse.json({
           success: false,
@@ -252,6 +276,7 @@ export async function POST(request) {
           details: {
             workflowTemplate,
             teamInstanceId: teamInstance.teamInstanceId,
+            step: 'workflow_start',
           },
         }, { status: 500 });
       }
@@ -259,27 +284,33 @@ export async function POST(request) {
       // STEP 6: Update team deployment with workflow instance
       await teamInstance.start(workflowResult.workflowId);
 
-      // STEP 7: Send real-time notifications
-      const channelName = WorkflowId.toChannelName(workflowResult.workflowId);
-      await pusherServer.trigger(channelName, 'team-deployed', {
-        teamInstanceId: teamInstance.teamInstanceId,
-        teamName: teamConfig.data.name,
-        workflowInstanceId: workflowResult.workflowId,
-        status: 'active',
-        agents: teamConfig.data.agents,
-        selectedWorkflow: selectedWorkflow,
-        timestamp: new Date().toISOString(),
-      });
-
-      // STEP 8: Send team-specific channel notification
-      const teamChannelName = `team-${teamInstance.teamInstanceId}`;
-      await pusherServer.trigger(teamChannelName, 'deployment-started', {
-        teamInstanceId: teamInstance.teamInstanceId,
-        workflowInstanceId: workflowResult.workflowId,
-        status: 'active',
-        message: `${teamConfig.data.name} deployment started successfully`,
-        timestamp: new Date().toISOString(),
-      });
+      // STEP 7: Send real-time notifications with error handling
+      workflowChannelName = WorkflowId.toChannelName(workflowResult.workflowId);
+      teamChannelName = `team-${teamInstance.teamInstanceId}`;
+      
+      try {
+        await Promise.all([
+          pusherServer.trigger(workflowChannelName, 'team-deployed', {
+            teamInstanceId: teamInstance.teamInstanceId,
+            teamName: teamConfig.data.name,
+            workflowInstanceId: workflowResult.workflowId,
+            status: 'active',
+            agents: teamConfig.data.agents,
+            selectedWorkflow: selectedWorkflow,
+            timestamp: new Date().toISOString(),
+          }),
+          pusherServer.trigger(teamChannelName, 'deployment-started', {
+            teamInstanceId: teamInstance.teamInstanceId,
+            workflowInstanceId: workflowResult.workflowId,
+            status: 'active',
+            message: `${teamConfig.data.name} deployment started successfully`,
+            timestamp: new Date().toISOString(),
+          })
+        ]);
+      } catch (notificationError) {
+        logger.warn(`⚠️ [TeamDeploy] Notification failed (non-critical):`, notificationError);
+        // Continue deployment even if notifications fail
+      }
 
       logger.info(`🎯 [TeamDeploy] Team deployment completed successfully`);
 
@@ -293,7 +324,7 @@ export async function POST(request) {
         teamName: teamConfig.data.name,
         selectedWorkflow: selectedWorkflow,
         realTimeChannels: {
-          workflow: channelName,
+          workflow: workflowChannelName,
           team: teamChannelName,
         },
         deployment: {
@@ -311,11 +342,25 @@ export async function POST(request) {
     } catch (orchestratorError) {
       logger.error(`❌ [TeamDeploy] Workflow execution failed:`, orchestratorError);
 
-      // Update team instance with failure
-      await teamInstance.fail(orchestratorError.message, {
-        orchestratorError: orchestratorError.message,
-        timestamp: new Date().toISOString(),
-      });
+      // Enhanced error recovery with proper cleanup
+      try {
+        await teamInstance.fail(orchestratorError.message, {
+          orchestratorError: orchestratorError.message,
+          timestamp: new Date().toISOString(),
+          step: 'workflow_execution',
+        });
+
+        // Clean up orphaned resources (channels, workflows, etc.)
+        await cleanupFailedDeployment(
+          teamInstance.teamInstanceId, 
+          workflowResult?.workflowId,
+          workflowChannelName,
+          teamChannelName
+        );
+
+      } catch (cleanupError) {
+        logger.error(`❌ [TeamDeploy] Post-failure cleanup failed:`, cleanupError);
+      }
 
       return NextResponse.json({
         success: false,
@@ -323,6 +368,7 @@ export async function POST(request) {
         details: orchestratorError.message,
         teamInstanceId: teamInstance.teamInstanceId,
         teamStatus: 'failed',
+        step: 'workflow_execution',
       }, { status: 500 });
     }
 
@@ -406,21 +452,29 @@ export async function GET(request) {
 // Helper Functions
 
 /**
- * Load team configuration from YAML file
+ * Load team configuration from YAML file with caching and security
  */
 async function loadTeamConfig(teamId) {
   try {
     const teamConfigPath = path.join(process.cwd(), '.bmad-core', 'agent-teams', `${teamId}.yaml`);
     
-    if (!fs.existsSync(teamConfigPath)) {
+    // Use async file operations to prevent blocking
+    try {
+      await fs.access(teamConfigPath);
+    } catch (accessError) {
       return {
         success: false,
         error: `Team configuration not found: ${teamId}`,
       };
     }
 
-    const yamlContent = fs.readFileSync(teamConfigPath, 'utf8');
-    const teamData = yaml.load(yamlContent);
+    const yamlContent = await fs.readFile(teamConfigPath, 'utf8');
+    
+    // Security: Use safe YAML loading to prevent YAML bombs
+    const teamData = yaml.load(yamlContent, { 
+      schema: yaml.FAILSAFE_SCHEMA,
+      json: false 
+    });
 
     if (!teamData || !teamData.bundle) {
       return {
@@ -429,7 +483,7 @@ async function loadTeamConfig(teamId) {
       };
     }
 
-    return {
+    const result = {
       success: true,
       data: {
         name: teamData.bundle.name,
@@ -437,8 +491,12 @@ async function loadTeamConfig(teamId) {
         icon: teamData.bundle.icon,
         agents: teamData.agents || [],
         workflows: teamData.workflows || [],
+        defaultWorkflow: teamData.bundle.defaultWorkflow,
+        constraints: teamData.bundle.constraints,
       },
     };
+
+    return result;
 
   } catch (error) {
     logger.error(`Failed to load team config ${teamId}:`, error);
@@ -627,26 +685,25 @@ async function validateTeamConstraints(teamInstance, selectedWorkflow) {
 /**
  * Extract allowed project types from team configuration
  */
-function extractAllowedProjectTypes(teamConfig) {
-  // Analyze available workflows to determine supported project types
-  const workflowProjectTypes = [];
-  
+async function extractAllowedProjectTypes(teamConfig) {
+  const workflowProjectTypes = new Set();
+  const workflowParser = new WorkflowParser();
+
   if (teamConfig.workflows) {
-    // Map workflows to typical project types they support
-    teamConfig.workflows.forEach(workflow => {
-      if (workflow.includes('fullstack')) {
-        workflowProjectTypes.push('web-app', 'saas', 'enterprise-app', 'prototype');
+    for (const workflowFile of teamConfig.workflows) {
+      const workflowId = workflowFile.replace('.yaml', '');
+      try {
+        const workflowData = await workflowParser.parseWorkflowFile(workflowId);
+        if (workflowData.projectTypes) {
+          workflowData.projectTypes.forEach(pt => workflowProjectTypes.add(pt));
+        }
+      } catch (error) {
+        logger.warn(`Could not parse workflow ${workflowId} to extract project types:`, error.message);
       }
-      if (workflow.includes('service')) {
-        workflowProjectTypes.push('rest-api', 'microservice', 'backend-service');
-      }
-      if (workflow.includes('ui')) {
-        workflowProjectTypes.push('web-app', 'saas', 'frontend');
-      }
-    });
+    }
   }
 
-  return [...new Set(workflowProjectTypes)]; // Remove duplicates
+  return Array.from(workflowProjectTypes);
 }
 
 /**
@@ -788,4 +845,73 @@ function analyzeWorkflowNeeds(requiredAgents) {
     requiredAgents: flatAgents,
     compoundOptions, // For flexible validation
   };
+}
+
+/**
+ * Clean up resources from failed deployments
+ */
+async function cleanupFailedDeployment(teamInstanceId, workflowId = null, workflowChannel = null, teamChannel = null) {
+  try {
+    logger.info(`🧹 [Cleanup] Starting cleanup for failed deployment: ${teamInstanceId}`);
+
+    const cleanupTasks = [];
+
+    // Clean up Pusher channels if they were created
+    if (workflowChannel) {
+      cleanupTasks.push(
+        pusherServer.trigger(workflowChannel, 'deployment-failed', {
+          teamInstanceId,
+          status: 'cleanup',
+          message: 'Deployment failed - cleaning up resources',
+          timestamp: new Date().toISOString(),
+        }).catch(err => logger.warn('Failed to send cleanup notification to workflow channel:', err))
+      );
+    }
+
+    if (teamChannel) {
+      cleanupTasks.push(
+        pusherServer.trigger(teamChannel, 'deployment-failed', {
+          teamInstanceId,
+          status: 'cleanup',
+          message: 'Deployment failed - cleaning up resources',
+          timestamp: new Date().toISOString(),
+        }).catch(err => logger.warn('Failed to send cleanup notification to team channel:', err))
+      );
+    }
+
+    // If workflow was started but deployment failed, try to cancel it
+    if (workflowId) {
+      try {
+        const orchestrator = new BmadOrchestrator();
+        await orchestrator.initialize();
+        await orchestrator.cancelWorkflow(workflowId);
+        logger.info(`✅ [Cleanup] Cancelled orphaned workflow: ${workflowId}`);
+      } catch (workflowCleanupError) {
+        logger.warn(`⚠️ [Cleanup] Failed to cancel workflow ${workflowId}:`, workflowCleanupError);
+      }
+    }
+
+    // Wait for all cleanup tasks to complete
+    await Promise.allSettled(cleanupTasks);
+    
+    logger.info(`✅ [Cleanup] Completed cleanup for: ${teamInstanceId}`);
+
+  } catch (cleanupError) {
+    logger.error(`❌ [Cleanup] Cleanup failed for ${teamInstanceId}:`, cleanupError);
+  }
+}
+
+/**
+ * Cache invalidation helper
+ */
+function invalidateConfigCache(teamId = null) {
+  if (teamId) {
+    const cacheKey = `team-config-${teamId}`;
+    configCache.delete(cacheKey);
+    logger.info(`🗑️ [Cache] Invalidated cache for team: ${teamId}`);
+  } else {
+    // Clear entire cache
+    configCache.clear();
+    logger.info(`🗑️ [Cache] Cleared entire configuration cache`);
+  }
 }

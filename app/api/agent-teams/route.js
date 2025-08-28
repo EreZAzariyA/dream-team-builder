@@ -1,46 +1,42 @@
 import { NextResponse } from 'next/server';
 import { authenticateRoute } from '../../../lib/utils/routeAuth.js';
-import fs from 'fs';
-import path from 'path';
-import yaml from 'js-yaml';
+import WorkflowTemplate from '../../../lib/database/models/WorkflowTemplate.js';
+import { connectMongoose } from '../../../lib/database/mongodb.js';
 
 export async function GET(request) {
   try {
     const { user, session, error } = await authenticateRoute(request);
     if (error) return error;
 
-    const agentTeamsPath = path.join(process.cwd(), '.bmad-core', 'agent-teams');
+    await connectMongoose();
     
-    // Check if directory exists
-    if (!fs.existsSync(agentTeamsPath)) {
-      return NextResponse.json({ error: 'Agent teams directory not found' }, { status: 404 });
-    }
-
-    // Read all YAML files in the agent-teams directory
-    const files = fs.readdirSync(agentTeamsPath).filter(file => file.endsWith('.yaml'));
+    // Load workflow templates from database (agent teams are workflow templates)
+    const agentTeamTemplates = await WorkflowTemplate.find({
+      status: 'active',
+      category: 'agent-team' // Assuming agent teams have a category
+    }).lean();
     
     const agentTeams = [];
 
-    for (const file of files) {
-      const filePath = path.join(agentTeamsPath, file);
-      const fileContent = fs.readFileSync(filePath, 'utf8');
-      
+    for (const template of agentTeamTemplates) {
       try {
-        const parsedData = yaml.load(fileContent);
+        const parsedData = template.config;
         
-        // Add metadata about the file
+        // Add metadata from database
         const teamData = {
-          id: file.replace('.yaml', ''),
-          fileName: file,
-          ...parsedData.bundle,
+          id: template.templateId,
+          templateId: template.templateId,
+          name: template.name,
+          description: template.description,
+          ...parsedData,
           agents: parsedData.agents || [],
           workflows: parsedData.workflows || []
         };
         
         agentTeams.push(teamData);
-      } catch (yamlError) {
-        console.error(`Error parsing YAML file ${file}:`, yamlError);
-        // Continue processing other files even if one fails
+      } catch (dbError) {
+        console.error(`Error processing template ${template.templateId}:`, dbError);
+        // Continue processing other templates even if one fails
       }
     }
 
@@ -51,9 +47,9 @@ export async function GET(request) {
     });
 
   } catch (error) {
-    console.error('Error reading agent teams:', error);
+    console.error('Error reading agent teams from database:', error);
     return NextResponse.json(
-      { error: 'Failed to read agent teams configuration' },
+      { error: 'Failed to read agent teams configuration from database' },
       { status: 500 }
     );
   }

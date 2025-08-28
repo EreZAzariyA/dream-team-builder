@@ -23,13 +23,13 @@ export async function GET(request) {
 
     // Get query parameters
     const url = new URL(request.url);
-    const status = url.searchParams.get('status') || 'running';
+    const status = url.searchParams.get('status') || 'RUNNING'; // BMAD standardized status
     const limit = parseInt(url.searchParams.get('limit')) || 10;
 
     // Query database directly for active workflows
     const query = {
       userId: session.user.id,
-      status: { $in: ['running', 'paused', 'initializing'] }
+      status: { $in: ['RUNNING', 'PAUSED', 'PAUSED_FOR_ELICITATION'] } // BMAD standardized statuses
     };
 
     if (status !== 'all') {

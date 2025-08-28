@@ -22,13 +22,14 @@ jest.mock('../../lib/bmad/BmadOrchestrator', () => {
       { id: 'architect', name: 'System Architect', role: 'System Architecture' },
       { id: 'dev', name: 'Developer', role: 'Software Development' }
     ]),
-    getWorkflowSequences: jest.fn().mockReturnValue({
-      FULL_STACK: [
-        { agentId: 'pm', name: 'Project Manager' },
-        { agentId: 'architect', name: 'System Architect' },
-        { agentId: 'dev', name: 'Developer' }
-      ]
-    }),
+    getWorkflowSequences: jest.fn().mockResolvedValue([
+      'greenfield-fullstack',
+      'greenfield-service',
+      'greenfield-ui',
+      'brownfield-fullstack',
+      'brownfield-service',
+      'brownfield-ui'
+    ]),
     validateWorkflowConfig: jest.fn().mockReturnValue(true),
     startWorkflow: jest.fn().mockImplementation(async (userPrompt, options = {}) => ({
       workflowId: 'mock-workflow-' + Date.now(),
@@ -95,11 +96,10 @@ describe('BMAD Orchestration Integration', () => {
     })
 
     test('should load workflow sequences', async () => {
-      const sequences = orchestrator.getWorkflowSequences()
+      const sequences = await orchestrator.getWorkflowSequences()
       expect(sequences).toBeDefined()
-      expect(sequences.FULL_STACK).toBeDefined()
-      expect(Array.isArray(sequences.FULL_STACK)).toBe(true)
-      expect(sequences.FULL_STACK.length).toBe(3)
+      expect(Array.isArray(sequences)).toBe(true)
+      expect(sequences.length).toBeGreaterThan(0)
     })
 
     test('should validate workflow configuration', async () => {

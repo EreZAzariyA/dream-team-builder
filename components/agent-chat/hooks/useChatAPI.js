@@ -5,6 +5,7 @@ import { useState, useCallback, useRef } from 'react';
 /**
  * Custom hook for managing chat API interactions
  * Handles initialization, sending messages, and loading history
+ * Now includes streaming support
  */
 export const useChatAPI = (agentId) => {
   const [isLoading, setIsLoading] = useState(false);
@@ -83,7 +84,7 @@ export const useChatAPI = (agentId) => {
     }
   }, [agentId]);
 
-  const sendMessage = useCallback(async (message, conversationId, user) => {
+  const sendMessage = useCallback(async (message, conversationId, user, streaming = false) => {
     const now = Date.now();
     if (now - lastMessageSentTime.current < 1000) {
       console.warn('Duplicate send prevented.');
@@ -116,21 +117,57 @@ export const useChatAPI = (agentId) => {
           agentId,
           message,
           conversationId,
-          action: 'send'
+          action: 'send',
+          streaming
         })
       });
 
-      const data = await response.json();
-      
-      if (data.success) {
-        return {
-          userMessage,
-          serverUserMessage: data.userMessage
-        };
+      if (streaming) {
+        // Handle streaming response
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          
+          if (done) break;
+          
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6));
+                console.log('Streaming data:', data);
+              } catch (parseError) {
+                console.error('Failed to parse SSE data:', parseError);
+              }
+            }
+          }
+        }
+
+        return { userMessage };
       } else {
-        const errorMsg = data.error || 'Failed to send message';
-        setError(errorMsg);
-        throw new Error(errorMsg);
+        // Handle regular response
+        const data = await response.json();
+        
+        if (data.success) {
+          return {
+            userMessage,
+            serverUserMessage: data.userMessage
+          };
+        } else {
+          const errorMsg = data.error || 'Failed to send message';
+          setError(errorMsg);
+          throw new Error(errorMsg);
+        }
       }
     } catch (error) {
       const errorMsg = 'Failed to send message';
@@ -141,13 +178,116 @@ export const useChatAPI = (agentId) => {
     }
   }, [agentId, isLoading]);
 
+  /**
+   * Send message with streaming response
+   */
+  const sendMessageStreaming = useCallback(async (message, conversationId, user, onChunk, onComplete, onError) => {
+    const now = Date.now();
+    if (now - lastMessageSentTime.current < 1000) {
+      console.warn('Duplicate send prevented.');
+      return null;
+    }
+    lastMessageSentTime.current = now;
+
+    if (!message || isLoading || !conversationId) return null;
+    
+    // No loading state for streaming - real-time feedback is provided via streaming
+    setError(null);
+    
+    const userMessage = {
+      id: `msg_${Date.now()}`,
+      from: 'user',
+      fromName: user.name || user.email?.split('@')[0] || 'You',
+      to: agentId,
+      content: message,
+      timestamp: new Date(),
+      type: 'user_message'
+    };
+
+    try {
+      const response = await fetch('/api/bmad/agents/chat/stream', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          agentId,
+          message,
+          conversationId
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        
+        if (done) break;
+        
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              
+              switch (data.type) {
+                case 'user_message':
+                  // User message confirmed
+                  break;
+                  
+                case 'content_chunk':
+                  if (data.chunk && !data.isComplete) {
+                    onChunk?.(data.chunk);
+                  } else if (data.isComplete) {
+                    onComplete?.();
+                  }
+                  break;
+                  
+                case 'stream_complete':
+                  onComplete?.();
+                  break;
+                  
+                case 'error':
+                  onError?.(data.error);
+                  break;
+              }
+            } catch (parseError) {
+              console.error('Failed to parse SSE data:', parseError);
+            }
+          }
+        }
+      }
+
+      return { userMessage };
+
+    } catch (error) {
+      const errorMsg = 'Failed to send message';
+      setError(errorMsg);
+      onError?.(errorMsg);
+      throw error;
+    } finally {
+      // No loading state management needed for streaming
+    }
+  }, [agentId, isLoading]);
+
   const endChat = useCallback(async (conversationId) => {
     if (!conversationId) return;
 
     try {
       await fetch('/api/bmad/agents/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           agentId,
           conversationId,
@@ -173,6 +313,7 @@ export const useChatAPI = (agentId) => {
     initializeChat,
     loadChatHistory,
     sendMessage,
+    sendMessageStreaming,
     endChat,
     clearError,
     setError: setErrorMessage

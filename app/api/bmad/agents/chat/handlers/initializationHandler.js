@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
-import AgentChat from '@/lib/database/models/AgentChat';
+import AgentChat from '@/lib/database/models/AgentChat.js';
 
 const { PusherService } = require('@/lib/bmad/orchestration/PusherService.js');
 
 /**
  * Start a new chat session with an agent
  */
-export async function handleChatStart(user, agent, conversationId, mockMode, userApiKeys) {
+export async function handleChatStart(user, agent, conversationId, userApiKeys) {
   const chatId = conversationId || `chat_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
   
   // Check if chat session already exists (for streaming initialization)
@@ -27,7 +27,6 @@ export async function handleChatStart(user, agent, conversationId, mockMode, use
         icon: agent.agent?.icon || '🤖'
       },
       greeting: existingGreeting || { content: 'Hello! How can I help you today?' },
-      mockMode,
       conversationId: chatId
     });
   }
@@ -43,7 +42,6 @@ export async function handleChatStart(user, agent, conversationId, mockMode, use
     agentTitle: agent.agent?.title || 'AI Agent',
     agentIcon: agent.agent?.icon || '🤖',
     status: 'active',
-    mockMode,
     messages: []
   });
 
@@ -218,7 +216,7 @@ async function executeAgentGreeting(agent, user, mockMode, userApiKeys) {
 
   try {
     // Import AI service dynamically
-    const { aiService } = await import('@/lib/ai/AIService.js');
+          const { aiService } = await import('@/lib/ai/AIService.js');
     
     // Initialize AI service with user API keys if needed
     if (!aiService.initialized && userApiKeys) {
@@ -234,14 +232,11 @@ async function executeAgentGreeting(agent, user, mockMode, userApiKeys) {
       chatMode: true
     };
 
-    // BMAD Activation: Send full agent context for proper activation
-    const fullAgentContext = JSON.stringify(agent, null, 2);
-    
-    const prompt = `${fullAgentContext}
+    // Use the agent's markdown definition with activation instructions
+    const agentMarkdown = agent.generateMarkdown ? agent.generateMarkdown() : 
+      `# ${agent.id}\n\nactivation-instructions:\n${(agent.activationInstructions || []).map(inst => `- ${inst}`).join('\n')}\n\nagent:\n  name: ${agent.agent?.name}\n  title: ${agent.agent?.title}\n  icon: ${agent.agent?.icon}\n\npersona: ${JSON.stringify(agent.persona, null, 2)}`;
 
-User: ${userName}`;
-
-    const response = await aiService.call(prompt, agent, 1, activationContext, user._id.toString());
+    const response = await aiService.call(agentMarkdown, agent, 1, activationContext, user._id.toString());
     
     if (response && response.content) {
       return response.content.trim();

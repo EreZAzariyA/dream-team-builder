@@ -55,7 +55,7 @@ const ContextCard = ({ icon: Icon, label, value, trend, color }) => (
   </div>
 );
 
-const HeroSection = () => {
+const HeroSection = ({ onStartNewProject }) => {
   const { data: session } = useSession();
   const router = useRouter();
   const [greeting, setGreeting] = useState('');
@@ -86,10 +86,10 @@ const HeroSection = () => {
     {
       icon: Rocket,
       title: 'Start New Project',
-      description: 'Launch a BMAD workflow with AI agents',
+      description: 'Launch GitHub-integrated BMAD workflow',
       action: 'Create',
       color: 'from-blue-500 to-purple-600',
-      onClick: () => router.push('/agent-teams?mode=new')
+      onClick: onStartNewProject || (() => router.push('/agent-teams?mode=new'))
     },
     {
       icon: Play,

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { authenticateRoute } from '../../../../../lib/utils/routeAuth.js';
-import { getOrchestrator } from '../../../../../lib/bmad/BmadOrchestrator.js';
+import { BmadOrchestrator } from '../../../../../lib/bmad/BmadOrchestrator.js';
 import { MessageType } from '../../../../../lib/bmad/types.js';
 import logger from '../../../../../lib/utils/logger.js';
 
@@ -30,11 +30,48 @@ export async function POST(request, { params }) {
       userId: session.user.id
     });
 
-    // Get orchestrator
+    // Get orchestrator singleton
+    const { getOrchestrator } = require('../../../../../lib/bmad/BmadOrchestrator.js');
     const orchestrator = await getOrchestrator();
     
     // Get workflow status to determine current agent if no target specified
     const workflowStatus = await orchestrator.getWorkflowStatus(workflowId);
+    
+    // CRITICAL FIX: Check for pending interactive messages first
+    // If there's a pending interactive message, route response to InteractiveMessaging
+    
+    if (orchestrator.workflowManager?.interactiveMessaging?.getPendingResponseCount() > 0) {
+      logger.info(`🔄 [FREE CHAT] Detected pending interactive message, routing user response to interactive system`);
+      
+      // Find the most recent interactive message waiting for response
+      const pendingResponses = orchestrator.workflowManager.interactiveMessaging.pendingResponses;
+      if (pendingResponses.size > 0) {
+        // Get the first pending response (should be the analyst question)
+        const [messageId, pendingResponse] = [...pendingResponses.entries()][0];
+        
+        logger.info(`📨 [FREE CHAT] Routing response "${message}" to pending message ${messageId}`);
+        
+        // Process the response through interactive messaging
+        const success = orchestrator.workflowManager.interactiveMessaging.handleUserResponse(messageId, {
+          response: message,
+          action: message.toLowerCase().includes('major') ? 'major enhancement' :
+                  message.toLowerCase().includes('feature') ? 'feature addition' :
+                  message.toLowerCase().includes('small') || message.toLowerCase().includes('fix') ? 'small fix' :
+                  message
+        });
+        
+        if (success) {
+          return NextResponse.json({ 
+            success: true, 
+            message: 'Response routed to interactive workflow',
+            routedTo: 'interactive-messaging'
+          });
+        } else {
+          logger.warn(`⚠️ [FREE CHAT] Failed to route response to interactive message ${messageId}`);
+        }
+      }
+    }
+    
     const currentAgent = targetAgent || workflowStatus?.currentAgent || 'pm';
 
     // Send user message to the workflow
@@ -71,7 +108,7 @@ export async function POST(request, { params }) {
         userPrompt: message,
         userId: session.user.id,
         userName: session.user.name || session.user.email?.split('@')[0] || 'User',
-        mockMode: process.env.BMAD_MOCK_MODE === 'true',
+        userEmail: session.user.email || '',
         chatMode: true,
         workflowContext: {
           workflowId,
@@ -89,14 +126,18 @@ export async function POST(request, { params }) {
         const chatExecutor = new ChatAgentExecutor(orchestrator.agentLoader, orchestrator.aiService, configManager);
         
         const result = await chatExecutor.executeChatAgent(agent, chatContext);
-        agentResponse = result.content || 'I processed your message.';
         
+        if (!result.content) {
+          throw new Error('Agent execution completed but returned no content');
+        }
+        
+        agentResponse = result.content;
         logger.info(`🤖 [FREE CHAT] Agent ${currentAgent} responded successfully`);
         
       } catch (chatError) {
-        logger.warn('ChatAgentExecutor failed, using fallback:', chatError.message);
-        // Fallback to simple response
-        agentResponse = `Thank you for your message. As the ${currentAgent} agent, I'm currently working on the workflow. Is there something specific you'd like to know about the current progress?`;
+        logger.error('ChatAgentExecutor failed:', chatError.message);
+        // No fallback responses - re-throw error to ensure proper error handling
+        throw chatError;
       }
 
       // Create agent response message
@@ -134,32 +175,8 @@ export async function POST(request, { params }) {
     } catch (agentError) {
       logger.error('Failed to generate agent response:', agentError);
       
-      // Send error response to maintain conversation flow
-      const errorMessage = {
-        id: `error_msg_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-        from: currentAgent,
-        fromName: currentAgent.charAt(0).toUpperCase() + currentAgent.slice(1),
-        to: 'user',
-        toName: session.user.name || session.user.email?.split('@')[0] || 'User',
-        content: "I apologize, but I encountered an issue processing your message. Could you please try again or rephrase your question?",
-        timestamp: new Date().toISOString(),
-        type: MessageType.INTER_AGENT,
-        metadata: {
-          error: true,
-          originalError: agentError.message
-        }
-      };
-
-      await orchestrator.communicator.sendMessage(workflowId, errorMessage);
-
-      return NextResponse.json({
-        success: true,
-        userMessage,
-        agentResponse: errorMessage,
-        workflowId,
-        currentAgent,
-        warning: 'Agent response generated with fallback due to processing error'
-      });
+      // Re-throw the error without generating any fallback response
+      throw agentError;
     }
 
   } catch (error) {

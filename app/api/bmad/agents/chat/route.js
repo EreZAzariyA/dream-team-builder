@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config.js';
-import User from '@/lib/database/models/User';
+import User from '@/lib/database/models/User.js';
 
-// Import BMAD system components for agent chat
-const { AgentLoader } = require('@/lib/bmad/AgentLoader.js');
+// Import database models
+import Agent from '@/lib/database/models/Agent.js';
 
 // Import modular handlers
 import { handleChatStart, handleChatHistory, handleChatEnd } from './handlers/initializationHandler.js';
@@ -27,14 +27,14 @@ import { handleChatMessage } from './handlers/messageHandler.js';
 
 export async function POST(request) {
   try {
-    const { agentId, message, conversationId, action = 'send' } = await request.json();
+    const { agentId, message, conversationId, action = 'send', streaming = false } = await request.json();
 
     // Validate required fields
     if (!agentId) {
       return NextResponse.json({
         success: false,
         error: 'Missing required field: agentId',
-        usage: 'Send { agentId: "pm", message: "Hello", conversationId?: "conv_123", action?: "send" }'
+        usage: 'Send { agentId: "pm", message: "Hello", conversationId?: "conv_123", action?: "send", streaming?: false }'
       }, { status: 400 });
     }
 
@@ -59,27 +59,42 @@ export async function POST(request) {
 
     const userApiKeys = user.getApiKeys();
     
-    // Determine if we're in mock mode (no AI keys available)
-    const mockMode = !userApiKeys.openai && !userApiKeys.gemini;
 
-    // Load agent configuration
+    // Load agent from database
     let agent;
     try {
-      const agentLoader = new AgentLoader();
-      await agentLoader.loadAllAgents();
-      const loadedAgent = await agentLoader.loadAgent(agentId);
+      const dbAgent = await Agent.findOne({ agentId: agentId, isActive: true });
       
-      if (!loadedAgent) {
+      if (!dbAgent) {
+        // Get available agents for error message
+        const availableAgents = await Agent.find({ isActive: true }).select('agentId').lean();
         return NextResponse.json({
           success: false,
           error: `Agent '${agentId}' not found`,
-          availableAgents: agentLoader.getAllAgentsMetadata().map(a => a.id)
+          availableAgents: availableAgents.map(a => a.agentId)
         }, { status: 404 });
       }
       
-      agent = loadedAgent;
+      // Convert database agent to format expected by chat system
+      agent = {
+        id: dbAgent.agentId,
+        agentId: dbAgent.agentId,
+        name: dbAgent.name,
+        title: dbAgent.title,
+        icon: dbAgent.icon,
+        whenToUse: dbAgent.whenToUse,
+        persona: dbAgent.persona,
+        commands: dbAgent.commands,
+        dependencies: dbAgent.dependencies,
+        agent: {
+          id: dbAgent.agentId,
+          name: dbAgent.name,
+          title: dbAgent.title,
+          icon: dbAgent.icon
+        }
+      };
     } catch (error) {
-      console.error(`Failed to load agent ${agentId}:`, error);
+      console.error(`Failed to load agent ${agentId} from database:`, error);
       return NextResponse.json({
         success: false,
         error: `Failed to load agent '${agentId}'`,
@@ -90,7 +105,7 @@ export async function POST(request) {
     // Handle different chat actions
     switch (action) {
       case 'start':
-        return handleChatStart(user, agent, conversationId, mockMode, userApiKeys);
+        return handleChatStart(user, agent, conversationId, userApiKeys);
       
       case 'send':
         if (!message) {
@@ -99,7 +114,7 @@ export async function POST(request) {
             error: 'Message is required for send action'
           }, { status: 400 });
         }
-        return handleChatMessage(user, agent, message, conversationId, mockMode, userApiKeys);
+        return handleChatMessage(user, agent, message, conversationId, userApiKeys, { streaming });
       
       case 'history':
         return handleChatHistory(user, agent, conversationId);

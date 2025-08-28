@@ -14,13 +14,13 @@ beforeAll(async () => {
     mongoServer = await MongoMemoryServer.create()
     const mongoUri = mongoServer.getUri()
     
+    logger.info('Attempting to connect to MongoDB Memory Server...');
     await mongoose.connect(mongoUri, {
       maxPoolSize: 1,
-      serverSelectionTimeoutMS: 1000,
-      socketTimeoutMS: 1000,
-    })
-    
-    logger.info(`🔌 API test MongoDB setup complete ${mongoose.connections[0].name}`);
+      serverSelectionTimeoutMS: 5000, // Increased timeout
+      socketTimeoutMS: 5000, // Increased timeout
+    });
+    logger.info(`🔌 API test MongoDB setup complete. Connection state: ${mongoose.connection.readyState}`);
   }
 }, 30000)
 

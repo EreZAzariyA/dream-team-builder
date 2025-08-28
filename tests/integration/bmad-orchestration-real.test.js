@@ -11,7 +11,7 @@ jest.mock('../../lib/bmad/AgentLoader.js');
 jest.mock('../../lib/bmad/AgentCommunicator.js');
 jest.mock('../../lib/bmad/MessageService.js');
 jest.mock('../../lib/bmad/orchestration/PusherService.js');
-jest.mock('../../lib/bmad/orchestration/StoreService.js');
+// StoreService removed - using ConsolidatedWorkflowManager instead
 jest.mock('../../lib/bmad/orchestration/EventHandler.js');
 
 const { BmadOrchestrator } = require('../../lib/bmad/BmadOrchestrator.js');
@@ -72,16 +72,21 @@ describe('BMAD Orchestration Integration - Real API', () => {
 
     test('should start a workflow successfully', async () => {
       const userPrompt = 'Create a modern web application';
-      const options = { name: 'Test App', sequence: 'greenfield-fullstack', userId: 'test-user' };
+      const options = { name: 'Test App', sequence: 'brownfield-fullstack', userId: 'test-user' };
 
-      // Mock the workflow engine's startWorkflow method
+      // Mock workflow existence check
+      WorkflowEngine.prototype.workflowParser = {
+        workflowExists: jest.fn().mockResolvedValue(true)
+      };
+
+      // Mock the workflow engine's startDynamicWorkflow method
       const mockWorkflowResult = { workflowId: 'new-workflow-123', status: WorkflowStatus.RUNNING };
-      WorkflowEngine.prototype.startWorkflow.mockResolvedValue(mockWorkflowResult);
+      WorkflowEngine.prototype.startDynamicWorkflow.mockResolvedValue(mockWorkflowResult);
 
       const result = await orchestrator.startWorkflow(userPrompt, options);
 
       expect(result).toEqual(mockWorkflowResult);
-      expect(WorkflowEngine.prototype.startWorkflow).toHaveBeenCalledWith(expect.objectContaining({
+      expect(WorkflowEngine.prototype.startDynamicWorkflow).toHaveBeenCalledWith(expect.objectContaining({
         userPrompt,
         name: options.name,
         sequence: expect.any(Array)

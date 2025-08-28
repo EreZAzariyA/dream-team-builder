@@ -16,8 +16,13 @@ const protectedRoutes = [
   '/api/bmad',
   '/api/chat',
   '/api/integrations',
-  '/api/pusher',
-  '/api/workflow-templates'
+  '/api/pusher'
+];
+
+// Define public routes that don't require authentication
+const publicRoutes = [
+  '/api/bmad/test', // Test endpoint for BMAD system
+  '/api/workflows/templates' // Public workflow templates endpoint
 ];
 
 // Define user-only routes (admin cannot access)
@@ -33,6 +38,11 @@ const userRoutes = [
 // Helper function to check if route is admin-only
 const isAdminRoute = (pathname) => {
   return adminRoutes.some(route => pathname.startsWith(route));
+};
+
+// Helper function to check if route is public (no auth required)
+const isPublicRoute = (pathname) => {
+  return publicRoutes.some(route => pathname.startsWith(route));
 };
 
 // Helper function to check if route requires authentication
@@ -75,6 +85,11 @@ export async function middleware(request) {
     response.cookies.delete('next-auth.csrf-token');
     response.cookies.delete('__Host-next-auth.csrf-token');
     return response;
+  }
+  
+  // Allow public routes without authentication
+  if (isPublicRoute(pathname)) {
+    return NextResponse.next();
   }
   
   // Check admin access for admin routes

@@ -18,7 +18,7 @@ const WorkflowSelectionModal = ({ team, isOpen, onClose, onDeploy }) => {
     if (isOpen && team?.workflows?.length > 0) {
       const fetchFilteredWorkflows = async () => {
         try {
-          const response = await fetch('/api/bmad/workflows/filtered', {
+          const response = await fetch('/api/workflows/filtered', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

@@ -100,7 +100,13 @@ const ChatMessage = ({ message, agent, showAvatar = true, isGrouped = false }) =
                 }}
               />
             ) : (
-              message.content
+              <>
+                {message.content}
+                {/* Streaming indicator */}
+                {message.isStreaming && (
+                  <span className="inline-block w-2 h-4 ml-1 bg-blue-500 animate-pulse rounded-sm"></span>
+                )}
+              </>
             )}
           </div>
 
@@ -112,6 +118,15 @@ const ChatMessage = ({ message, agent, showAvatar = true, isGrouped = false }) =
                 <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style={{ animationDelay: '0.1s' }}></div>
                 <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
               </div>
+            </div>
+          )}
+
+          {/* No streaming indicator needed - text streams naturally */}
+
+          {/* Error indicator for failed messages */}
+          {message.hasError && (
+            <div className="flex items-center mt-2">
+              <span className="text-xs text-red-500 dark:text-red-400">⚠️ Message failed to send</span>
             </div>
           )}
 

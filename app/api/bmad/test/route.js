@@ -4,7 +4,10 @@
  */
 
 import { NextResponse } from 'next/server';
-import { BmadOrchestrator } from '../../../../lib/bmad/BmadOrchestrator.js';
+import WorkflowManager from '../../../../lib/bmad/WorkflowManager.js';
+import logger from '@/lib/utils/logger.js';
+import { connectMongoose } from '../../../../lib/database/mongodb.js';
+import User from '../../../../lib/database/models/User.js';
 
 // Global orchestrator instance for testing
 let testOrchestrator = null;
@@ -36,7 +39,7 @@ export async function GET() {
     const agents = bmad.getAvailableAgents();
     
     // Get workflow sequences
-    const sequences = bmad.getWorkflowSequences();
+    const sequences = await bmad.getWorkflowSequences();
 
     // Get system health
     const health = bmad.getSystemHealth();
@@ -56,11 +59,9 @@ export async function GET() {
         icon: agent.icon,
         status: agent.status
       })),
-      sequences: Object.keys(sequences).map(key => ({
+      sequences: sequences.map(key => ({
         id: key,
-        name: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-        steps: sequences[key].length,
-        description: `${sequences[key].length} step workflow`
+        name: key.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
       })),
       endpoints: {
         '/api/bmad/test': 'This test endpoint (no auth required)',
@@ -80,6 +81,66 @@ export async function GET() {
         error: error.message,
         timestamp: new Date().toISOString()
       }
+    }, { status: 500 });
+  }
+}
+
+/**
+ * POST /api/bmad/test - Test workflow execution without authentication
+ */
+export async function POST(request) {
+  try {
+    const body = await request.json();
+    const { userPrompt, sequence } = body;
+
+    if (!userPrompt) {
+      return NextResponse.json(
+        { error: 'userPrompt is required' },
+        { status: 400 }
+      );
+    }
+
+    const bmad = await getTestOrchestrator();
+
+    // Generate test workflow ID
+    const workflowId = `test_workflow_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+    // Use the provided valid user ID for test execution
+    const testUserId = "68aabf7b2a9f12fb8d1e5b58";
+    logger.info('Using provided user ID for test execution:', testUserId);
+
+    // Execute workflow with test configuration
+    const result = await bmad.startWorkflow(userPrompt, {
+      workflowId: workflowId,
+      name: `Test Workflow - ${new Date().toLocaleDateString()}`,
+      description: 'Test workflow execution via BMAD test endpoint',
+      sequence: sequence || 'brownfield-fullstack',
+      userId: testUserId,
+      priority: 'normal',
+      mockMode: true,
+      context: {
+        initiatedBy: testUserId,
+        timestamp: new Date(),
+        testExecution: true
+      }
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: 'Test workflow started successfully',
+      workflowId: result?.workflowId,
+      status: result?.status || 'RUNNING',
+      testMode: true,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    logger.error('BMAD test workflow error:', error);
+    return NextResponse.json({
+      success: false,
+      error: 'Test workflow execution failed',
+      details: error.message,
+      timestamp: new Date().toISOString()
     }, { status: 500 });
   }
 }

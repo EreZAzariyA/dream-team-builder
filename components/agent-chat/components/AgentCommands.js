@@ -58,6 +58,7 @@ const AgentCommands = ({ agent, isLoading, newMessage, onCommandSelect }) => {
 
   const getCommandEmoji = (commandName) => {
     if (commandName.includes('help')) return '❓';
+    if (commandName.includes('github-workflow') || commandName.includes('github')) return '🚀';
     if (commandName.includes('create')) return '📝';
     if (commandName.includes('prd')) return '📋';
     if (commandName.includes('architecture')) return '🏗️';
