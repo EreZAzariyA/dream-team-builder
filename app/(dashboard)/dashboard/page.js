@@ -1,62 +1,79 @@
 'use client';
 
-import HeroSection from '../../../components/dashboard/HeroSection';
-import ActiveProjectsEnhanced from '../../../components/dashboard/ActiveProjectsEnhanced';
-import SystemMetrics from '../../../components/dashboard/SystemMetrics';
-import AgentStatusGrid from '../../../components/dashboard/AgentStatusGrid';
-import RealTimeActivityFeed from '../../../components/dashboard/RealTimeActivityFeed';
-import SmartInsights from '../../../components/dashboard/SmartInsights';
+import { useSession } from 'next-auth/react';
+import { motion } from 'framer-motion';
+import QuickNavigation from '../../../components/dashboard/sections/QuickNavigation';
+import SystemOverview from '../../../components/dashboard/sections/SystemOverview';
+import ActiveProjects from '../../../components/dashboard/sections/ActiveProjects';
+import AgentStatus from '../../../components/dashboard/sections/AgentStatus';
 
+/**
+ * Clean, modular dashboard page
+ * Real data integration with modern UI components
+ */
 const DashboardPage = () => {
+  const { data: session } = useSession();
+
+  // Get greeting based on time
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  };
+
   return (
-    <div className="space-y-6">
-      {/* BMAD Command Center Hero */}
-      <HeroSection />
+    <div className="space-y-8">
+      {/* Welcome Header */}
+      <motion.section
+        className="space-y-2"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+          {getGreeting()}, {session?.user?.name?.split(' ')[0] || 'there'}! 👋
+        </h1>
+        <p className="text-lg text-gray-600 dark:text-gray-400">
+          Welcome to your BMAD Command Center
+        </p>
+      </motion.section>
 
-      {/* Active Projects Enhanced */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Active Projects</h2>
-          <span className="text-xs text-gray-500 dark:text-gray-400">Real-time monitoring</span>
-        </div>
-        <ActiveProjectsEnhanced />
-      </div>
+      {/* Quick Navigation */}
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.1 }}
+      >
+        <QuickNavigation />
+      </motion.div>
 
-      {/* Agent Teams Collaboration */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Agent Teams</h2>
-          <span className="text-xs text-gray-500 dark:text-gray-400">AI coordination</span>
-        </div>
-        <AgentStatusGrid />
-      </div>
+      {/* System Overview */}
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.2 }}
+      >
+        <SystemOverview />
+      </motion.div>
 
-      {/* System Overview & Smart Insights */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">System Performance</h3>
-          </div>
-          <SystemMetrics />
-        </div>
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Live Activity</h3>
-          </div>
-          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
-            <RealTimeActivityFeed />
-          </div>
-        </div>
-      </div>
+      {/* Active Projects */}
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.3 }}
+      >
+        <ActiveProjects />
+      </motion.div>
 
-      {/* Smart Insights */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Smart Insights</h2>
-          <span className="text-xs text-gray-500 dark:text-gray-400">AI recommendations</span>
-        </div>
-        <SmartInsights />
-      </div>
+      {/* Agent Status */}
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.4 }}
+      >
+        <AgentStatus />
+      </motion.div>
     </div>
   );
 };

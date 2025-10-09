@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import ChatMessage from './ChatMessage';
-import TypingIndicator from './TypingIndicator';
 import ScrollToBottomButton from './ScrollToBottomButton';
 
 /**
@@ -13,8 +12,7 @@ import ScrollToBottomButton from './ScrollToBottomButton';
 const MessagesList = ({ 
   messages, 
   agent, 
-  isLoading, 
-  isTyping, 
+  isLoading,
   error 
 }) => {
   const messagesEndRef = useRef(null);
@@ -117,7 +115,7 @@ const MessagesList = ({
       }}
       onScroll={handleScroll}
     >
-      {/* Loading State */}
+      {/* Chat Initialization Loading State */}
       {isLoading && messages.length === 0 && (
         <div className="flex flex-col items-center justify-center py-16 px-4">
           <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-500 border-t-transparent mb-4"></div>
@@ -175,11 +173,7 @@ const MessagesList = ({
           );
         })}
         
-        {/* Typing Indicator */}
-        <TypingIndicator 
-          agent={agent}
-          isVisible={isTyping}
-        />
+        {/* No typing indicator needed - streaming shows text in real-time */}
       </div>
       
       {/* Scroll to Bottom Button */}

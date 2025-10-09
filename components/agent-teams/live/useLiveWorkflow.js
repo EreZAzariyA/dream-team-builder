@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { WorkflowId } from '../../../lib/utils/workflowId';
 import { CHANNELS, EVENTS } from '../../../lib/pusher/config';
-import { usePusherSimple } from '../../../lib/pusher/SimplePusherClient';
+import { usePusher } from '../../../lib/pusher/PusherClient';
 
 export const useLiveWorkflow = (workflowInstanceId) => {
   const [workflowInstance, setWorkflowInstance] = useState(null);
@@ -20,8 +20,8 @@ export const useLiveWorkflow = (workflowInstanceId) => {
   const [waitingForAgent, setWaitingForAgent] = useState(false);
   const [respondingAgent, setRespondingAgent] = useState(null);
 
-  // Use SimplePusherClient hook
-  const { connected: pusherConnected, pusher: pusherClient, error: pusherError } = usePusherSimple();
+  // Use PusherClient hook
+  const { connected: pusherConnected, pusher: pusherClient, error: pusherError } = usePusher();
 
   // Fetch initial workflow data with enhanced error handling
   useEffect(() => {
@@ -126,6 +126,8 @@ export const useLiveWorkflow = (workflowInstanceId) => {
       fetchWorkflowInstance();
     }
   }, [workflowInstanceId]);
+  console.log(realTimeData);
+  
 
   // Initialize Pusher connection for real-time updates with error handling
   useEffect(() => {
@@ -220,6 +222,8 @@ export const useLiveWorkflow = (workflowInstanceId) => {
           setWorkflowInstance(prev => prev ? { ...prev, status: data.status } : null);
           if (data.status === 'PAUSED_FOR_ELICITATION' && data.elicitationDetails) {
             setElicitationPrompt(data.elicitationDetails);
+            setWaitingForAgent(false);
+            setRespondingAgent(null);
           } else if (data.status !== 'PAUSED_FOR_ELICITATION') {
             setElicitationPrompt(null);
           }
@@ -306,57 +310,95 @@ export const useLiveWorkflow = (workflowInstanceId) => {
     }
   }, [pusherConnected, pusherError]);
 
-  // CRITICAL FIX: Add periodic workflow data refresh when real-time isn't working
+  // MEMORY LEAK FIX: Optimized periodic workflow data refresh with intelligent intervals
   useEffect(() => {
-    if (!workflowInstanceId || !workflowInstance) return;
+    if (!workflowInstanceId) return;
+    
+    let refreshCount = 0;
+    const maxRefreshes = 50; // Limit total refreshes to prevent runaway polling
     
     const refreshWorkflowData = async () => {
+      if (refreshCount >= maxRefreshes) {
+        console.log(`⚠️ [LiveWorkflow] Max refresh limit reached (${maxRefreshes}), stopping polling`);
+        return;
+      }
+      
+      refreshCount++;
+      
       try {
         const response = await fetch(`/api/workflows/live/${workflowInstanceId}`);
         if (response.ok) {
           const data = await response.json();
           
-          // Update workflow status and current agent
-          if (data.status !== workflowInstance.status || data.currentAgent !== realTimeData.currentAgent) {
-            console.log(`🔄 [LiveWorkflow] Status changed: ${workflowInstance.status} → ${data.status}, Agent: ${realTimeData.currentAgent} → ${data.currentAgent}`);
-            
-            setWorkflowInstance(prev => ({ ...prev, status: data.status }));
-            setRealTimeData(prev => ({
-              ...prev,
-              currentAgent: data.currentAgent,
-              progress: data.progress?.percentage || prev.progress
-            }));
-            
-            // Handle elicitation state changes
-            if (data.status === 'PAUSED_FOR_ELICITATION' && data.elicitationDetails) {
-              setElicitationPrompt(data.elicitationDetails);
-            } else if (data.status !== 'PAUSED_FOR_ELICITATION') {
-              setElicitationPrompt(null);
-            }
+          setWorkflowInstance(prev => ({ 
+            ...prev, 
+            status: data.status,
+            progress: data.progress,
+            currentAgent: data.currentAgent
+          }));
+          
+          if (loading) {
+            setLoading(false);
           }
           
-          // Update messages if new ones exist
+          setRealTimeData(prev => ({
+            ...prev,
+            currentAgent: data.currentAgent,
+            progress: data.progress?.percentage || prev.progress,
+            currentStep: data.progress?.currentStep || prev.currentStep,
+            totalSteps: data.progress?.totalSteps || prev.totalSteps
+          }));
+          
+          // Handle elicitation state changes
+          if (data.status === 'PAUSED_FOR_ELICITATION' && data.elicitationDetails) {
+            setElicitationPrompt(data.elicitationDetails);
+          } else {
+            setElicitationPrompt(null);
+          }
+          
+          // Update messages only if significantly different to prevent unnecessary re-renders
           const newMessages = data.communication?.timeline || [];
-          if (newMessages.length > realTimeData.messages.length) {
-            console.log(`💬 [LiveWorkflow] New messages detected: ${realTimeData.messages.length} → ${newMessages.length}`);
+          if (newMessages.length !== realTimeData.messages.length) {
             setRealTimeData(prev => ({
               ...prev,
               messages: newMessages,
               lastUpdate: new Date().toISOString()
             }));
           }
+          
+          // Stop polling if workflow is completed/error to save resources
+          if (data.status === 'COMPLETED' || data.status === 'FAILED' || data.status === 'ERROR') {
+            console.log(`✅ [LiveWorkflow] Workflow ${data.status}, stopping periodic refresh`);
+            return 'stop';
+          }
         }
       } catch (error) {
         console.warn('🔄 [LiveWorkflow] Periodic refresh failed:', error.message);
       }
+      
+      return 'continue';
     };
     
-    // Refresh every 5 seconds when not connected, every 15 seconds when connected
-    const refreshInterval = realTimeData.isConnected ? 15000 : 5000;
-    const interval = setInterval(refreshWorkflowData, refreshInterval);
+    // MEMORY OPTIMIZATION: Much less aggressive polling
+    // Pusher connected: 30s intervals, not connected: 10s intervals
+    const refreshInterval = realTimeData.isConnected ? 30000 : 10000;
     
-    return () => clearInterval(interval);
-  }, [workflowInstanceId, workflowInstance, realTimeData.isConnected, realTimeData.messages.length, realTimeData.currentAgent]);
+    let interval = setInterval(async () => {
+      const result = await refreshWorkflowData();
+      if (result === 'stop') {
+        clearInterval(interval);
+      }
+    }, refreshInterval);
+    
+    // Initial fetch only on mount, not on every dependency change
+    if (refreshCount === 0) {
+      refreshWorkflowData();
+    }
+    
+    return () => {
+      clearInterval(interval);
+    };
+  }, [workflowInstanceId]); // CRITICAL: Remove dependency on loading, realTimeData to prevent excessive re-mounting
 
   return {
     workflowInstance,

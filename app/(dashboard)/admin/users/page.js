@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { fetchWithAuth } from '../../../../lib/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../../components/common/Card';
 import { Badge } from '../../../../components/common/Badge';
 import { 
@@ -11,66 +13,57 @@ import {
   MoreVertical,
   Mail,
   Calendar,
-  Activity
+  Activity,
+  Edit,
+  Ban,
+  CheckCircle,
+  Shield,
+  UserX
 } from 'lucide-react';
 
+// Fetch functions
+async function fetchUsers() {
+  return await fetchWithAuth('/api/admin/users');
+}
+
+async function updateUser({ userId, updates }) {
+  return await fetchWithAuth('/api/admin/users', {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ userId, updates }),
+  });
+}
+
 export default function AdminUsersPage() {
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState('all');
+  const [selectedUser, setSelectedUser] = useState(null);
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    // Fetch users from API
-    const fetchUsers = async () => {
-      try {
-        const response = await fetch('/api/admin/users');
-        if (response.ok) {
-          const data = await response.json();
-          setUsers(data.users || []);
-        }
-      } catch (error) {
-        console.error('Error fetching users:', error);
-        // Fallback to mock data for now
-        setUsers([
-          {
-            id: '1',
-            name: 'John Doe',
-            email: 'john@example.com',
-            role: 'admin',
-            status: 'active',
-            lastLogin: '2025-01-02T10:30:00Z',
-            createdAt: '2024-12-01T00:00:00Z',
-            workflowCount: 15
-          },
-          {
-            id: '2',
-            name: 'Jane Smith',
-            email: 'jane@example.com',
-            role: 'user',
-            status: 'active',
-            lastLogin: '2025-01-01T15:45:00Z',
-            createdAt: '2024-11-15T00:00:00Z',
-            workflowCount: 8
-          },
-          {
-            id: '3',
-            name: 'Bob Wilson',
-            email: 'bob@example.com',
-            role: 'user',
-            status: 'inactive',
-            lastLogin: '2024-12-20T09:15:00Z',
-            createdAt: '2024-10-10T00:00:00Z',
-            workflowCount: 3
-          }
-        ]);
-      } finally {
-        setLoading(false);
-      }
-    };
+  // Fetch users query
+  const { data: usersData, isLoading, error } = useQuery({
+    queryKey: ['admin-users'],
+    queryFn: fetchUsers,
+    staleTime: 30000, // 30 seconds
+    refetchInterval: 60000, // Refetch every minute
+  });
 
-    fetchUsers();
-  }, []);
+  // Update user mutation
+  const updateUserMutation = useMutation({
+    mutationFn: updateUser,
+    onSuccess: () => {
+      queryClient.invalidateQueries(['admin-users']);
+      setSelectedUser(null);
+    },
+    onError: (error) => {
+      console.error('Failed to update user:', error);
+    },
+  });
+
+  const users = usersData?.users || [];
+  const stats = usersData?.stats || {};
 
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -78,6 +71,38 @@ export default function AdminUsersPage() {
     const matchesRole = filterRole === 'all' || user.role === filterRole;
     return matchesSearch && matchesRole;
   });
+
+  // Handler functions
+  const handleToggleUserStatus = (user) => {
+    const newStatus = user.status === 'active' ? 'inactive' : 'active';
+    const isActive = newStatus === 'active';
+    
+    const confirmed = window.confirm(
+      `Are you sure you want to ${isActive ? 'activate' : 'deactivate'} ${user.name}?`
+    );
+    
+    if (confirmed) {
+      updateUserMutation.mutate({
+        userId: user.id,
+        updates: { isActive }
+      });
+    }
+  };
+
+  const handleToggleUserRole = (user) => {
+    const newRole = user.role === 'admin' ? 'user' : 'admin';
+    
+    const confirmed = window.confirm(
+      `Are you sure you want to make ${user.name} ${newRole === 'admin' ? 'an admin' : 'a regular user'}?`
+    );
+    
+    if (confirmed) {
+      updateUserMutation.mutate({
+        userId: user.id,
+        updates: { role: newRole }
+      });
+    }
+  };
 
   const getRoleColor = (role) => {
     switch (role) {
@@ -137,7 +162,7 @@ export default function AdminUsersPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Users</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{users.length}</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.total || 0}</p>
               </div>
               <Users className="w-8 h-8 text-blue-600" />
             </div>
@@ -148,9 +173,7 @@ export default function AdminUsersPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Active Users</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {users.filter(u => u.status === 'active').length}
-                </p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.active || 0}</p>
               </div>
               <Activity className="w-8 h-8 text-green-600" />
             </div>
@@ -161,9 +184,7 @@ export default function AdminUsersPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Admins</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {users.filter(u => u.role === 'admin').length}
-                </p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.admins || 0}</p>
               </div>
               <User className="w-8 h-8 text-purple-600" />
             </div>
@@ -173,12 +194,10 @@ export default function AdminUsersPage() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Workflows</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {users.reduce((sum, user) => sum + user.workflowCount, 0)}
-                </p>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Inactive Users</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.inactive || 0}</p>
               </div>
-              <Activity className="w-8 h-8 text-orange-600" />
+              <UserX className="w-8 h-8 text-red-600" />
             </div>
           </CardContent>
         </Card>
@@ -220,9 +239,15 @@ export default function AdminUsersPage() {
           <CardTitle>Users</CardTitle>
         </CardHeader>
         <CardContent>
-          {loading ? (
+          {isLoading ? (
             <div className="flex justify-center items-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+          ) : error ? (
+            <div className="text-center py-8">
+              <UserX className="w-12 h-12 text-red-400 mx-auto mb-4" />
+              <p className="text-red-500 dark:text-red-400">Failed to load users</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">{error.message}</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -278,15 +303,45 @@ export default function AdminUsersPage() {
                         {user.workflowCount}
                       </td>
                       <td className="py-4 px-4 text-right">
-                        <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
-                          <MoreVertical className="w-4 h-4 text-gray-400" />
-                        </button>
+                        <div className="flex items-center justify-end space-x-2">
+                          {/* Toggle Status */}
+                          <button
+                            onClick={() => handleToggleUserStatus(user)}
+                            disabled={updateUserMutation.isLoading}
+                            className={`p-2 rounded-lg transition-colors ${
+                              user.status === 'active'
+                                ? 'hover:bg-red-100 dark:hover:bg-red-900/20 text-red-600'
+                                : 'hover:bg-green-100 dark:hover:bg-green-900/20 text-green-600'
+                            }`}
+                            title={user.status === 'active' ? 'Deactivate user' : 'Activate user'}
+                          >
+                            {user.status === 'active' ? (
+                              <Ban className="w-4 h-4" />
+                            ) : (
+                              <CheckCircle className="w-4 h-4" />
+                            )}
+                          </button>
+
+                          {/* Toggle Role */}
+                          <button
+                            onClick={() => handleToggleUserRole(user)}
+                            disabled={updateUserMutation.isLoading}
+                            className="p-2 hover:bg-purple-100 dark:hover:bg-purple-900/20 text-purple-600 rounded-lg transition-colors"
+                            title={user.role === 'admin' ? 'Make user' : 'Make admin'}
+                          >
+                            {user.role === 'admin' ? (
+                              <User className="w-4 h-4" />
+                            ) : (
+                              <Shield className="w-4 h-4" />
+                            )}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              {filteredUsers.length === 0 && !loading && (
+              {filteredUsers.length === 0 && !isLoading && (
                 <div className="text-center py-8">
                   <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <p className="text-gray-500 dark:text-gray-400">No users found</p>

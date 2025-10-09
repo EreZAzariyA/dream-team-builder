@@ -7,7 +7,7 @@ import { authOptions } from '@/lib/auth/config.js';
 import User from '@/lib/database/models/User';
 
 // Import BMAD system components for proper agent execution
-const { BmadOrchestrator } = require('@/lib/bmad/BmadOrchestrator.js');
+import BmadOrchestrator from '@/lib/bmad/BmadOrchestrator.js';
 const { AgentLoader } = require('@/lib/bmad/AgentLoader.js');
 
 /**
@@ -81,11 +81,7 @@ export async function POST(request) {
     if (!bmadInstance) {
       console.log('🔄 Initializing BMAD Orchestrator...');
       
-      // Determine if we should use mock mode
-      const shouldUseMockMode = !hasApiKeys || process.env.BMAD_MOCK_MODE === 'true';
-      
       bmadInstance = new BmadOrchestrator(null, { 
-        mockMode: shouldUseMockMode,
         apiKeys: hasApiKeys ? {
           openai: userApiKeys.openai,
           gemini: userApiKeys.gemini
@@ -161,7 +157,6 @@ export async function POST(request) {
       userName: user.profile?.name || user.email.split('@')[0],
       
       // API configuration
-      mockMode: !hasApiKeys || process.env.BMAD_MOCK_MODE === 'true',
       apiKeys: hasApiKeys ? {
         openai: userApiKeys.openai,
         gemini: userApiKeys.gemini

@@ -51,7 +51,7 @@ const AgentChat = ({
   // Custom hooks
   const { setupPusherSubscription, cleanup: cleanupPusher } = usePusherChat();
   const { saveSession, loadSession, clearSession, loadPersistedMessages } = useChatPersistence(conversationId, messages);
-  const { isLoading, error, initializeChat, loadChatHistory, sendMessage, endChat, setError } = useChatAPI(agentId);
+  const { isLoading, error, initializeChat, loadChatHistory, sendMessage, sendMessageStreaming, endChat, setError } = useChatAPI(agentId);
 
   // Define handleSendMessage early so it can be used in useEffect
   const handleSendMessage = useCallback(async (messageText) => {
@@ -74,25 +74,80 @@ const AgentChat = ({
 
       setMessages(prev => [...prev, userMessage]);
       
-      // Now make the API call
-      const result = await sendMessage(messageText, conversationId, user);
+      // Create a placeholder for the agent response that will be updated as chunks arrive
+      const agentResponseId = `msg_${Date.now() + 1}`;
+      const agentResponse = {
+        id: agentResponseId,
+        from: 'agent',
+        fromName: agent?.name || agentId,
+        to: 'user',
+        content: '',
+        timestamp: new Date(),
+        type: 'agent_response',
+        isStreaming: true
+      };
+
+      setMessages(prev => [...prev, agentResponse]);
       
-      // Update with server version if provided
-      if (result && result.serverUserMessage) {
-        setMessages(prev => {
-          const updated = [...prev];
-          const messageIndex = updated.findIndex(m => m.id === userMessage.id);
-          if (messageIndex !== -1) {
-            updated[messageIndex] = result.serverUserMessage;
-          }
-          return updated;
-        });
-      }
+      // Use streaming API to get real-time response
+      await sendMessageStreaming(
+        messageText, 
+        conversationId, 
+        user,
+        // onChunk - update the agent response with each chunk
+        (chunk) => {
+          setMessages(prev => {
+            const updated = [...prev];
+            const messageIndex = updated.findIndex(m => m.id === agentResponseId);
+            if (messageIndex !== -1) {
+              updated[messageIndex] = {
+                ...updated[messageIndex],
+                content: updated[messageIndex].content + chunk
+              };
+            }
+            return updated;
+          });
+        },
+        // onComplete - mark streaming as complete
+        () => {
+          setMessages(prev => {
+            const updated = [...prev];
+            const messageIndex = updated.findIndex(m => m.id === agentResponseId);
+            if (messageIndex !== -1) {
+              updated[messageIndex] = {
+                ...updated[messageIndex],
+                isStreaming: false
+              };
+            }
+            return updated;
+          });
+          setIsTyping(false);
+        },
+        // onError - handle streaming errors
+        (error) => {
+          console.error('Streaming error:', error);
+          setMessages(prev => {
+            const updated = [...prev];
+            const messageIndex = updated.findIndex(m => m.id === agentResponseId);
+            if (messageIndex !== -1) {
+              updated[messageIndex] = {
+                ...updated[messageIndex],
+                content: updated[messageIndex].content + '\n\n❌ **Error:** ' + error,
+                isStreaming: false,
+                hasError: true
+              };
+            }
+            return updated;
+          });
+          setIsTyping(false);
+        }
+      );
+      
     } catch (err) {
       console.error('Failed to send message:', err.message);
       setIsTyping(false);
     }
-  }, [sendMessage, conversationId, user]);
+  }, [sendMessageStreaming, conversationId, user, agent, agentId]);
 
   // Initialize chat session only once
   useEffect(() => {
@@ -157,6 +212,7 @@ const AgentChat = ({
   const setupPusherForChat = useCallback((chatId) => {
     setupPusherSubscription(
       chatId,
+      'workflow',
       // onMessage
       (agentResponse) => {
         setMessages(prev => {
@@ -178,6 +234,19 @@ const AgentChat = ({
       // onChatEnded
       () => {
         setError('Chat session ended');
+      },
+      // onWorkflowUpdate
+      (update) => {
+        const systemMessage = {
+          id: `msg_${Date.now()}`,
+          from: 'system',
+          fromName: 'System',
+          to: 'user',
+          content: update.message || `Agent ${update.agentId} completed a task.`,
+          timestamp: new Date(),
+          type: 'system_message'
+        };
+        setMessages(prev => [...prev, systemMessage]);
       }
     );
   }, [setupPusherSubscription, setError]);
@@ -303,7 +372,6 @@ const AgentChat = ({
               messages={messages}
               agent={agent}
               isLoading={isLoading && messages.length === 0}
-              isTyping={isTyping}
               error={error}
             />
 

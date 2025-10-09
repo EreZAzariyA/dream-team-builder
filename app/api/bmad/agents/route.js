@@ -1,105 +1,161 @@
-/**
- * BMAD Agents API Endpoints
- * Provides information about available agents and their capabilities
- */
-
 import { NextResponse } from 'next/server';
-import { authenticateRoute } from '../../../../lib/utils/routeAuth.js';
+import { AgentLoader } from '@/lib/bmad/AgentLoader.js';
+import logger from '@/lib/utils/logger.js';
 
 /**
- * GET /api/bmad/agents - Get all available agents
+ * GET /api/bmad/agents
+ * Returns all available BMAD agents with their metadata
+ * Used by the agent-chat page and other components that need agent listings
  */
 export async function GET(request) {
   try {
-    const { error } = await authenticateRoute();
-    if (error) return error;
-
-    // Load agents directly from .bmad-core/agents/
-    const agents = await loadBmadAgents();
+    logger.info('🔍 Loading all BMAD agents for API response');
+    
+    // Load agents using AgentLoader (file-based)
+    const agentLoader = new AgentLoader();
+    await agentLoader.loadAllAgents();
+    
+    // Get all agent metadata
+    const agentsMetadata = agentLoader.getAllAgentsMetadata();
+    
+    if (!agentsMetadata || agentsMetadata.length === 0) {
+      logger.warn('⚠️ No agents found in .bmad-core/agents directory');
+      return NextResponse.json({
+        success: false,
+        error: 'No agents found',
+        message: 'No agent definitions found in .bmad-core/agents directory',
+        agents: []
+      }, { status: 404 });
+    }
+    
+    // Load detailed agent information for each agent
+    const agents = [];
+    for (const metadata of agentsMetadata) {
+      try {
+        const agent = await agentLoader.loadAgent(metadata.id);
+        if (agent) {
+          // Format agent data for the frontend
+          const formattedAgent = {
+            id: agent.id,
+            agentId: agent.id, // alias for compatibility
+            name: agent.name,
+            title: agent.title || agent.name,
+            icon: agent.icon || '🤖',
+            description: agent.whenToUse || agent.persona?.role || `${agent.name} agent`,
+            persona: agent.persona,
+            commands: agent.commands || [],
+            dependencies: agent.dependencies,
+            
+            // Additional metadata for UI
+            displayName: agent.title || agent.name,
+            category: agent.category || 'core',
+            isActive: true,
+            isSystemAgent: true,
+            
+            // Quick actions for the UI
+            quickActions: extractQuickActions(agent.commands),
+            
+            // Capabilities summary
+            capabilities: {
+              hasCommands: agent.commands && agent.commands.length > 0,
+              hasDependencies: agent.dependencies && Object.keys(agent.dependencies).length > 0,
+              isConversational: true
+            }
+          };
+          
+          agents.push(formattedAgent);
+        }
+      } catch (error) {
+        logger.warn(`⚠️ Failed to load detailed data for agent ${metadata.id}:`, error.message);
+        // Still include basic metadata even if detailed loading fails
+        agents.push({
+          id: metadata.id,
+          agentId: metadata.id,
+          name: metadata.name,
+          title: metadata.name,
+          icon: '🤖',
+          description: 'Agent description unavailable',
+          persona: {},
+          commands: [],
+          dependencies: {},
+          displayName: metadata.name,
+          category: 'core',
+          isActive: true,
+          isSystemAgent: true,
+          quickActions: ['Get Help'],
+          capabilities: {
+            hasCommands: false,
+            hasDependencies: false,
+            isConversational: true
+          }
+        });
+      }
+    }
+    
+    logger.info(`✅ Successfully loaded ${agents.length} agents for API response`);
     
     return NextResponse.json({
       success: true,
       agents,
-      meta: {
-        agentCount: agents.length,
-        totalCommands: agents.reduce((sum, agent) => sum + (agent.commands?.length || 0), 0)
+      metadata: {
+        totalAgents: agents.length,
+        loadedAt: new Date().toISOString(),
+        source: 'file-based (.bmad-core/agents)',
+        agentIds: agents.map(a => a.id)
       }
     });
-
+    
   } catch (error) {
-    console.error('Error fetching agents:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch agents', details: error.message },
-      { status: 500 }
-    );
+    logger.error('❌ Error loading agents for API:', error);
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to load agents',
+      message: error.message,
+      agents: [],
+      details: 'Check that .bmad-core/agents directory exists and contains valid agent files'
+    }, { status: 500 });
   }
 }
 
-async function loadBmadAgents() {
-  const { promises: fs } = require('fs');
-  const path = require('path');
-  const yaml = require('js-yaml');
-  
-  const AGENTS_DIR = path.join(process.cwd(), '.bmad-core', 'agents');
-  const agents = [];
-  
-  try {
-    const files = await fs.readdir(AGENTS_DIR);
-    const agentFiles = files.filter(file => file.endsWith('.md'));
-
-    for (const file of agentFiles) {
-      try {
-        const filePath = path.join(AGENTS_DIR, file);
-        const content = await fs.readFile(filePath, 'utf8');
-        const yamlMatch = content.match(/```yaml\s*\n([\s\S]*?)\n```/);
-
-        if (!yamlMatch) {
-          continue;
-        }
-
-        const yamlContent = yamlMatch[1];
-        const agentData = yaml.load(yamlContent);
-
-        if (agentData?.agent && agentData?.commands) {
-          // Extract commands array
-          let commandsList = [];
-          if (Array.isArray(agentData.commands)) {
-            commandsList = agentData.commands.map(cmd => {
-              if (typeof cmd === 'string') {
-                return cmd;
-              } else if (typeof cmd === 'object' && cmd !== null) {
-                return Object.keys(cmd)[0];
-              }
-              return 'unknown';
-            });
-          } else if (typeof agentData.commands === 'object') {
-            commandsList = Object.keys(agentData.commands);
-          }
-
-          agents.push({
-            id: agentData.agent.id,
-            name: agentData.agent.name,
-            title: agentData.agent.title,
-            icon: agentData.agent.icon,
-            description: agentData.agent.whenToUse || agentData.persona?.identity || '',
-            commands: commandsList,
-            capabilities: agentData.persona?.core_principles || [],
-            persona: {
-              role: agentData.persona?.role || '',
-              style: agentData.persona?.style || '',
-              identity: agentData.persona?.identity || '',
-              focus: agentData.persona?.focus || ''
-            },
-            dependencies: agentData.dependencies || {}
-          });
-        }
-      } catch (fileError) {
-        console.error(`Error processing agent ${file}:`, fileError.message);
-      }
-    }
-  } catch (error) {
-    console.error('Error loading BMAD agents:', error);
+/**
+ * Extract quick action commands from agent commands list
+ */
+function extractQuickActions(commands) {
+  if (!commands || commands.length === 0) {
+    return ['Get Help', 'Ask Question'];
   }
   
-  return agents;
+  // Take first 3-4 commands as quick actions, exclude generic ones
+  const filtered = commands
+    .filter(cmd => {
+      const cmdName = typeof cmd === 'string' ? cmd : Object.keys(cmd)[0];
+      return !['help', 'exit', 'status'].includes(cmdName.toLowerCase());
+    })
+    .slice(0, 3)
+    .map(cmd => {
+      const cmdName = typeof cmd === 'string' ? cmd : Object.keys(cmd)[0];
+      // Capitalize and format command names for display
+      return cmdName
+        .replace(/-/g, ' ')
+        .replace(/^create-/, 'Create ')
+        .replace(/^analyze-/, 'Analyze ')
+        .replace(/^review-/, 'Review ')
+        .replace(/\b\w/g, l => l.toUpperCase());
+    });
+  
+  return filtered.length > 0 ? filtered : ['Get Help', 'Ask Question'];
+}
+
+/**
+ * OPTIONS handler for CORS
+ */
+export async function OPTIONS(request) {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    },
+  });
 }

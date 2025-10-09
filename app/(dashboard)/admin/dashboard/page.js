@@ -1,5 +1,5 @@
 
-import ActiveProjectsEnhanced from '../../../../components/dashboard/ActiveProjectsEnhanced';
+import { ActiveProjects } from '../../../../components/dashboard';
 
 export default function Dashboard() {
   return (
@@ -8,7 +8,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 gap-6">
         <div>
           <h2 className="text-xl font-semibold mb-4">Active Projects</h2>
-          <ActiveProjectsEnhanced />
+          <ActiveProjects />
         </div>
       </div>
     </div>

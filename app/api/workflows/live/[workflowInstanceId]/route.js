@@ -1,7 +1,6 @@
-
 import { NextResponse } from 'next/server';
 import { authenticateRoute } from '../../../../../lib/utils/routeAuth.js';
-import { getOrchestrator } from '../../../../../lib/bmad/BmadOrchestrator.js';
+import { BmadOrchestrator } from '../../../../../lib/bmad/BmadOrchestrator.js';
 import { connectMongoose } from '../../../../../lib/database/mongodb.js';
 import Workflow from '../../../../../lib/database/models/Workflow.js';
 import AgentTeam from '../../../../../lib/database/models/AgentTeam.js';
@@ -10,7 +9,6 @@ import logger from '@/lib/utils/logger.js';
 export async function GET(request, { params }) {
   try {
     const { workflowInstanceId } = await params;
-    logger.info(`🔍 [LiveWorkflow] API called with workflowInstanceId: ${workflowInstanceId}`);
     
     // Get authenticated session
     const { user, session, error } = await authenticateRoute(request);
@@ -25,14 +23,12 @@ export async function GET(request, { params }) {
     try {
       // Search in Workflow collection first
       workflowDoc = await Workflow.findOne({ workflowId: workflowInstanceId });
-      logger.info(`🔍 [LiveWorkflow] Workflow collection search: ${workflowDoc ? 'FOUND' : 'NOT FOUND'}`);
       
       // If not found in Workflow, check AgentTeam collection (for team deployments)
       if (!workflowDoc) {
         agentTeamDoc = await AgentTeam.findOne({ 
           'deployment.workflowInstanceId': workflowInstanceId 
         });
-        logger.info(`🔍 [LiveWorkflow] AgentTeam collection search: ${agentTeamDoc ? 'FOUND' : 'NOT FOUND'}`);
       }
     } catch (error) {
       logger.error(`Database search error for ${workflowInstanceId}:`, error.message);
@@ -43,9 +39,10 @@ export async function GET(request, { params }) {
     let bmadWorkflowState = null;
     
     try {
+      // Get orchestrator singleton
+      const { getOrchestrator } = require('../../../../../lib/bmad/BmadOrchestrator.js');
       orchestrator = await getOrchestrator();
       bmadWorkflowState = await orchestrator.getWorkflowStatus(workflowInstanceId);
-      logger.info(`🔍 [LiveWorkflow] BMAD orchestrator search for ${workflowInstanceId}: ${bmadWorkflowState ? 'FOUND' : 'NOT FOUND'}`);
     } catch (bmadError) {
       logger.warn('BMAD orchestrator not available:', bmadError.message);
     }
@@ -60,11 +57,16 @@ export async function GET(request, { params }) {
     try {
       if (orchestrator && orchestrator.messageService) {
         await orchestrator.messageService.initializeWorkflow(workflowInstanceId);
+        
+        // CRITICAL FIX: Longer delay to ensure messages are fully committed to MongoDB
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
         messages = await orchestrator.messageService.getMessages(workflowInstanceId);
       }
     } catch (messageError) {
       logger.warn(`Failed to load messages for workflow ${workflowInstanceId}:`, messageError.message);
     }
+
 
     // Build comprehensive workflow instance response
     const workflowInstance = {
@@ -84,7 +86,7 @@ export async function GET(request, { params }) {
                  'default',
         agents: bmadWorkflowState?.sequence ? 
           // Extract unique agents from workflow sequence steps
-          [...new Set(bmadWorkflowState.sequence.map(step => step.agentId || step.agent).filter(Boolean))] :
+          [...new Set(bmadWorkflowState.sequence.map(step => step.agent).filter(Boolean))] :
           // Use team agents if available
           agentTeamDoc?.teamConfig?.agentIds || []
       },
@@ -120,13 +122,37 @@ export async function GET(request, { params }) {
       agents: bmadWorkflowState?.agents || {},
       artifacts: bmadWorkflowState?.artifacts || [],
       checkpoints: bmadWorkflowState?.checkpoints || [],
-      elicitationDetails: bmadWorkflowState?.elicitationDetails || workflowDoc?.elicitationDetails || null,
+      elicitationDetails: (() => {
+        // CRITICAL FIX: Read elicitation from messages array instead of separate field
+        const status = bmadWorkflowState?.status || workflowDoc?.status;
+        if (status === 'PAUSED_FOR_ELICITATION') {
+          // Find the most recent elicitation message
+          const elicitationMessage = messages.find(msg => 
+            msg.type === 'elicitation_request' && 
+            msg.to === 'user'
+          );
+          
+          if (elicitationMessage) {
+            return {
+              sectionTitle: elicitationMessage.elicitationData?.sectionTitle || 'Agent Question',
+              instruction: elicitationMessage.content,
+              sectionId: elicitationMessage.elicitationData?.sectionId || 'elicitation',
+              agent: elicitationMessage.from || elicitationMessage.elicitationData?.agent,
+              type: elicitationMessage.elicitationData?.type || 'elicitation_request',
+              requiresMethodSelection: elicitationMessage.elicitationData?.requiresMethodSelection || false,
+              command: elicitationMessage.elicitationData?.command,
+              options: elicitationMessage.elicitationData?.options
+            };
+          }
+        }
+        return null; // No elicitation or workflow not paused
+      })(),
       currentAgent: (() => {
         // CRITICAL FIX: Ensure currentAgent is always a string or null
         const agent = bmadWorkflowState?.currentAgent || workflowDoc?.currentAgent;
         if (!agent) return null;
         if (typeof agent === 'string') return agent;
-        if (typeof agent === 'object' && agent.agentId) return agent.agentId;
+        if (typeof agent === 'object' && agent.agent) return agent.agent;
         if (typeof agent === 'object' && agent.id) return agent.id;
         return null;
       })()
@@ -146,9 +172,6 @@ export async function GET(request, { params }) {
       pusherKey: process.env.NEXT_PUBLIC_PUSHER_KEY,
       cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER || 'mt1'
     };
-
-    console.log({workflowInstance});
-    
 
     return NextResponse.json(workflowInstance);
 

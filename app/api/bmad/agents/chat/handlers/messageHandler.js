@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import AgentChat from '@/lib/database/models/AgentChat';
+import AgentChat from '@/lib/database/models/AgentChat.js';
 
 const { AgentLoader } = require('@/lib/bmad/AgentLoader.js');
 const { PusherService } = require('@/lib/bmad/orchestration/PusherService.js');
@@ -7,7 +7,7 @@ const { PusherService } = require('@/lib/bmad/orchestration/PusherService.js');
 /**
  * Send a message in an existing chat session
  */
-export async function handleChatMessage(user, agent, message, conversationId, mockMode, userApiKeys) {
+export async function handleChatMessage(user, agent, message, conversationId, userApiKeys, options = {}) {
   if (!conversationId) {
     return NextResponse.json({
       success: false,
@@ -58,22 +58,22 @@ export async function handleChatMessage(user, agent, message, conversationId, mo
     userPrompt: message,
     userId: user._id.toString(),
     userName: user.profile?.name || user.email.split('@')[0],
-    mockMode,
     chatMode: true, // Important: This tells the agent it's in chat mode
     elicitationEnabled: false, // Disable formal elicitation in chat mode
     interactiveMode: true
   };
 
+  // Check if streaming is requested
+  if (options.streaming) {
+    // Return streaming response
+    return handleStreamingResponse(agent, message, chatContext, userApiKeys);
+  }
 
   // Execute agent via BMAD AgentExecutor (pure BMAD approach)
   let agentResponse;
   try {
-    if (mockMode) {
-      agentResponse = await executeMockAgentChat(agent, chatContext);
-    } else {
-      // Always use AgentExecutor - let agent handle everything per YAML
-      agentResponse = await executeViaAgentExecutor(agent, message, chatContext, userApiKeys);
-    }
+    // Always use AgentExecutor - let agent handle everything per YAML
+    agentResponse = await executeViaAgentExecutor(agent, message, chatContext, userApiKeys);
   } catch (error) {
     console.error('Error executing agent:', error);
     agentResponse = {
@@ -87,23 +87,27 @@ export async function handleChatMessage(user, agent, message, conversationId, mo
   let documentUrl = null;
   
   // If content is too long for chat, truncate it intelligently
-  if (agentResponse.content && agentResponse.content.length > 4500) {
+  const contentString = typeof agentResponse.content === 'string' ? 
+    agentResponse.content : 
+    JSON.stringify(agentResponse.content || '');
+    
+  if (contentString && contentString.length > 4500) {
     let truncateAt = 4200; // Leave room for the truncation message
     
     // Try to find a good break point (end of paragraph, sentence, or section)
     const breakPoints = [
-      agentResponse.content.lastIndexOf('\n\n', truncateAt),
-      agentResponse.content.lastIndexOf('. ', truncateAt),
-      agentResponse.content.lastIndexOf('.\n', truncateAt),
-      agentResponse.content.lastIndexOf('---', truncateAt)
+      contentString.lastIndexOf('\n\n', truncateAt),
+      contentString.lastIndexOf('. ', truncateAt),
+      contentString.lastIndexOf('.\n', truncateAt),
+      contentString.lastIndexOf('---', truncateAt)
     ];
     
     const bestBreak = Math.max(...breakPoints.filter(pos => pos > 3000)); // Ensure we don't truncate too early
     if (bestBreak > 0) {
-      truncateAt = bestBreak + (agentResponse.content[bestBreak] === '.' ? 1 : 0);
+      truncateAt = bestBreak + (contentString[bestBreak] === '.' ? 1 : 0);
     }
     
-    messageContent = agentResponse.content.substring(0, truncateAt) + 
+    messageContent = contentString.substring(0, truncateAt) + 
       '\n\n--- Message truncated due to length ---\n' +
       '💡 **Tip:** For creating documents, use agent commands like `*create-architecture` or `*help` to see available commands.';
   }
@@ -121,7 +125,7 @@ export async function handleChatMessage(user, agent, message, conversationId, mo
     metadata: {
       executionTime: agentResponse.executionTime || 0,
       tokensUsed: agentResponse.tokensUsed || 0,
-      model: agentResponse.model || (mockMode ? 'mock' : 'ai'),
+      model: agentResponse.model || 'ai',
       fullDocumentUrl: documentUrl,
       originalLength: agentResponse.content.length,
       contentType: 'markdown',
@@ -157,40 +161,30 @@ export async function handleChatMessage(user, agent, message, conversationId, mo
   });
 }
 
-/**
- * Execute mock agent chat (for testing/demo)
- */
-async function executeMockAgentChat(agent, chatContext) {
-  // Simulate processing time
-  await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
-  
-  // In mock mode, indicate that AI is not available but keep response minimal
-  return {
-    content: `[Mock mode - AI service not available. Agent ${agent.agent?.name || agent.id} would respond here based on their expertise in ${agent.persona?.focus || 'this area'}.]`,
-    executionTime: Math.floor(1000 + Math.random() * 2000),
-    tokensUsed: 0,
-    model: 'mock'
-  };
-}
 
 // Singleton instances to prevent memory leaks
 let sharedAgentLoader = null;
 let sharedAgentExecutor = null;
 
 /**
- * Execute via AgentExecutor for actual BMAD workflow
+ * Execute via AgentExecutor for standalone agent chat
  */
 async function executeViaAgentExecutor(agent, message, chatContext, userApiKeys) {
   try {
-    const { AgentExecutor } = require('@/lib/bmad/AgentExecutor/index.js');
+    const { SimplifiedAgentExecutor } = require('@/lib/bmad/SimplifiedAgentExecutor.js');
     const { AgentLoader } = require('@/lib/bmad/AgentLoader.js');
     
+    // Simple chat context - no GitHub/workflow integration
     const workflowContext = {
       userPrompt: message,
       userId: chatContext.userId,
       userName: chatContext.userName,
-      chatMode: true
+      chatMode: true,
+      elicitationEnabled: false,
+      interactiveMode: true
     };
+    
+    console.log(`💬 [CHAT] Agent ${agent.id} responding in standalone chat mode`);
     
     // Reuse singleton AgentLoader to prevent memory leaks
     if (!sharedAgentLoader) {
@@ -198,14 +192,17 @@ async function executeViaAgentExecutor(agent, message, chatContext, userApiKeys)
       await sharedAgentLoader.loadAllAgents();
     }
     
-    const { aiService } = await import('@/lib/ai/AIService.js');
+          const { aiService } = await import('@/lib/ai/AIService.js');
     if (!aiService.initialized && userApiKeys) {
       await aiService.initialize(userApiKeys, chatContext.userId);
     }
     
-    // Reuse singleton AgentExecutor to prevent memory leaks
+    // Reuse singleton SimplifiedAgentExecutor to prevent memory leaks
     if (!sharedAgentExecutor) {
-      sharedAgentExecutor = new AgentExecutor(sharedAgentLoader, aiService);
+      sharedAgentExecutor = new SimplifiedAgentExecutor({
+        agentLoader: sharedAgentLoader,
+        aiService: aiService
+      });
     }
     
     const result = await sharedAgentExecutor.executeAgent(agent, workflowContext);
@@ -227,5 +224,92 @@ async function executeViaAgentExecutor(agent, message, chatContext, userApiKeys)
       content: `Workflow execution failed: ${error.message}`,
       type: 'error_response'
     };
+  }
+}
+
+/**
+ * Handle streaming response for real-time chat
+ */
+async function handleStreamingResponse(agent, message, chatContext, userApiKeys) {
+  try {
+    // Use the streaming endpoint
+    const { aiService } = await import('@/lib/ai/AIService.js');
+      
+      if (!aiService.initialized && userApiKeys) {
+        await aiService.initialize(userApiKeys, chatContext.userId);
+      }
+
+      if (!aiService.supportsStreaming()) {
+        throw new Error('Streaming not supported');
+      }
+
+      const result = await aiService.streamResponse(
+        message,
+        agent,
+        1, // complexity
+        chatContext,
+        chatContext.userId,
+        { 
+          provider: userApiKeys.openai ? 'openai' : 'gemini',
+          maxTokens: 4000,
+          temperature: 0.7
+        }
+      );
+
+      if (result && result.textStream) {
+        return new Response(
+          new ReadableStream({
+            async start(controller) {
+              try {
+                for await (const chunk of result.textStream) {
+                  controller.enqueue(`data: ${JSON.stringify({
+                    type: 'content_chunk',
+                    chunk,
+                    isComplete: false
+                  })}\n\n`);
+                }
+                
+                controller.enqueue(`data: ${JSON.stringify({
+                  type: 'content_chunk',
+                  chunk: '',
+                  isComplete: true
+                })}\n\n`);
+                
+                controller.close();
+              } catch (error) {
+                controller.enqueue(`data: ${JSON.stringify({
+                  type: 'error',
+                  error: error.message
+                })}\n\n`);
+                controller.close();
+              }
+            }
+          }),
+          {
+            headers: {
+              'Content-Type': 'text/event-stream',
+              'Cache-Control': 'no-cache',
+              'Connection': 'keep-alive'
+            }
+          }
+        );
+    } else {
+      throw new Error('No streaming response received');
+    }
+  } catch (error) {
+    console.error('Streaming response error:', error);
+    return new Response(
+      `data: ${JSON.stringify({
+        type: 'error',
+        error: error.message
+      })}\n\n`,
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache'
+        }
+      }
+    );
   }
 }

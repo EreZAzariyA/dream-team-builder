@@ -1,16 +1,20 @@
 'use client';
 
-import React, { useState, useMemo, useCallback, memo } from 'react';
+import React, { useMemo, useCallback, memo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../common/Card';
 import { ScrollArea } from '../ui/scroll-area';
 import { Badge } from '../common/Badge';
 import { MessageSquare, Loader2, Clock, CheckCircle, AlertCircle, Bot } from 'lucide-react';
-import MarkdownIt from 'markdown-it';
 
 // Import sub-components
 import AgentSidebar from './AgentSidebar';
 import MessageBubble from './MessageBubble';
 import ChatInput from './ChatInput';
+import MessageRenderer from './MessageRenderer';
+
+// Import utilities and hooks
+import { getAgentIcon, getAgentDisplayName, normalizeAgentId } from '@/lib/utils/agentUtils';
+import { useWorkflowAgents } from './useWorkflowAgents';
 
 
 const WorkflowChat = memo(({ 
@@ -27,8 +31,15 @@ const WorkflowChat = memo(({
   activeAgents = [],
   currentAgent = null
 }) => {
-  const [activeAgentId, setActiveAgentId] = useState(null);
+  // Use custom hook for agent management
+  const { detectedAgents, activeAgentId } = useWorkflowAgents({
+    messages,
+    elicitationPrompt,
+    activeAgents,
+    currentAgent
+  });
 
+  // Simplified format timestamp helper
   const formatTimestamp = useCallback((timestamp) => {
     if (!timestamp) return '';
     return new Date(timestamp).toLocaleTimeString([], { 
@@ -38,142 +49,6 @@ const WorkflowChat = memo(({
     });
   }, []);
 
-  const getAgentIcon = useCallback((agentId) => {
-    // Ensure agentId is a string and handle edge cases
-    if (!agentId || typeof agentId !== 'string') return '🤖';
-    if (agentId.includes('/') || agentId === 'various') return '🔄';
-
-    const icons = {
-      'analyst': '🧠',
-      'pm': '📋',
-      'architect': '🏗️',
-      'ux-expert': '🎨',
-      'dev': '🛠️',
-      'qa': '🔍',
-      'sm': '📊',
-      'po': '✅',
-      'system': '⚙️',
-      'bmad-orchestrator': '🎭'
-    };
-    return icons[agentId] || '🤖';
-  }, []);
-
-  const getAgentRole = useCallback((agentId) => {
-    // Ensure agentId is a string and handle edge cases
-    if (!agentId || typeof agentId !== 'string') return 'Assistant';
-    
-    const roles = {
-      'analyst': 'Business Analyst',
-      'pm': 'Product Manager',
-      'architect': 'System Architect',
-      'ux-expert': 'UX Designer',
-      'dev': 'Developer',
-      'qa': 'QA Engineer',
-      'sm': 'Scrum Master',
-      'po': 'Product Owner',
-      'system': 'System',
-      'bmad-orchestrator': 'BMad Orchestrator'
-    };
-    return roles[agentId] || 'AI Agent';
-  }, []);
-
-  // Extract workflow agents and prioritize them, with message activity tracking
-  const detectedAgents = useMemo(() => {
-    // Track message activity for all agents
-    const agentActivity = new Map();
-    
-    // Add agents from messages
-    messages.forEach(msg => {
-      if (msg.from && msg.from !== 'User' && msg.from !== 'System' && msg.from !== 'BMAD System') {
-        const agentId = msg.from.toLowerCase().replace(/\s+/g, '-');
-        agentActivity.set(agentId, new Date(msg.timestamp || Date.now()));
-      }
-      if (msg.agentId && msg.agentId !== 'user' && msg.agentId !== 'system') {
-        agentActivity.set(msg.agentId, new Date(msg.timestamp || Date.now()));
-      }
-    });
-    
-    // Add elicitation agent activity
-    if (elicitationPrompt?.agentId) {
-      // ROOT FIX: Ensure agentId is always a string
-      const agentId = typeof elicitationPrompt.agentId === 'string' ? elicitationPrompt.agentId : 
-                     (typeof elicitationPrompt.agentId === 'object' && elicitationPrompt.agentId?.id) ? elicitationPrompt.agentId.id :
-                     (typeof elicitationPrompt.agentId === 'object' && elicitationPrompt.agentId?.agentId) ? elicitationPrompt.agentId.agentId : null;
-      
-      if (agentId) {
-        agentActivity.set(agentId, new Date());
-        // Auto-set active agent for elicitation
-        if (activeAgentId !== agentId) {
-          setActiveAgentId(agentId);
-        }
-      }
-    }
-    
-    // Auto-set current agent as active if no active agent selected
-    if (!activeAgentId && currentAgent) {
-      // ROOT FIX: Ensure currentAgent is always a string before setting
-      const agentId = typeof currentAgent === 'string' ? currentAgent : 
-                     (typeof currentAgent === 'object' && currentAgent?.id) ? currentAgent.id :
-                     (typeof currentAgent === 'object' && currentAgent?.agentId) ? currentAgent.agentId : null;
-      if (agentId) {
-        setActiveAgentId(agentId);
-      }
-    }
-    
-    // Prioritize workflow agents (activeAgents) and show them in order
-    const workflowAgents = [];
-    const additionalAgents = [];
-    
-    if (activeAgents && activeAgents.length > 0) {
-      // Process workflow agents in order
-      activeAgents.forEach(agent => {
-        const agentId = typeof agent === 'string' ? agent : agent.id;
-        // ROOT FIX: Ensure agentId is a string before using charAt()
-        const safeAgentId = typeof agentId === 'string' ? agentId : String(agentId || 'unknown');
-        const agentName = typeof agent === 'string' ? 
-          (safeAgentId.charAt(0).toUpperCase() + safeAgentId.slice(1).replace(/-/g, ' ')) : 
-          (agent.name || safeAgentId);
-        const agentStatus = typeof agent === 'object' ? agent.status : 'pending';
-        
-        workflowAgents.push({
-          id: agentId,
-          name: agentName,
-          role: getAgentRole(agentId),
-          icon: getAgentIcon(agentId),
-          isActive: agentId === activeAgentId,
-          isRecent: agentId === currentAgent && agentId !== activeAgentId,
-          isCurrent: agentId === currentAgent,
-          workflowStatus: agentStatus,
-          lastActivity: agentActivity.get(agentId),
-          order: activeAgents.indexOf(agent) + 1
-        });
-      });
-    }
-    
-    // Add any additional agents from messages that aren't in workflow
-    agentActivity.forEach((activity, agentId) => {
-      const isInWorkflow = workflowAgents.some(wa => wa.id === agentId);
-      if (!isInWorkflow) {
-        // ROOT FIX: Ensure agentId is a string before using charAt()
-        const safeAgentId = typeof agentId === 'string' ? agentId : String(agentId || 'unknown');
-        additionalAgents.push({
-          id: agentId,
-          name: safeAgentId.charAt(0).toUpperCase() + safeAgentId.slice(1).replace(/-/g, ' '),
-          role: getAgentRole(agentId),
-          icon: getAgentIcon(agentId),
-          isActive: agentId === activeAgentId,
-          isRecent: false,
-          isCurrent: false,
-          workflowStatus: 'additional',
-          lastActivity: activity,
-          order: 999 // Show at end
-        });
-      }
-    });
-    
-    // Combine workflow agents first (in order), then additional agents
-    return [...workflowAgents, ...additionalAgents];
-  }, [messages, elicitationPrompt, activeAgents, currentAgent, activeAgentId, getAgentRole, getAgentIcon]);
 
   // Convert elicitation to a natural message
   const elicitationAsMessage = useMemo(() => {
@@ -192,7 +67,18 @@ const WorkflowChat = memo(({
 
   // Combine messages with elicitation
   const allMessages = useMemo(() => {
-    const combined = [...messages];
+    // Filter out internal system messages that shouldn't be displayed to users
+    const displayableMessages = messages.filter(message => {
+      // SIMPLIFIED: Show all messages except internal system completion messages
+      // This fixes the issue where user messages weren't appearing
+      if (message.to === 'system' && message.type === 'completion') {
+        return false; // Hide internal system messages
+      }
+      
+      return true; // Show everything else
+    });
+    
+    const combined = [...displayableMessages];
     if (elicitationAsMessage) {
       combined.push(elicitationAsMessage);
     }
@@ -207,103 +93,6 @@ const WorkflowChat = memo(({
       default: return <Clock className="w-3 h-3 text-gray-400" />;
     }
   }, []);
-
-
-  // Initialize markdown-it with safe HTML rendering
-  const md = useMemo(() => new MarkdownIt({
-    html: false,        // Disable HTML tags for security
-    xhtmlOut: false,    // Use HTML5
-    breaks: true,       // Convert '\n' in paragraphs into <br>
-    linkify: true,      // Auto-detect and link URLs
-    typographer: true   // Enable smart quotes and other typographic replacements
-  }), []);
-
-  const renderStructuredContent = (message) => {
-    console.log({ message });
-    
-    if (!message.content && !message.summary && !message.structured) return 'No content available';
-    
-    // Handle elicitation messages directly and return rendered HTML
-    if (message.isElicitation) {
-      const htmlContent = md.render(message.content);
-      return (
-        <div
-          className="prose prose-sm dark:prose-invert max-w-none
-            prose-headings:text-gray-900 dark:prose-headings:text-gray-100
-            prose-p:text-gray-700 dark:prose-p:text-gray-300 prose-p:leading-relaxed
-            prose-strong:text-gray-900 dark:prose-strong:text-gray-100
-            prose-code:text-blue-600 dark:prose-code:text-blue-400 prose-code:bg-gray-100 dark:prose-code:bg-gray-800 prose-code:px-1 prose-code:py-0.5 prose-code:rounded
-            prose-pre:bg-gray-100 dark:prose-pre:bg-gray-800 prose-pre:border prose-pre:border-gray-200 dark:prose-pre:border-gray-700
-            prose-blockquote:border-l-blue-400 prose-blockquote:bg-blue-50 dark:prose-blockquote:bg-blue-900/20 prose-blockquote:text-blue-800 dark:prose-blockquote:text-blue-200
-            prose-ul:text-gray-700 dark:prose-ul:text-gray-300
-            prose-ol:text-gray-700 dark:prose-ol:text-gray-300
-            prose-li:text-gray-700 dark:prose-li:text-gray-300
-            prose-a:text-blue-600 dark:prose-a:text-blue-400 prose-a:no-underline hover:prose-a:underline"
-          dangerouslySetInnerHTML={{ __html: htmlContent }}
-        />
-      );
-    }
-
-    let contentToRender = ''; // Reset for non-elicitation messages
-
-    if (message.structured && message.structured.response) {
-      const { main_response, key_points, codeModifications } = message.structured.response;
-      
-      if (main_response) {
-        contentToRender += main_response;
-      }
-
-      if (key_points && key_points.length > 0) {
-        contentToRender += '\n\n**Key Points:**\n';
-        key_points.forEach(point => {
-          contentToRender += `- ${point}\n`;
-        });
-      }
-
-      if (codeModifications && codeModifications.length > 0) {
-        contentToRender += '\n\n**Code Modifications:**\n```json\n';
-        contentToRender += JSON.stringify(codeModifications, null, 2);
-        contentToRender += '\n```\n';
-      }
-    } else {
-      // Fallback to existing logic for unstructured content
-      let content = message.content || message.summary || '';
-      if (typeof content === 'object') {
-        if (content.userPrompt) {
-          const currentStep = workflowInstance?.progress?.currentStep ?? content.context?.step ?? '?';
-          const totalSteps = workflowInstance?.progress?.totalSteps ?? content.context?.totalSteps ?? '?';
-          content = `🎯 **User Request:** ${content.userPrompt}\n\n📋 **Instructions:** ${content.instructions}\n\n📊 **Progress:** Step ${currentStep} of ${totalSteps}`;
-        } 
-        else if (content.summary && content.executionTime) {
-          const time = Math.round(content.executionTime / 1000);
-          content = `✅ **${content.summary}**\n\n⏱️ **Execution Time:** ${time}s\n📄 **Artifacts:** ${content.artifacts || 'None'}`;
-        } else {
-          content = content?.content || content?.message || JSON.stringify(content, null, 2);
-        }
-      }
-      contentToRender = String(content);
-    }
-    
-    // Convert markdown to HTML
-    const htmlContent = md.render(contentToRender);
-    
-    return (
-      <div 
-        className="prose prose-sm dark:prose-invert max-w-none
-          prose-headings:text-gray-900 dark:prose-headings:text-gray-100
-          prose-p:text-gray-700 dark:prose-p:text-gray-300 prose-p:leading-relaxed
-          prose-strong:text-gray-900 dark:prose-strong:text-gray-100
-          prose-code:text-blue-600 dark:prose-code:text-blue-400 prose-code:bg-gray-100 dark:prose-code:bg-gray-800 prose-code:px-1 prose-code:py-0.5 prose-code:rounded
-          prose-pre:bg-gray-100 dark:prose-pre:bg-gray-800 prose-pre:border prose-pre:border-gray-200 dark:prose-pre:border-gray-700
-          prose-blockquote:border-l-blue-400 prose-blockquote:bg-blue-50 dark:prose-blockquote:bg-blue-900/20 prose-blockquote:text-blue-800 dark:prose-blockquote:text-blue-200
-          prose-ul:text-gray-700 dark:prose-ul:text-gray-300
-          prose-ol:text-gray-700 dark:prose-ol:text-gray-300
-          prose-li:text-gray-700 dark:prose-li:text-gray-300
-          prose-a:text-blue-600 dark:prose-a:text-blue-400 prose-a:no-underline hover:prose-a:underline"
-        dangerouslySetInnerHTML={{ __html: htmlContent }}
-      />
-    );
-  };
 
   return (
     <Card className="h-full flex flex-col lg:flex-row">
@@ -325,11 +114,7 @@ const WorkflowChat = memo(({
                 <div className="flex items-center gap-2 ml-4 px-3 py-1 bg-blue-50 dark:bg-blue-900/20 rounded-full">
                   <span className="text-lg">{getAgentIcon(activeAgentId)}</span>
                   <span className="text-sm text-blue-700 dark:text-blue-300">
-                    Talking with {(() => {
-                      // ROOT FIX: Ensure activeAgentId is a string before using charAt()
-                      const safeActiveAgentId = typeof activeAgentId === 'string' ? activeAgentId : String(activeAgentId || 'unknown');
-                      return safeActiveAgentId.charAt(0).toUpperCase() + safeActiveAgentId.slice(1);
-                    })()}
+                    Talking with {getAgentDisplayName(activeAgentId)}
                   </span>
                 </div>
               )}
@@ -376,7 +161,7 @@ const WorkflowChat = memo(({
                   index={index}
                   getAgentIcon={getAgentIcon}
                   formatTimestamp={formatTimestamp}
-                  renderStructuredContent={renderStructuredContent}
+                  renderStructuredContent={(msg) => <MessageRenderer message={msg} workflowInstance={workflowInstance} />}
                   getStatusIcon={getStatusIcon}
                 />
               ))}
@@ -388,11 +173,7 @@ const WorkflowChat = memo(({
                     <div className="flex items-center gap-2">
                       <span className="text-lg">{getAgentIcon(respondingAgent)}</span>
                       <span className="text-sm font-medium capitalize">
-                        {(() => {
-                          // ROOT FIX: Ensure respondingAgent is a string before using replace()
-                          const safeRespondingAgent = typeof respondingAgent === 'string' ? respondingAgent : String(respondingAgent || 'Agent');
-                          return safeRespondingAgent.replace(/-/g, ' ');
-                        })()}
+                        {getAgentDisplayName(respondingAgent)}
                       </span>
                       <div className="flex gap-1 ml-2">
                         <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>

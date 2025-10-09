@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { WorkflowId } from '../../../lib/utils/workflowId';
 import { CHANNELS, EVENTS } from '../../../lib/pusher/config';
-import { usePusherSimple } from '../../../lib/pusher/SimplePusherClient';
+import { usePusher } from '../../../lib/pusher/PusherClient';
 
 /**
  * Workflow Chat Section Component
@@ -44,8 +44,8 @@ const WorkflowChatSection = ({
   const [respondingAgent, setRespondingAgent] = useState(null);
   const [isExpanded, setIsExpanded] = useState(true);
 
-  // Use SimplePusherClient hook
-  const { connected: pusherConnected, pusher: pusherClient, error: pusherError } = usePusherSimple();
+  // Use PusherClient hook
+  const { connected: pusherConnected, pusher: pusherClient, error: pusherError } = usePusher();
 
   // Initialize Pusher connection for real-time updates (same logic as live page)
   useEffect(() => {

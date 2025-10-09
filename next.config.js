@@ -63,7 +63,6 @@ const nextConfig = {
         'crypto': false,
         'path': false,
         'os': false,
-        'stream': false,
         'util': false,
         'buffer': false,
         'events': false,

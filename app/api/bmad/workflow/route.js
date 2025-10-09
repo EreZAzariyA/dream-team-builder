@@ -5,7 +5,7 @@
 
 import { NextResponse } from 'next/server';
 import { authenticateRoute } from '../../../../lib/utils/routeAuth.js';
-import { getOrchestrator } from '../../../../lib/bmad/BmadOrchestrator.js';
+import { BmadOrchestrator } from '../../../../lib/bmad/BmadOrchestrator.js';
 import { connectMongoose } from '../../../../lib/database/mongodb.js';
 import Workflow from '../../../../lib/database/models/Workflow.js';
 import logger from '@/lib/utils/logger.js';
@@ -92,7 +92,8 @@ export async function GET(request) {
     if (error) return error;
 
     await connectMongoose();
-    const bmad = await getOrchestrator();
+    const bmad = new BmadOrchestrator();
+    await bmad.initialize();
 
     // Get query parameters
     const url = new URL(request.url);
@@ -231,7 +232,8 @@ export async function POST(request) {
     // Try to initialize BMAD orchestrator in background (non-blocking)
     let bmadResult = null;
     try {
-      const bmad = await getOrchestrator();
+      const bmad = new BmadOrchestrator();
+      await bmad.initialize();
       
       // Initialize AIService with user credentials before starting workflow (optional)
       if (bmad.aiService && session.user.id) {
@@ -280,7 +282,7 @@ export async function POST(request) {
     return NextResponse.json({
       success: true,
       workflowId: bmadResult?.workflowId,
-      status: bmadResult?.status || 'running',
+      status: bmadResult?.status || 'RUNNING', // BMAD standardized status
       message: 'Workflow started successfully',
       bmadEnabled: !!bmadResult
     });
@@ -367,7 +369,8 @@ export async function PUT(request) {
     }
 
     await connectMongoose();
-    const bmad = await getOrchestrator();
+    const bmad = new BmadOrchestrator();
+    await bmad.initialize();
 
     let result;
     switch (action) {

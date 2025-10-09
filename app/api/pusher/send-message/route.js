@@ -5,10 +5,10 @@
 
 import { NextResponse } from 'next/server';
 import { pusherServer, CHANNELS, EVENTS } from '../../../../lib/pusher/config';
-import { getOrchestrator } from '../../../../lib/bmad/BmadOrchestrator.js';
+import { BmadOrchestrator } from '../../../../lib/bmad/BmadOrchestrator.js';
 import { AIService } from '../../../../lib/ai/AIService.js';
 import { connectMongoose } from '../../../../lib/database/mongodb.js';
-import AgentMessage from '../../../../lib/database/models/AgentMessage.js';
+// REMOVED: AgentMessage - Eliminated duplication, using only Workflow.bmadWorkflowData.messages[]
 import { compose, withMethods, withAIRateLimit, withSecurityHeaders, withErrorHandling } from '../../../../lib/api/middleware.js';
 import { WorkflowId } from '../../../../lib/utils/workflowId.js';
 import logger from '@/lib/utils/logger.js';
@@ -86,7 +86,7 @@ async function processUserMessageWithAgents(orchestrator, content, workflowId, t
       });
       
       return {
-        content: `🚀 I've started a new workflow for you! The BMAD agents are now working on: "${content}". You'll see real-time updates as they progress.`,
+        content: `🚀 I've started a new workflow for you! The BMAD agents are now working on: "${content}". You'll see real-time updates as they progress.`, 
         agentId: 'bmad-orchestrator',
         workflowId: workflow.workflowId
       };
@@ -106,7 +106,7 @@ async function processUserMessageWithAgents(orchestrator, content, workflowId, t
             
 User message: ${content}
 
-Please respond in character as this agent, following the persona guidelines.`,
+Please respond in character as this agent, following the persona guidelines.`, 
             agentDefinition.agent || { id: finalTargetAgentId, name: finalTargetAgentId },
             1, // complexity
             { persona: agentDefinition.persona, conversationHistory: [] },
@@ -131,7 +131,7 @@ I'm currently experiencing technical issues with my AI processing, but I'm here 
 - My role is: ${agentDefinition.agent?.title || 'General assistance'}
 - Routing worked: "${content}" → ${finalTargetAgentId} agent
 
-The issue is with the AI generation service. Please try again, or contact support if this persists.`,
+The issue is with the AI generation service. Please try again, or contact support if this persists.`, 
             agentId: agentDefinition.agent?.id || finalTargetAgentId,
             agentName: agentDefinition.agent?.name || finalTargetAgentId,
             provider: 'fallback-detailed'
@@ -140,7 +140,7 @@ The issue is with the AI generation service. Please try again, or contact suppor
       } else {
         // Fallback if agent definition not found
         return {
-          content: `Hello! I'm here to help with: "${content}". I'm connecting you with our ${finalTargetAgentId.toUpperCase()} agent who specializes in this area.`,
+          content: `Hello! I'm here to help with: "${content}". I'm connecting you with our ${finalTargetAgentId.toUpperCase()} agent who specializes in this area.`, 
           agentId: finalTargetAgentId
         };
       }
@@ -148,7 +148,7 @@ The issue is with the AI generation service. Please try again, or contact suppor
   } catch (error) {
     logger.error('Error processing user message:', error);
     return {
-      content: `I encountered an issue processing your message: "${content}". Please try again or rephrase your request.`,
+      content: `I encountered an issue processing your message: "${content}". Please try again or rephrase your request.`, 
       agentId: 'bmad-system'
     };
   }
@@ -186,7 +186,7 @@ async function saveMessageToDatabase(messageData, messageType = 'response', from
       timestamp: new Date(messageData.timestamp || Date.now()),
       status: 'delivered',
       metadata: {
-        conversationId: `conversation-${messageData.target?.id || 'default'}`,
+        conversationId: `conversation-${messageData.target?.id || 'default'}`, 
         correlationId: `corr-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         context: {
           messageType: messageType,
@@ -268,7 +268,8 @@ async function handler(request) {
     if (target.type === 'workflow') {
       try {
         // Get singleton BMAD orchestrator
-        const orchestrator = await getOrchestrator();
+        const orchestrator = new BmadOrchestrator();
+        await orchestrator.initialize();
 
         // Process the message as a user input to agents
         const response = await processUserMessageWithAgents(orchestrator, content, target.id, target.targetAgent, userId);
@@ -296,8 +297,8 @@ async function handler(request) {
         // Save agent response to database
         await saveMessageToDatabase(
           { ...agentResponse, target }, 
-          'response', 
-          response.agentId || 'bmad-orchestrator', 
+          'response',
+          response.agentId || 'bmad-orchestrator',
           'user'
         );
       } catch (error) {
@@ -305,7 +306,7 @@ async function handler(request) {
         // Fallback to simple response immediately with standardized ID
         const fallbackResponse = {
           id: WorkflowId.generate(), // Use standardized ID generation
-          content: `I received your message: "${content}". I'm currently experiencing technical issues, but I'm here to help you with that!`,
+          content: `I received your message: "${content}". I'm currently experiencing technical issues, but I'm here to help you with that!`, 
           agentId: 'bmad-assistant',
           userId: 'system',
           timestamp: new Date().toISOString(),
@@ -322,8 +323,8 @@ async function handler(request) {
         // Save fallback response to database
         await saveMessageToDatabase(
           { ...fallbackResponse, target }, 
-          'response', 
-          'bmad-assistant', 
+          'response',
+          'bmad-assistant',
           'user'
         );
       }
