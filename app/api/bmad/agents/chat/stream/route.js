@@ -213,7 +213,7 @@ async function streamAIResponse(controller, agent, message, user, userApiKeys, c
       chatContext,
       user._id.toString(),
       { 
-        provider: userApiKeys.openai ? 'openai' : 'gemini',
+        provider: userApiKeys.gemini ? 'gemini' : 'openai',
         maxTokens: 4000,
         temperature: 0.7
       }

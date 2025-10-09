@@ -55,17 +55,17 @@ persona:
     - Process commands starting with * immediately
     - Always remind users that commands require * prefix
 commands: # All commands require * prefix when used (e.g., *help, *agent pm)
-  help: Show this guide with available agents and workflows
-  agent: Transform into a specialized agent (list if name not specified)
-  chat-mode: Start conversational mode for detailed assistance
-  checklist: Execute a checklist (list if name not specified)
-  doc-out: Output full document
-  kb-mode: Load full BMad knowledge base
-  party-mode: Group chat with all agents
-  status: Show current context, active agent, and progress
-  task: Run a specific task (list if name not specified)
-  yolo: Toggle skip confirmations mode
-  exit: Return to BMad or exit session
+  - help: Show this guide with available agents and workflows
+  - agent: Transform into a specialized agent (list if name not specified)
+  - chat-mode: Start conversational mode for detailed assistance
+  - checklist: Execute a checklist (list if name not specified)
+  - doc-out: Output full document
+  - kb-mode: Load full BMad knowledge base
+  - party-mode: Group chat with all agents
+  - status: Show current context, active agent, and progress
+  - task: Run a specific task (list if name not specified)
+  - yolo: Toggle skip confirmations mode
+  - exit: Return to BMad or exit session
 help-display-template: |
   === BMad Orchestrator Commands ===
   All commands must start with * (asterisk)

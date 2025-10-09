@@ -3,8 +3,8 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/config.js';
 import User from '@/lib/database/models/User.js';
 
-// Import database models
-import Agent from '@/lib/database/models/Agent.js';
+// Import agent loader for file-based agents
+import { AgentLoader } from '@/lib/bmad/AgentLoader.js';
 
 // Import modular handlers
 import { handleChatStart, handleChatHistory, handleChatEnd } from './handlers/initializationHandler.js';
@@ -27,7 +27,7 @@ import { handleChatMessage } from './handlers/messageHandler.js';
 
 export async function POST(request) {
   try {
-    const { agentId, message, conversationId, action = 'send', streaming = false } = await request.json();
+    const { agentId, message, conversationId, action = 'send', streaming = false, mockMode = false } = await request.json();
 
     // Validate required fields
     if (!agentId) {
@@ -60,41 +60,29 @@ export async function POST(request) {
     const userApiKeys = user.getApiKeys();
     
 
-    // Load agent from database
+    // Load agent from file system using AgentLoader
     let agent;
     try {
-      const dbAgent = await Agent.findOne({ agentId: agentId, isActive: true });
+      const agentLoader = new AgentLoader();
+      await agentLoader.loadAllAgents();
       
-      if (!dbAgent) {
+      const loadedAgent = await agentLoader.loadAgent(agentId);
+      
+      if (!loadedAgent) {
         // Get available agents for error message
-        const availableAgents = await Agent.find({ isActive: true }).select('agentId').lean();
+        const availableAgents = agentLoader.getAllAgentsMetadata();
         return NextResponse.json({
           success: false,
           error: `Agent '${agentId}' not found`,
-          availableAgents: availableAgents.map(a => a.agentId)
+          availableAgents: availableAgents.map(a => a.id)
         }, { status: 404 });
       }
       
-      // Convert database agent to format expected by chat system
-      agent = {
-        id: dbAgent.agentId,
-        agentId: dbAgent.agentId,
-        name: dbAgent.name,
-        title: dbAgent.title,
-        icon: dbAgent.icon,
-        whenToUse: dbAgent.whenToUse,
-        persona: dbAgent.persona,
-        commands: dbAgent.commands,
-        dependencies: dbAgent.dependencies,
-        agent: {
-          id: dbAgent.agentId,
-          name: dbAgent.name,
-          title: dbAgent.title,
-          icon: dbAgent.icon
-        }
-      };
+      // Agent is already in the correct format from AgentLoader
+      agent = loadedAgent;
+      
     } catch (error) {
-      console.error(`Failed to load agent ${agentId} from database:`, error);
+      console.error(`Failed to load agent ${agentId} from files:`, error);
       return NextResponse.json({
         success: false,
         error: `Failed to load agent '${agentId}'`,
@@ -105,7 +93,7 @@ export async function POST(request) {
     // Handle different chat actions
     switch (action) {
       case 'start':
-        return handleChatStart(user, agent, conversationId, userApiKeys);
+        return handleChatStart(user, agent, conversationId, userApiKeys, mockMode);
       
       case 'send':
         if (!message) {

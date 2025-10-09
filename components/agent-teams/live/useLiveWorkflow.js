@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { WorkflowId } from '../../../lib/utils/workflowId';
 import { CHANNELS, EVENTS } from '../../../lib/pusher/config';
-import { usePusherSimple } from '../../../lib/pusher/SimplePusherClient';
+import { usePusher } from '../../../lib/pusher/PusherClient';
 
 export const useLiveWorkflow = (workflowInstanceId) => {
   const [workflowInstance, setWorkflowInstance] = useState(null);
@@ -20,8 +20,8 @@ export const useLiveWorkflow = (workflowInstanceId) => {
   const [waitingForAgent, setWaitingForAgent] = useState(false);
   const [respondingAgent, setRespondingAgent] = useState(null);
 
-  // Use SimplePusherClient hook
-  const { connected: pusherConnected, pusher: pusherClient, error: pusherError } = usePusherSimple();
+  // Use PusherClient hook
+  const { connected: pusherConnected, pusher: pusherClient, error: pusherError } = usePusher();
 
   // Fetch initial workflow data with enhanced error handling
   useEffect(() => {

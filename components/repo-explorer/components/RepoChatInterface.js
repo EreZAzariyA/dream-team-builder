@@ -10,7 +10,10 @@ import {
   UserIcon,
   CpuChipIcon,
   ExclamationTriangleIcon,
-  ClipboardDocumentIcon
+  ClipboardDocumentIcon,
+  WrenchScrewdriverIcon,
+  CheckCircleIcon,
+  XCircleIcon
 } from '@heroicons/react/24/outline';
 
 /**
@@ -58,14 +61,21 @@ const RepoChatInterface = ({ repository, analysisData }) => {
         setMessages([{
           id: 'welcome',
           role: 'assistant',
-          content: `Hello! I'm here to help you explore the **${repository.name}** repository. I can answer questions about the code, explain functionality, suggest improvements, and more.
+          content: `Hello! I'm here to help you explore and work with the **${repository.name}** repository. I can answer questions about the code, make changes, and perform git operations.
 
-Some things you can ask me:
+**What I can do:**
+- **Analyze code**: Explain functionality, structure, and technologies
+- **Read files**: Show you specific file contents  
+- **Make changes**: Modify code and create new files
+- **Git operations**: Create branches, commits, and push changes
+- **GitHub integration**: Create pull requests
+
+**Try asking me:**
 - "What does this repository do?"
-- "Show me the main entry points"
-- "Are there any potential issues in the code?"
-- "How is the project structured?"
-- "What technologies are being used?"`,
+- "Show me the package.json file"
+- "Add a new feature to improve error handling"
+- "Create a new branch for my changes"
+- "Fix any bugs you find and commit the changes"`,
           timestamp: new Date(),
           citations: []
         }]);
@@ -112,6 +122,7 @@ Some things you can ask me:
           content: result.response,
           timestamp: new Date(),
           citations: result.citations || [],
+          toolResults: result.toolResults || [],
           tokenUsage: result.tokenUsage
         };
 
@@ -185,6 +196,49 @@ Some things you can ask me:
             </div>
           </div>
           
+          {/* Tool Results */}
+          {message.toolResults && message.toolResults.length > 0 && (
+            <div className="mt-2 space-y-1">
+              {message.toolResults.map((toolResult, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: index * 0.1 }}
+                  className={`border rounded-lg p-3 ${
+                    toolResult.success 
+                      ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700'
+                      : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700'
+                  }`}
+                >
+                  <div className="flex items-center space-x-2 mb-2">
+                    <WrenchScrewdriverIcon className={`w-4 h-4 ${
+                      toolResult.success ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                    }`} />
+                    <span className={`text-sm font-medium ${
+                      toolResult.success ? 'text-green-800 dark:text-green-200' : 'text-red-800 dark:text-red-200'
+                    }`}>
+                      {toolResult.tool}
+                    </span>
+                    {toolResult.success ? (
+                      <CheckCircleIcon className="w-4 h-4 text-green-600 dark:text-green-400" />
+                    ) : (
+                      <XCircleIcon className="w-4 h-4 text-red-600 dark:text-red-400" />
+                    )}
+                  </div>
+                  
+                  {toolResult.result && (
+                    <div className={`text-sm ${
+                      toolResult.success ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'
+                    }`}>
+                      {typeof toolResult.result === 'string' ? toolResult.result : JSON.stringify(toolResult.result, null, 2)}
+                    </div>
+                  )}
+                </motion.div>
+              ))}
+            </div>
+          )}
+
           {/* Citations */}
           {message.citations && message.citations.length > 0 && (
             <div className="mt-2 space-y-1">

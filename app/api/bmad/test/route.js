@@ -4,7 +4,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import WorkflowManager from '../../../../lib/bmad/WorkflowManager.js';
+import BmadOrchestrator from '../../../../lib/bmad/BmadOrchestrator.js';
 import logger from '@/lib/utils/logger.js';
 import { connectMongoose } from '../../../../lib/database/mongodb.js';
 import User from '../../../../lib/database/models/User.js';

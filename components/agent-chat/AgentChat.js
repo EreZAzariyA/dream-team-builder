@@ -212,6 +212,7 @@ const AgentChat = ({
   const setupPusherForChat = useCallback((chatId) => {
     setupPusherSubscription(
       chatId,
+      'workflow',
       // onMessage
       (agentResponse) => {
         setMessages(prev => {

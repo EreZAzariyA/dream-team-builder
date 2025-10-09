@@ -214,7 +214,7 @@ const GitHubRepositorySelector = ({
 
   // Handle successful repository creation
   const handleRepositoryCreated = (newRepository) => {
-    fetchRepositories(true);
+    setShowCreateModal(false);
     if (newRepository) {
       handleRepositorySelect(newRepository);
     }

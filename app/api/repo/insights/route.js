@@ -413,31 +413,26 @@ async function generateAIInsights(analysis, userId) {
       topFiles: analysis.fileIndex ? analysis.fileIndex.slice(0, 20) : []
     };
 
-    const prompt = `As a senior software architect, analyze this repository and provide specific insights:
+    const prompt = `Analyze repository: ${context.repository}
 
-Repository: ${context.repository}
-Summary: ${context.summary || 'No summary available'}
-
-Key Metrics:
-- Files: ${context.metrics?.fileCount || 0}
-- Lines: ${context.metrics?.totalLines?.toLocaleString() || 0}
-- Languages: ${context.metrics?.languageCount || 0}
+Metrics: ${context.metrics?.fileCount || 0} files, ${context.metrics?.totalLines?.toLocaleString() || 0} lines, ${context.metrics?.languageCount || 0} languages
 
 Top Files:
-${context.topFiles.map(f => `- ${f.path} (${f.language}, ${f.lines} lines)`).join('\n')}
+${context.topFiles.slice(0, 10).map(f => `${f.path} (${f.language})`).join('\n')}
 
-Provide insights in the following areas:
-1. Architecture and Design Patterns
-2. Code Organization and Structure
-3. Potential Performance Issues
-4. Security Considerations
-5. Best Practices Recommendations
+Provide 3-5 actionable insights covering:
+- Architecture/Design patterns
+- Code organization
+- Performance concerns
+- Security issues
+- Best practices
 
-Focus on actionable insights and specific recommendations. Be concise but thorough.`;
+Format as brief, specific recommendations.`;
 
     const response = await aiService.call(prompt, null, 1, {
       action: 'repository_insights',
-      repositoryId: analysis.repositoryId
+      repositoryId: analysis.repositoryId,
+      maxTokens: 4000
     }, analysis.userId.toString());
 
     return parseAIInsights(response.content);

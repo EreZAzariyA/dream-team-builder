@@ -7,7 +7,7 @@ import { authOptions } from '@/lib/auth/config.js';
 import User from '@/lib/database/models/User';
 
 // Import BMAD system components for proper agent execution
-import WorkflowManager from '@/lib/bmad/WorkflowManager.js';
+import BmadOrchestrator from '@/lib/bmad/BmadOrchestrator.js';
 const { AgentLoader } = require('@/lib/bmad/AgentLoader.js');
 
 /**

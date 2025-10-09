@@ -47,14 +47,13 @@ async function GET() {
  */
 async function POST() {
   try {
-    // Force a fresh health check
+    // Force a fresh health check and get the results
     const aiService = AIService.getInstance();
-    await aiService.performHealthChecks();
-    const healthStatus = await aiService.healthCheck();
+    const healthStatus = await aiService.checkHealth();
     
     return NextResponse.json({
       message: 'Health check completed',
-      ...healthStatus,
+      providers: healthStatus, // checkHealth returns the providers object
       timestamp: new Date().toISOString()
     });
   } catch (error) {

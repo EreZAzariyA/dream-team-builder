@@ -6,7 +6,7 @@ const { PusherService } = require('@/lib/bmad/orchestration/PusherService.js');
 /**
  * Start a new chat session with an agent
  */
-export async function handleChatStart(user, agent, conversationId, userApiKeys) {
+export async function handleChatStart(user, agent, conversationId, userApiKeys, mockMode) {
   const chatId = conversationId || `chat_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
   
   // Check if chat session already exists (for streaming initialization)

@@ -7,7 +7,7 @@ import { NextResponse } from 'next/server';
 import { authenticateRoute } from '@/lib/utils/routeAuth.js';
 import { connectMongoose } from '@/lib/database/mongodb.js';
 import AgentTeam from '@/lib/database/models/AgentTeam.js';
-import WorkflowManager from '@/lib/bmad/WorkflowManager.js';
+import BmadOrchestrator from '@/lib/bmad/BmadOrchestrator.js';
 import WorkflowParser from '@/lib/bmad/WorkflowParser.js';
 import { pusherServer } from '@/lib/pusher/config.js';
 import { WorkflowId } from '@/lib/utils/workflowId.js';

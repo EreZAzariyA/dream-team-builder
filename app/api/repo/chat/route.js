@@ -155,6 +155,7 @@ async function sendChatMessage(sessionId, message, analysisId, userId) {
       success: true,
       response: aiResponse.content,
       citations: aiResponse.citations || [],
+      toolResults: aiResponse.toolResults || [],
       tokenUsage: aiResponse.tokenUsage,
       messageId: aiMessage.id
     });
@@ -202,6 +203,17 @@ async function getChatHistory(sessionId, userId) {
 async function generateAIResponse(userMessage, analysis, chatSession, userId) {
   const startTime = Date.now();
 
+  // Check memory usage and force cleanup if high
+  const memUsage = process.memoryUsage();
+  const memUsagePercent = (memUsage.heapUsed / memUsage.heapTotal) * 100;
+  
+  if (memUsagePercent > 80) {
+    logger.warn(`High memory usage detected: ${memUsagePercent.toFixed(1)}% - forcing cleanup`);
+    if (global.gc) {
+      global.gc();
+    }
+  }
+
   try {
     // Import AI service
     const { aiService } = await import('@/lib/ai/AIService.js');
@@ -221,25 +233,138 @@ async function generateAIResponse(userMessage, analysis, chatSession, userId) {
     // Prepare repository context
     const repoContext = buildRepositoryContext(analysis, userMessage);
     
-    // Get recent conversation context
-    const conversationContext = chatSession.getContext(10);
+    // Get recent conversation context (reduced to save memory)
+    const conversationContext = chatSession.getContext(5);
 
-    // Build comprehensive prompt
-    const prompt = buildAIPrompt(userMessage, repoContext, conversationContext);
+    // Restore branch context from chat session metadata
+    const toolExecutor = await import('@/lib/ai/tools/toolExecutor.js');
+    if (chatSession.metadata?.workingBranch) {
+      toolExecutor.setWorkingBranch(chatSession.metadata.workingBranch);
+      logger.info(`🔄 Restored working branch context: ${chatSession.metadata.workingBranch}`);
+    }
 
-    // Call AI service
-    const response = await aiService.call(prompt, null, 1, {
+    // Build comprehensive prompt with branch context
+    const workingBranch = toolExecutor.getCurrentWorkingBranch();
+    const prompt = buildAIPrompt(userMessage, repoContext, conversationContext, workingBranch);
+
+    // Call AI service with tools enabled for git operations  
+    const response = await aiService.callWithTools(prompt, null, 1, {
       action: 'repository_chat',
       repositoryId: analysis.repositoryId,
-      analysisId: analysis._id.toString()
-    }, chatSession.userId.toString());
+      analysisId: analysis._id.toString(),
+      repository: {
+        owner: analysis.owner,
+        name: analysis.name,
+        fullName: analysis.fullName
+      }
+    }, chatSession.userId.toString()); // Enable tools
 
     // Extract citations from response (if AI includes file references)
-    const citations = extractCitations(response.content, analysis);
+    const citations = extractCitations(response.content || response.text, analysis);
+
+    // Handle tool executions if present
+    let toolResults = [];
+    if (response.toolCalls && response.toolCalls.length > 0) {
+      logger.info(`🔍 Debug toolCalls structure:`, response.toolCalls);
+      
+      toolResults = response.toolCalls.map(toolCall => {
+        logger.info(`🔍 Individual toolCall:`, { 
+          toolName: toolCall.toolName, 
+          result: toolCall.result,
+          keys: Object.keys(toolCall)
+        });
+        
+        // Try different property names for the result
+        const result = toolCall.result || toolCall.output || toolCall.response || toolCall.returnValue || toolCall.data;
+        
+        return {
+          tool: toolCall.toolName,
+          result: result,
+          success: true // All tools that reach this point succeeded (errors would throw)
+        };
+      });
+    }
+
+    // Generate appropriate response content with tool-specific messaging
+    let content = response.content || response.text;
+    
+    // If no text response but tools were executed successfully, provide meaningful feedback
+    if (!content && toolResults.length > 0) {
+      const successfulTools = toolResults.filter(tool => tool.success);
+      if (successfulTools.length > 0) {
+        const toolMessages = successfulTools.map(tool => {
+          if (tool.tool === 'listBranches') {
+            const result = tool.result;
+            
+            // Debug logging to see what we're getting
+            logger.info(`🔍 listBranches result structure:`, { result: result, type: typeof result });
+            
+            if (result && result.branches) {
+              const branchList = result.branches.map(branch => 
+                `- ${branch.name}${branch.isDefault ? ' (default)' : ''}${branch.protected ? ' (protected)' : ''}`
+              ).join('\n');
+              return `**Branches in ${result.repository}:**\n\n${branchList}\n\n**Total:** ${result.totalBranches} branches\n**Default branch:** ${result.defaultBranch}`;
+            }
+            
+            // Try to handle if result is a string
+            if (typeof result === 'string') {
+              return result;
+            }
+            
+            // Try to handle if result has message property
+            if (result && result.message) {
+              return result.message;
+            }
+            
+            return `Successfully retrieved branch information. Debug: ${JSON.stringify(result)}`;
+          } else if (tool.tool === 'getWorkflowStatus') {
+            const result = tool.result;
+            return `**Current Git Workflow Status:**\n- Working branch: ${result?.currentWorkingBranch || 'None set'}\n- Repository: ${result?.repository || 'Unknown'}\n\n${result?.message || ''}`;
+          } else if (tool.tool === 'deleteBranch') {
+            return `✅ Branch deleted successfully. ${tool.result?.message || tool.result}`;
+          } else if (tool.tool === 'createBranch') {
+            return `✅ Branch created successfully. ${tool.result?.message || tool.result}`;
+          } else if (tool.tool === 'readFile') {
+            const result = tool.result;
+            if (result && result.content) {
+              return `**File: ${result.path}**\n\n\`\`\`\n${result.content.substring(0, 1000)}${result.content.length > 1000 ? '\n...(truncated)' : ''}\n\`\`\`\n\n**Size:** ${result.size} bytes`;
+            }
+            return `Successfully read file. ${tool.result?.message || tool.result}`;
+          } else if (tool.tool === 'createOrUpdateFile') {
+            return `✅ File operation completed successfully. ${tool.result?.message || tool.result}`;
+          } else {
+            return `✅ ${tool.tool} completed successfully. ${tool.result?.message || tool.result}`;
+          }
+        });
+        content = toolMessages.join('\n\n');
+      } else {
+        content = 'Tool execution completed, but some operations may have failed. Please check the results below.';
+      }
+    }
+    
+    // Final fallback
+    if (!content) {
+      content = 'Operation completed successfully.';
+    }
+
+    // Save updated working branch context to chat session and cleanup
+    const currentBranch = toolExecutor.getCurrentWorkingBranch();
+    if (currentBranch) {
+      if (!chatSession.metadata) {
+        chatSession.metadata = {};
+      }
+      chatSession.metadata.workingBranch = currentBranch;
+      logger.info(`💾 Saved working branch context to session: ${currentBranch}`);
+      await chatSession.save();
+    }
+
+    // Clean up context to prevent memory leaks
+    toolExecutor.cleanup();
 
     return {
-      content: response.content || 'I apologize, but I was unable to generate a response.',
+      content,
       citations,
+      toolResults,
       tokenUsage: response.usage || { total: 0 },
       model: response.model || 'gpt-3.5-turbo',
       processingTime: Date.now() - startTime
@@ -247,6 +372,14 @@ async function generateAIResponse(userMessage, analysis, chatSession, userId) {
 
   } catch (error) {
     logger.error('AI response generation failed:', error);
+    
+    // Clean up context even on error
+    try {
+      const toolExecutorCleanup = await import('@/lib/ai/tools/toolExecutor.js');
+      toolExecutorCleanup.cleanup();
+    } catch (cleanupError) {
+      logger.error('Cleanup failed:', cleanupError);
+    }
     
     return {
       content: 'I encountered an error while processing your message. Please try asking your question in a different way.',
@@ -301,7 +434,7 @@ function buildRepositoryContext(analysis, userMessage) {
 /**
  * Build AI prompt with context
  */
-function buildAIPrompt(userMessage, repoContext, conversationContext) {
+function buildAIPrompt(userMessage, repoContext, conversationContext, workingBranch = null) {
   const analysisStatus = repoContext.analysisStatus;
   
   let contextSection;
@@ -349,7 +482,40 @@ KEY FILES:
 ${repoContext.structure.map(f => `- ${f.path} (${f.language}, ${f.lines} lines)`).join('\n')}`;
   }
 
-  const prompt = `You are an AI assistant helping developers understand a GitHub repository. You have access to repository analysis data and should provide helpful, accurate responses about the code.
+  const prompt = `You are an AI assistant helping developers understand and work with a GitHub repository. You have access to repository analysis data and can perform git operations when requested.
+
+${workingBranch ? `🌿 CURRENT WORKING BRANCH: ${workingBranch}
+All file operations (readFile, createOrUpdateFile) will automatically use this branch unless you specify otherwise.` : ''}
+
+AVAILABLE TOOLS:
+- readFile: Read file contents from the repository
+  Usage: readFile({ path: "path/to/file.js" })
+- writeFile: Write or modify files in the repository
+- createBranch: Create new git branches in ${repoContext.repository.name}
+  Usage: createBranch({ branchName: "feature-name" })
+  Note: After creating a branch, it becomes your active working branch for all file operations
+- deleteBranch: Delete git branches from ${repoContext.repository.name} (protected branches cannot be deleted)
+  Usage: deleteBranch({ branchName: "feature-name" })
+- createOrUpdateFile: Create or update files directly in ${repoContext.repository.name}
+  Usage: createOrUpdateFile({ filePath: "path/to/file.js", content: "file content", message: "commit message" })
+  Note: Files will be committed to your current working branch (${workingBranch || 'main'})
+- createCommit: Create commits with multiple file changes in ${repoContext.repository.name}
+- createPullRequest: Create pull requests on GitHub for ${repoContext.repository.name}
+- getRepositoryInfo: Get repository information (clone URLs, default branch, etc)
+- switchWorkingBranch: Switch to a different existing branch as your working branch
+  Usage: switchWorkingBranch({ branchName: "existing-branch" })
+- getWorkflowStatus: Check your current working branch and git workflow status
+  Usage: getWorkflowStatus()
+- listBranches: List all branches in the repository with their details
+  Usage: listBranches()
+
+BRANCH WORKFLOW BEST PRACTICES:
+1. When creating files or making changes, first create a feature branch: createBranch({ branchName: "feature/your-feature" })
+2. All subsequent file operations will automatically use your working branch
+3. After making changes, you can create a pull request to merge back to main
+4. The system maintains branch context throughout our conversation
+
+Note: Git operations will be performed on the repository "${repoContext.repository.name}" owned by "${repoContext.repository.owner || 'the user'}".
 
 ${contextSection}
 
@@ -360,7 +526,14 @@ ${conversationContext.messages.slice(-5).map(msg => `${msg.role}: ${msg.content}
 
 USER QUESTION: ${userMessage}
 
-Please provide a helpful response about this repository. If analysis data is missing or limited, explain what information is available and offer general guidance. If you reference specific files, mention their paths. Keep responses concise but informative.`;
+Please provide a helpful response about this repository. You can:
+- Answer questions about the code and its structure
+- Read and analyze specific files when asked
+- Make code changes and commit them when requested
+- Create branches, commits, and pull requests as needed
+- Explain what you're doing when performing git operations
+
+If analysis data is missing or limited, explain what information is available and offer general guidance. If you reference specific files, mention their paths. When making changes, always explain what you're doing and why.`;
 
   return prompt;
 }
