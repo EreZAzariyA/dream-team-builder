@@ -4,6 +4,7 @@ import Sidebar from './Sidebar';
 import Header from './Header';
 import MainContent from './MainContent';
 import OnboardingManager from '../onboarding/OnboardingManager';
+import { ToastContainer } from '../ui/ToastContainer';
 
 const DashboardLayout = ({ children }) => {
   return (
@@ -17,6 +18,7 @@ const DashboardLayout = ({ children }) => {
           </MainContent>
         </div>
       </div>
+      <ToastContainer />
     </OnboardingManager>
   );
 };

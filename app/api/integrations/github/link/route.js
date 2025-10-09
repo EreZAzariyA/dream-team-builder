@@ -57,6 +57,7 @@ export async function POST(request) {
     }
 
     const { accessToken } = await request.json();
+    console.log({ accessToken });
     
     if (!accessToken) {
       return NextResponse.json({

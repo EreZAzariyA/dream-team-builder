@@ -181,7 +181,7 @@ const RepoAnalysisStatus = ({ analysisId, isAnalyzing, realtimeProgress: externa
             file: data.file,
             status: data.status,
             timestamp: new Date().toLocaleTimeString()
-          }].slice(-50);
+          }];
           return newLog;
         });
       }

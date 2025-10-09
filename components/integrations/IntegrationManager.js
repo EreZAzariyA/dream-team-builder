@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useDispatch } from 'react-redux';
 
 // Custom hooks
@@ -132,7 +132,7 @@ export default function IntegrationManager() {
   };
 
   // Handle test results
-  React.useEffect(() => {
+  useEffect(() => {
     if (testMutation.isSuccess && testMutation.data) {
       setTestResult(testMutation.data);
     }

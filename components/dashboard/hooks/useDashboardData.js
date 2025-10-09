@@ -79,7 +79,7 @@ export const useDashboardData = () => {
     fetchDashboardData();
     
     // Refresh every 30 seconds
-    const interval = setInterval(fetchDashboardData, 30000);
+    const interval = setInterval(fetchDashboardData, 60000);
     
     return () => clearInterval(interval);
   }, []);
