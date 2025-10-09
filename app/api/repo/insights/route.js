@@ -413,21 +413,37 @@ async function generateAIInsights(analysis, userId) {
       topFiles: analysis.fileIndex ? analysis.fileIndex.slice(0, 20) : []
     };
 
-    const prompt = `Analyze repository: ${context.repository}
+    const prompt = `Analyze this repository and provide 3-5 actionable insights in **valid JSON format**:
 
+Repository: ${context.repository}
 Metrics: ${context.metrics?.fileCount || 0} files, ${context.metrics?.totalLines?.toLocaleString() || 0} lines, ${context.metrics?.languageCount || 0} languages
 
 Top Files:
 ${context.topFiles.slice(0, 10).map(f => `${f.path} (${f.language})`).join('\n')}
 
-Provide 3-5 actionable insights covering:
-- Architecture/Design patterns
-- Code organization
-- Performance concerns
-- Security issues
-- Best practices
+**Respond ONLY with a JSON array. Each insight should have:**
+- category: one of ["security", "performance", "codeQuality", "maintainability", "testing"]
+- severity: one of ["low", "medium", "high", "critical"]
+- title: brief title (max 60 chars)
+- description: detailed explanation (100-150 words)
+- suggestion: specific actionable recommendation
+- files: array of affected file paths (if applicable, max 3)
 
-Format as brief, specific recommendations.`;
+**Example format:**
+[
+  {
+    "category": "security",
+    "severity": "high",
+    "title": "Missing Input Validation",
+    "description": "The API endpoints lack proper input validation...",
+    "suggestion": "Implement input validation using a library like Joi or Zod...",
+    "files": ["src/api/users.js", "src/api/posts.js"]
+  }
+]
+
+**Focus areas:** Architecture patterns, code organization, security vulnerabilities, performance bottlenecks, testing gaps, and best practices.
+
+**IMPORTANT:** Output ONLY valid JSON, no explanations before or after.`;
 
     const response = await aiService.call(prompt, null, 1, {
       action: 'repository_insights',
@@ -447,57 +463,93 @@ Format as brief, specific recommendations.`;
  * Parse AI insights response into structured format
  */
 function parseAIInsights(aiResponse) {
-  // This is a simplified parser - in a real implementation,
-  // you might use more sophisticated NLP or structured AI responses
-  const insights = [];
-  
-  if (aiResponse) {
-    // Look for common patterns in AI response
-    const sections = aiResponse.split(/\n\d+\./);
-    
-    sections.forEach((section, index) => {
-      if (section.trim() && section.length > 50) {
-        const title = section.split('\n')[0].trim();
-        const content = section.substring(title.length).trim();
-        
-        if (title && content) {
-          insights.push({
-            id: `ai-insight-${index}`,
-            type: 'suggestion',
-            severity: 'medium',
-            title: title.replace(/^[\d\.\s-]+/, '').trim(),
-            description: content.substring(0, 200) + (content.length > 200 ? '...' : ''),
-            suggestion: content,
-            tags: ['ai-generated', 'architecture'],
-            source: 'ai'
-          });
-        }
-      }
-    });
+  if (!aiResponse) return [];
+
+  try {
+    // Clean up the response - remove markdown code blocks if present
+    let cleanedResponse = aiResponse.trim();
+
+    // Remove markdown code blocks (```json ... ```)
+    cleanedResponse = cleanedResponse.replace(/```json\s*/g, '').replace(/```\s*$/g, '');
+
+    // Try to find JSON array in the response
+    const jsonMatch = cleanedResponse.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) {
+      logger.warn('No JSON array found in AI insights response');
+      return [];
+    }
+
+    const parsedInsights = JSON.parse(jsonMatch[0]);
+
+    if (!Array.isArray(parsedInsights)) {
+      logger.warn('AI insights response is not an array');
+      return [];
+    }
+
+    // Transform AI insights to match expected structure
+    return parsedInsights.map((insight, index) => ({
+      id: `ai-insight-${index}`,
+      type: mapCategoryToType(insight.category),
+      severity: insight.severity || 'medium',
+      title: insight.title || 'AI-Generated Insight',
+      description: insight.description || '',
+      suggestion: insight.suggestion || '',
+      tags: ['ai-generated', insight.category || 'general'],
+      files: insight.files || [],
+      source: 'ai',
+      category: insight.category
+    }));
+
+  } catch (error) {
+    logger.error('Failed to parse AI insights JSON:', error.message);
+    logger.debug('AI Response:', aiResponse.substring(0, 500));
+    return [];
   }
-  
-  return insights;
+}
+
+/**
+ * Map category to insight type for UI display
+ */
+function mapCategoryToType(category) {
+  const typeMap = {
+    'security': 'bug',
+    'performance': 'warning',
+    'codeQuality': 'quality',
+    'maintainability': 'suggestion',
+    'testing': 'warning'
+  };
+  return typeMap[category] || 'info';
 }
 
 /**
  * Merge AI insights with existing insights
  */
 function mergeAIInsights(insights, aiInsights) {
-  if (aiInsights && Array.isArray(aiInsights)) {
-    // Distribute AI insights across categories
-    aiInsights.forEach(insight => {
-      // Categorize based on content keywords
-      if (insight.description.toLowerCase().includes('security')) {
-        insights.categories.security.push(insight);
-      } else if (insight.description.toLowerCase().includes('performance')) {
-        insights.categories.performance.push(insight);
-      } else if (insight.description.toLowerCase().includes('test')) {
-        insights.categories.testing.push(insight);
-      } else {
-        insights.categories.codeQuality.push(insight);
-      }
-    });
-  }
+  if (!aiInsights || !Array.isArray(aiInsights)) return;
+
+  // Distribute AI insights across categories based on their category field
+  aiInsights.forEach(insight => {
+    const category = insight.category || 'codeQuality';
+
+    // Map to the correct category
+    const categoryMap = {
+      'security': 'security',
+      'performance': 'performance',
+      'codeQuality': 'codeQuality',
+      'maintainability': 'maintainability',
+      'testing': 'testing'
+    };
+
+    const targetCategory = categoryMap[category] || 'codeQuality';
+
+    // Ensure the category array exists
+    if (insights.categories[targetCategory]) {
+      insights.categories[targetCategory].push(insight);
+    } else {
+      // Fallback to codeQuality if category doesn't exist
+      insights.categories.codeQuality.push(insight);
+    }
+  });
 }
 
 /**

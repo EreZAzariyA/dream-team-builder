@@ -349,113 +349,103 @@ async function buildFileIndex(gitService, owner, name, branch, options, progress
   try {
     // Get all files recursively
     const files = await gitService.githubPlugin.getRepositoryContents(owner, name, branch);
-    
+
     logger.info(`🔍 Starting to process ${files?.length || 0} files from repository structure`);
-    
-    let processedFiles = 0;
+
     const totalFiles = files?.length || 0;
-    
-    for (const file of files) {
-      if (processedFiles >= maxFiles) {
-        logger.info('Max files limit reached');
-        break;
-      }
-      
-      logger.info(`🔍 Processing file: ${file.path} (${file.size} bytes)`);
-      
-      // Skip if file is too large
-      if (file.size > maxFileSize) {
-        logger.info(`⏭️  Skipping large file: ${file.path} (${file.size} > ${maxFileSize})`);
-        if (fileStatusCallback) {
-          fileStatusCallback(file.path, 'skipped (too large)');
-        }
-        continue;
-      }
-      
-      // Skip binary files and unwanted directories
-      if (shouldSkipFile(file.path, { includeTests, includeDocs })) {
-        logger.info(`⏭️  Skipping file due to skip pattern: ${file.path}`);
-        if (fileStatusCallback) {
-          fileStatusCallback(file.path, 'skipped (excluded pattern)');
-        }
-        continue;
-      }
-      
-      logger.info(`✅ File ${file.path} will be processed`);
-      if (fileStatusCallback) {
-        fileStatusCallback(file.path, 'will be processed');
-      }
 
-      const language = getLanguageFromPath(file.path);
-      const extension = getFileExtension(file.path);
+    // Filter files first (skip, size checks, etc.)
+    const filesToProcess = files
+      .slice(0, maxFiles) // Limit total files
+      .filter(file => {
+        // Skip large files
+        if (file.size > maxFileSize) {
+          logger.info(`⏭️  Skipping large file: ${file.path} (${file.size} > ${maxFileSize})`);
+          fileStatusCallback?.(file.path, 'skipped (too large)');
+          return false;
+        }
 
-      // For text files, get content to count lines
-      let lines = 0;
-      const isText = isTextFile(extension);
-      const sizeOk = file.size < maxFileSize;
-      
-      logger.info(`📊 File ${file.path}: extension=${extension}, isText=${isText}, size=${file.size}, sizeOk=${sizeOk}`);
-      
-      if (sizeOk && isText) {
-        try {
-          logger.info(`🔍 Attempting to get content for ${file.path}...`);
-          const content = await gitService.githubPlugin.getFileContent(
-            owner, name, file.path, branch
-          );
-          
-          if (content) {
-            lines = countLines(content);
-            logger.info(`✅ SUCCESS: Counted ${lines} lines in ${file.path} (${content.length} chars)`);
-            if (fileStatusCallback) {
-              fileStatusCallback(file.path, `processed (${lines} lines)`);
-            }
-          } else {
-            logger.warn(`⚠️  Got null/empty content for ${file.path}`);
-            if (fileStatusCallback) {
-              fileStatusCallback(file.path, 'processed (empty content)');
-            }
-          }
-        } catch (error) {
-          logger.error(`❌ FAILED to get content for ${file.path}:`, error.message);
-          if (fileStatusCallback) {
-            fileStatusCallback(file.path, `failed to read (${error.message})`);
-          }
-          // For files we can't read, estimate lines based on size
-          if (file.size > 0) {
-            lines = Math.max(1, Math.floor(file.size / 80));
-            logger.info(`📊 Estimated ${lines} lines for ${file.path} based on size (${file.size} bytes)`);
-          }
+        // Skip binary files and unwanted directories
+        if (shouldSkipFile(file.path, { includeTests, includeDocs })) {
+          logger.info(`⏭️  Skipping file due to skip pattern: ${file.path}`);
+          fileStatusCallback?.(file.path, 'skipped (excluded pattern)');
+          return false;
         }
-      } else if (file.size >= maxFileSize) {
-        // For large files, estimate lines
-        lines = Math.max(1, Math.floor(file.size / 80));
-        logger.info(`📏 Estimated ${lines} lines for large file ${file.path} (${file.size} bytes)`);
-        if (fileStatusCallback) {
-          fileStatusCallback(file.path, `estimated (${lines} lines, large file)`);
-        }
-      } else {
-        logger.info(`⏭️  Skipping ${file.path}: not a text file or other issue`);
-        if (fileStatusCallback) {
-          fileStatusCallback(file.path, 'skipped (not a text file)');
-        }
-      }
 
-      fileIndex.push({
-        path: file.path,
-        language,
-        extension,
-        size: file.size || 0,
-        lines,
-        sha: file.sha,
-        lastModified: new Date() // GitHub doesn't provide this in tree API
+        return true;
       });
 
-      processedFiles++;
-      
-      // Send progress update if callback provided
-      if (progressCallback && processedFiles % 5 === 0) { // Update every 5 files to avoid spam
-        progressCallback(processedFiles, totalFiles);
+    logger.info(`📋 Processing ${filesToProcess.length} files after filtering`);
+
+    // Process files in parallel batches (10 at a time to avoid rate limits)
+    const BATCH_SIZE = 10;
+    const batches = [];
+    for (let i = 0; i < filesToProcess.length; i += BATCH_SIZE) {
+      batches.push(filesToProcess.slice(i, i + BATCH_SIZE));
+    }
+
+    let processedFiles = 0;
+
+    for (const batch of batches) {
+      // Process batch in parallel
+      const batchResults = await Promise.all(
+        batch.map(async (file) => {
+          const language = getLanguageFromPath(file.path);
+          const extension = getFileExtension(file.path);
+          const isText = isTextFile(extension);
+          const sizeOk = file.size < maxFileSize;
+
+          let lines = 0;
+
+          if (sizeOk && isText) {
+            try {
+              const content = await gitService.githubPlugin.getFileContent(
+                owner, name, file.path, branch
+              );
+
+              if (content) {
+                lines = countLines(content);
+                logger.info(`✅ Processed ${file.path}: ${lines} lines`);
+                fileStatusCallback?.(file.path, `processed (${lines} lines)`);
+              } else {
+                fileStatusCallback?.(file.path, 'processed (empty content)');
+              }
+            } catch (error) {
+              logger.error(`❌ Failed to read ${file.path}: ${error.message}`);
+              fileStatusCallback?.(file.path, `failed (${error.message})`);
+              // Estimate lines based on size
+              if (file.size > 0) {
+                lines = Math.max(1, Math.floor(file.size / 80));
+              }
+            }
+          } else if (file.size >= maxFileSize) {
+            // For large files, estimate lines
+            lines = Math.max(1, Math.floor(file.size / 80));
+            fileStatusCallback?.(file.path, `estimated (${lines} lines, large file)`);
+          }
+
+          return {
+            path: file.path,
+            language,
+            extension,
+            size: file.size || 0,
+            lines,
+            sha: file.sha,
+            lastModified: new Date()
+          };
+        })
+      );
+
+      // Add batch results to fileIndex
+      fileIndex.push(...batchResults);
+      processedFiles += batchResults.length;
+
+      // Send progress update
+      if (progressCallback) {
+        progressCallback(processedFiles, filesToProcess.length);
       }
+
+      logger.info(`📊 Batch complete: ${processedFiles}/${filesToProcess.length} files processed`);
     }
 
     const totalLines = fileIndex.reduce((sum, file) => sum + (file.lines || 0), 0);
