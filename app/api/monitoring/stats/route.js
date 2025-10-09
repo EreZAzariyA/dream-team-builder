@@ -40,12 +40,12 @@ async function handler(request) {
 
     // Get current health status
     const healthStatus = await healthMonitor.getHealthStatus();
-    
+
     // Get alert statistics
     const alertStats = await alertManager.getAlertStats(since);
-    
+
     // Export metrics data
-    const metricsData = healthMonitor.exportMetrics();
+    const metricsData = await healthMonitor.exportMetrics();
     
     // Calculate performance summaries
     const performanceSummary = calculatePerformanceSummary(metricsData, since);

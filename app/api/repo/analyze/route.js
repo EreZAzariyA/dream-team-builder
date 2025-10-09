@@ -281,7 +281,7 @@ async function performRepositoryAnalysis(analysisId, user) {
     if (summaryResult.success) {
       logger.info(`✅ AI summary generated successfully using ${summaryResult.provider}`);
     } else {
-      logger.warn(`⚠️ AI summary failed (${summaryResult.reason}), using fallback message`);
+      logger.error(`❌ AI summary failed: ${summaryResult.error}`);
     }
 
     // Step 5: Save results
@@ -290,10 +290,10 @@ async function performRepositoryAnalysis(analysisId, user) {
       message: 'Saving analysis results...',
       progress: 95
     });
-    
+
     const duration = Date.now() - startTime;
     await analysis.markAsCompleted({
-      summary: summaryResult.content, // Extract content from result object
+      summary: summaryResult.success ? summaryResult.content : null, // Only save if successful
       metrics,
       fileIndex: fileIndex.slice(0, 1000), // Limit stored file index
       duration

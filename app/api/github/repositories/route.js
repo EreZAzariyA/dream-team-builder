@@ -51,11 +51,11 @@ export async function GET(request) {
       
     } catch (error) {
       logger.error('Failed to fetch repositories from GitHub:', error.message);
-      
+
       // Try to get cached repositories as fallback
-      const cachedResult = gitService.githubPlugin.getFromCache(cacheKey, 'repositories');
+      const cachedResult = await gitService.githubPlugin.getFromCache(cacheKey, 'repositories');
       repositories = Array.isArray(cachedResult) ? cachedResult : [];
-      
+
       // If no cache available, return empty array with error info
       if (repositories.length === 0) {
         return NextResponse.json({

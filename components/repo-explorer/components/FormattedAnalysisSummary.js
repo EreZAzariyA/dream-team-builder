@@ -6,48 +6,60 @@ import ReactMarkdown from 'react-markdown';
 const FormattedAnalysisSummary = ({ summary, className = '', useMarkdown = true }) => {
   const { formattedSummary, hasStructure } = useMemo(() => {
     if (!summary) return { formattedSummary: '', hasStructure: false };
-    
-    // Check if the summary has structured content (numbered sections)
-    const hasNumberedSections = /\d+\.\s*[^:]+:/.test(summary);
-    
+
+    // Check if the summary has markdown headers (## format)
+    const hasMarkdownHeaders = /##\s+\d+\.\s+/.test(summary);
+
     if (useMarkdown) {
-      // Convert the AI summary to better markdown format
+      // If already has markdown headers, use as-is (AI now sends proper markdown)
+      if (hasMarkdownHeaders) {
+        return { formattedSummary: summary.trim(), hasStructure: true };
+      }
+
+      // Legacy fallback: Convert old format to markdown
       let markdown = summary;
-      
+
       // Convert numbered sections to proper markdown headers
       markdown = markdown.replace(/(\d+)\.\s*([^:]+):/g, '\n## $1. $2\n\n');
-      
-      // Convert **text** to proper markdown bold
-      markdown = markdown.replace(/\*\*([^*]+)\*\*/g, '**$1**');
-      
-      // Add line breaks for better paragraph separation
-      markdown = markdown.replace(/\.\s+([A-Z])/g, '.\n\n$1');
-      
+
       // Handle specific patterns from AI analysis
       markdown = markdown.replace(/(Brief Description|Key Technologies|Project Structure|Code Quality|Notable Patterns):/g, '\n### $1\n\n');
-      
+
+      // Add line breaks for better paragraph separation
+      markdown = markdown.replace(/\.\s+([A-Z])/g, '.\n\n$1');
+
       // Clean up extra whitespace
       markdown = markdown.replace(/\n{3,}/g, '\n\n').trim();
-      
-      return { formattedSummary: markdown, hasStructure: hasNumberedSections };
+
+      return { formattedSummary: markdown, hasStructure: true };
     }
-    
-    return { formattedSummary: summary, hasStructure: hasNumberedSections };
+
+    return { formattedSummary: summary, hasStructure: hasMarkdownHeaders };
   }, [summary, useMarkdown]);
 
   const customComponents = {
-    h2: ({ children }) => (
-      <div className="flex items-center space-x-3 mb-3 mt-6">
-        <div className="flex-shrink-0 w-8 h-8 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center">
-          <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
-            {children?.toString().match(/^\d+/)?.[0] || '#'}
-          </span>
+    h2: ({ children }) => {
+      // Handle both string and array children
+      const text = Array.isArray(children)
+        ? children.map(child => typeof child === 'string' ? child : child?.props?.children || '').join('')
+        : String(children || '');
+
+      const numberMatch = text.match(/^\d+/);
+      const titleText = text.replace(/^\d+\.\s*/, '');
+
+      return (
+        <div className="flex items-center space-x-3 mb-3 mt-6">
+          <div className="flex-shrink-0 w-8 h-8 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center">
+            <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
+              {numberMatch?.[0] || '#'}
+            </span>
+          </div>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            {titleText}
+          </h2>
         </div>
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-          {children?.toString().replace(/^\d+\.\s*/, '')}
-        </h2>
-      </div>
-    ),
+      );
+    },
     
     h3: ({ children }) => (
       <h3 className="text-base font-semibold text-gray-900 dark:text-white mt-4 mb-2 flex items-center">

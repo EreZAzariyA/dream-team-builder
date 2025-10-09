@@ -39,31 +39,30 @@ export async function POST(request) {
     }
 
     logger.info(`Regenerating AI summary for analysis: ${analysisId}`);
-    
+
     const result = await generateAISummary(analysis, analysis.fileIndex, analysis.metrics, session.user.id);
 
-    // Save the summary content regardless of success/failure
-    analysis.summary = result.content;
-    analysis.updatedAt = new Date();
-    await analysis.save();
-
     if (result.success) {
+      // Save successful summary
+      analysis.summary = result.content;
+      analysis.updatedAt = new Date();
+      await analysis.save();
+
       logger.info(`Successfully regenerated AI summary for analysis: ${analysisId}`);
-      return NextResponse.json({ 
-        success: true, 
+      return NextResponse.json({
+        success: true,
         summary: result.content,
         type: result.type,
-        provider: result.provider 
+        provider: result.provider
       });
     } else {
-      logger.warn(`AI summary generation failed for analysis: ${analysisId}, reason: ${result.reason}`);
-      return NextResponse.json({ 
-        success: false, 
-        summary: result.content,
-        type: result.type,
-        reason: result.reason,
-        message: 'AI summary could not be generated, but a fallback summary was provided'
-      }, { status: 206 }); // 206 Partial Content - request succeeded but content is not complete
+      // Don't save failed summary, just return error
+      logger.error(`AI summary generation failed for analysis: ${analysisId}, error: ${result.error}`);
+      return NextResponse.json({
+        success: false,
+        error: result.error,
+        message: 'Failed to generate AI summary'
+      }, { status: 500 });
     }
 
   } catch (error) {

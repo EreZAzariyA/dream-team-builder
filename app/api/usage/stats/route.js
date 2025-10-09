@@ -22,10 +22,10 @@ export async function GET(request) {
     // Get detailed usage statistics (now async)
     const stats = await aiService.getDetailedUsageStats(userId, timeframe);
     
-    // Add current usage tracker stats for comparison
+    // Add current usage tracker stats for comparison (now async)
     const currentTrackerStats = aiService.usageTracker ? {
-      userStats: aiService.usageTracker.getUserStats(userId),
-      globalStats: aiService.usageTracker.getGlobalStats()
+      userStats: await aiService.usageTracker.getUserStats(userId),
+      globalStats: await aiService.usageTracker.getGlobalStats()
     } : null;
 
     return NextResponse.json({

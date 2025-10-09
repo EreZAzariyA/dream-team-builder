@@ -56,9 +56,9 @@ export async function POST(request, { params }) {
       timestamp: new Date().toISOString()
     };
 
-    // Handle the response through the interactive messaging system
-    const handled = orchestrator.workflowManager.interactiveMessaging.handleUserResponse(
-      messageId, 
+    // Handle the response through the interactive messaging system (now async)
+    const handled = await orchestrator.workflowManager.interactiveMessaging.handleUserResponse(
+      messageId,
       userResponse
     );
 
@@ -113,8 +113,8 @@ export async function GET(request, { params }) {
       });
     }
 
-    // Get pending response count (for monitoring)
-    const pendingCount = orchestrator.workflowManager.interactiveMessaging.getPendingResponseCount();
+    // Get pending response count (for monitoring - now async)
+    const pendingCount = await orchestrator.workflowManager.interactiveMessaging.getPendingResponseCount();
 
     return NextResponse.json({
       success: true,
