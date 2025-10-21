@@ -262,34 +262,118 @@ async function generateAIResponse(userMessage, analysis, chatSession, userId) {
     // Extract citations from response (if AI includes file references)
     const citations = extractCitations(response.content || response.text, analysis);
 
-    // Handle tool executions if present
+    // Handle tool executions - process ALL steps, not just final toolCalls
     let toolResults = [];
-    if (response.toolCalls && response.toolCalls.length > 0) {
+
+    // Check if we have multiple steps (AI SDK v5 returns steps array)
+    if (response.steps && response.steps.length > 0) {
+      logger.info(`🔍 Processing ${response.steps.length} execution steps`);
+
+      // Extract all tool calls from all steps
+      response.steps.forEach((step, stepIndex) => {
+        if (step.toolCalls && step.toolCalls.length > 0) {
+          step.toolCalls.forEach(toolCall => {
+            // Log the full structure to debug
+            logger.info(`🔍 Full toolCall structure for step ${stepIndex + 1}:`, {
+              keys: Object.keys(toolCall),
+              toolName: toolCall.toolName,
+              type: toolCall.type,
+              hasArgs: !!toolCall.args,
+              hasResult: !!toolCall.result
+            });
+
+            const result = toolCall.result || toolCall.output || toolCall.response || toolCall.returnValue || toolCall.data;
+
+            // Try to get args from different possible locations
+            const args = toolCall.args || toolCall.arguments || toolCall.parameters || toolCall.input;
+
+            toolResults.push({
+              step: stepIndex + 1,
+              tool: toolCall.toolName,
+              result: result,
+              success: true,
+              args: args,
+              toolCall: toolCall // Store entire toolCall for debugging
+            });
+
+            logger.info(`📝 Step ${stepIndex + 1}: ${toolCall.toolName}`, {
+              args: args,
+              hasResult: !!result
+            });
+          });
+        }
+      });
+
+      logger.info(`✅ Extracted ${toolResults.length} tool executions from ${response.steps.length} steps`);
+    }
+    // Fallback to old method if steps not available
+    else if (response.toolCalls && response.toolCalls.length > 0) {
       logger.info(`🔍 Debug toolCalls structure:`, response.toolCalls);
-      
+
       toolResults = response.toolCalls.map(toolCall => {
-        logger.info(`🔍 Individual toolCall:`, { 
-          toolName: toolCall.toolName, 
+        logger.info(`🔍 Individual toolCall:`, {
+          toolName: toolCall.toolName,
           result: toolCall.result,
           keys: Object.keys(toolCall)
         });
-        
-        // Try different property names for the result
+
         const result = toolCall.result || toolCall.output || toolCall.response || toolCall.returnValue || toolCall.data;
-        
+
         return {
           tool: toolCall.toolName,
           result: result,
-          success: true // All tools that reach this point succeeded (errors would throw)
+          success: true
         };
       });
     }
 
     // Generate appropriate response content with tool-specific messaging
     let content = response.content || response.text;
-    
+
+    // If we have multiple tool results, prepend a summary
+    if (toolResults.length > 1) {
+      const operationsSummary = toolResults.map((tool, index) => {
+        const stepLabel = tool.step ? `Step ${tool.step}` : `${index + 1}`;
+
+        // Format based on tool type
+        if (tool.tool === 'createOrUpdateFile') {
+          // Try multiple ways to get the file path
+          const filePath = tool.args?.filePath ||
+                          tool.result?.path ||
+                          tool.result?.filePath ||
+                          tool.toolCall?.args?.filePath ||
+                          (typeof tool.result?.message === 'string' && tool.result.message.match(/file ([^\s]+)/)?.[1]) ||
+                          'file';
+          const action = tool.result?.action || 'modified';
+          return `${stepLabel}. ✅ ${action === 'created' ? 'Created' : 'Updated'} **${filePath}**`;
+        } else if (tool.tool === 'createBranch') {
+          const branchName = tool.args?.branchName ||
+                            tool.toolCall?.args?.branchName ||
+                            (typeof tool.result === 'string' && tool.result.match(/branch ([^\s]+)/)?.[1]) ||
+                            'branch';
+          return `${stepLabel}. 🌿 Created branch **${branchName}**`;
+        } else if (tool.tool === 'readFile') {
+          const filePath = tool.args?.path ||
+                          tool.result?.path ||
+                          tool.toolCall?.args?.path ||
+                          'file';
+          return `${stepLabel}. 📄 Read **${filePath}**`;
+        } else if (tool.tool === 'switchWorkingBranch') {
+          const branchName = tool.args?.branchName ||
+                            tool.toolCall?.args?.branchName ||
+                            'branch';
+          return `${stepLabel}. 🔀 Switched to branch **${branchName}**`;
+        } else {
+          return `${stepLabel}. ✅ ${tool.tool}`;
+        }
+      }).join('\n');
+
+      // Prepend summary to content
+      const summaryHeader = `**Completed ${toolResults.length} operations:**\n\n${operationsSummary}\n\n---\n\n`;
+      content = summaryHeader + (content || 'All operations completed successfully.');
+    }
     // If no text response but tools were executed successfully, provide meaningful feedback
-    if (!content && toolResults.length > 0) {
+    else if (!content && toolResults.length > 0) {
       const successfulTools = toolResults.filter(tool => tool.success);
       if (successfulTools.length > 0) {
         const toolMessages = successfulTools.map(tool => {
@@ -514,6 +598,30 @@ BRANCH WORKFLOW BEST PRACTICES:
 2. All subsequent file operations will automatically use your working branch
 3. After making changes, you can create a pull request to merge back to main
 4. The system maintains branch context throughout our conversation
+
+IMPORTANT WORKFLOW EXAMPLES:
+Example 1 - Adding a dependency to package.json:
+  Step 1: readFile({ path: "package.json" }) - Read from DEFAULT branch to get current content
+  Step 2: Parse JSON, add the new dependency to dependencies object
+  Step 3: createBranch({ branchName: "feature/add-react" })
+  Step 4: createOrUpdateFile({ filePath: "package.json", content: updatedJSON, message: "Add React dependency" })
+
+  IMPORTANT: Always read files from the default branch BEFORE creating the feature branch!
+  Once you create a branch, it becomes your working branch and newly created branches don't have files yet.
+
+Example 2 - Creating a new feature file:
+  Step 1: createBranch({ branchName: "feature/new-component" })
+  Step 2: createOrUpdateFile({ filePath: "src/components/NewComponent.js", content: componentCode, message: "Add new component" })
+
+CRITICAL WORKFLOW RULES:
+1. To modify existing files: ALWAYS read from default branch FIRST, then create feature branch, then write
+2. To create new files: Create branch first, then write new files
+3. When user asks to "add [dependency]" or "install [package]":
+   - Read package.json from default branch
+   - Parse and modify the JSON
+   - Create feature branch
+   - Write updated package.json to feature branch
+4. Do NOT create a branch and stop - complete the entire workflow!
 
 Note: Git operations will be performed on the repository "${repoContext.repository.name}" owned by "${repoContext.repository.owner || 'the user'}".
 

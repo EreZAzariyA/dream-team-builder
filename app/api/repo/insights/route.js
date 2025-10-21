@@ -65,7 +65,7 @@ export async function POST(request) {
 }
 
 /**
- * Generate comprehensive repository insights
+ * Generate comprehensive repository insights using QA agent AI analysis
  */
 async function generateRepositoryInsights(analysis, userId) {
   const insights = {
@@ -87,24 +87,18 @@ async function generateRepositoryInsights(analysis, userId) {
     trends: {}
   };
 
-  // Basic metrics analysis
-  if (analysis.metrics) {
-    await analyzeCodeMetrics(analysis.metrics, insights);
-  }
-
-  // File structure analysis
-  if (analysis.fileIndex) {
-    await analyzeFileStructure(analysis.fileIndex, insights);
-  }
-
-  // Generate AI-powered insights if available
+  // Generate AI-powered insights using QA agent
   try {
     const aiInsights = await generateAIInsights(analysis, userId);
-    if (aiInsights) {
+    if (aiInsights && aiInsights.length > 0) {
       mergeAIInsights(insights, aiInsights);
+      logger.info(`✅ Generated ${aiInsights.length} AI-powered insights from QA agent`);
+    } else {
+      logger.warn('No AI insights generated - returned empty or null');
     }
   } catch (error) {
-    logger.warn('Failed to generate AI insights:', error.message);
+    logger.error('Failed to generate AI insights:', error.message);
+    throw new Error('Unable to generate repository insights. Please ensure AI service is configured.');
   }
 
   // Calculate summary
@@ -384,13 +378,25 @@ async function analyzeFileStructure(fileIndex, insights) {
 }
 
 /**
- * Generate AI-powered insights
+ * Generate AI-powered insights using QA agent
  */
 async function generateAIInsights(analysis, userId) {
   try {
+    // Load QA agent for quality analysis and insights
+    const { AgentLoader } = await import('@/lib/bmad/AgentLoader.js');
+    const agentLoader = new AgentLoader();
+    await agentLoader.loadAllAgents();
+    const qaAgent = await agentLoader.loadAgent('qa');
+
+    if (!qaAgent) {
+      logger.warn('QA agent not found, using default behavior');
+    } else {
+      logger.info(`Using QA agent: ${qaAgent.agent?.name} for repository insights`);
+    }
+
     // Import AI service
     const { aiService } = await import('@/lib/ai/AIService.js');
-    
+
     if (!aiService.initialized && userId) {
       try {
         await aiService.initialize(null, userId);
@@ -399,7 +405,7 @@ async function generateAIInsights(analysis, userId) {
         return null;
       }
     }
-    
+
     if (!aiService.initialized) {
       logger.info('AI service not initialized - no API keys configured, skipping AI insights');
       return null;
@@ -413,42 +419,115 @@ async function generateAIInsights(analysis, userId) {
       topFiles: analysis.fileIndex ? analysis.fileIndex.slice(0, 20) : []
     };
 
-    const prompt = `Analyze this repository and provide 3-5 actionable insights in **valid JSON format**:
+    // Build prompt with QA agent persona
+    let prompt = '';
 
-Repository: ${context.repository}
-Metrics: ${context.metrics?.fileCount || 0} files, ${context.metrics?.totalLines?.toLocaleString() || 0} lines, ${context.metrics?.languageCount || 0} languages
+    // Add QA agent persona if available
+    if (qaAgent && qaAgent.persona) {
+      prompt += `# AGENT PERSONA\n`;
+      prompt += `You are ${qaAgent.agent?.name || 'Quinn'}, a ${qaAgent.agent?.title || 'Test Architect & Quality Advisor'}.\n\n`;
 
-Top Files:
-${context.topFiles.slice(0, 10).map(f => `${f.path} (${f.language})`).join('\n')}
+      if (qaAgent.persona.role) {
+        prompt += `Role: ${qaAgent.persona.role}\n`;
+      }
+      if (qaAgent.persona.style) {
+        prompt += `Communication Style: ${qaAgent.persona.style}\n`;
+      }
+      if (qaAgent.persona.identity) {
+        prompt += `Identity: ${qaAgent.persona.identity}\n`;
+      }
+      if (qaAgent.persona.focus) {
+        prompt += `Focus: ${qaAgent.persona.focus}\n`;
+      }
 
-**Respond ONLY with a JSON array. Each insight should have:**
-- category: one of ["security", "performance", "codeQuality", "maintainability", "testing"]
-- severity: one of ["low", "medium", "high", "critical"]
-- title: brief title (max 60 chars)
-- description: detailed explanation (100-150 words)
-- suggestion: specific actionable recommendation
-- files: array of affected file paths (if applicable, max 3)
+      // Add core principles
+      if (qaAgent.persona.core_principles && Array.isArray(qaAgent.persona.core_principles)) {
+        prompt += `\nCore Principles:\n`;
+        qaAgent.persona.core_principles.forEach(principle => {
+          prompt += `- ${principle}\n`;
+        });
+      }
 
-**Example format:**
-[
-  {
-    "category": "security",
-    "severity": "high",
-    "title": "Missing Input Validation",
-    "description": "The API endpoints lack proper input validation...",
-    "suggestion": "Implement input validation using a library like Joi or Zod...",
-    "files": ["src/api/users.js", "src/api/posts.js"]
-  }
-]
+      prompt += `\n`;
+    }
 
-**Focus areas:** Architecture patterns, code organization, security vulnerabilities, performance bottlenecks, testing gaps, and best practices.
+    prompt += `# TASK: Comprehensive Quality Analysis & Insights\n\n`;
+    prompt += `Perform a thorough quality analysis of this repository and provide **8-12 actionable insights** in valid JSON format.\n\n`;
 
-**IMPORTANT:** Output ONLY valid JSON, no explanations before or after.`;
+    prompt += `## Repository Information\n`;
+    prompt += `Repository: ${context.repository}\n`;
+    prompt += `Metrics: ${context.metrics?.fileCount || 0} files, ${context.metrics?.totalLines?.toLocaleString() || 0} lines, ${context.metrics?.languageCount || 0} languages\n\n`;
 
-    const response = await aiService.call(prompt, null, 1, {
+    prompt += `Top Files:\n`;
+    prompt += `${context.topFiles.slice(0, 10).map(f => `${f.path} (${f.language})`).join('\n')}\n\n`;
+
+    prompt += `## Analysis Requirements\n\n`;
+    prompt += `Analyze ALL of the following areas and provide insights for each:\n\n`;
+    prompt += `1. **Code Quality** (2-3 insights)\n`;
+    prompt += `   - File size and complexity (large files >500 lines, extremely large >1000 lines)\n`;
+    prompt += `   - Code organization and structure\n`;
+    prompt += `   - Language-specific best practices (TypeScript vs JS, preprocessors, etc.)\n`;
+    prompt += `   - Maintainability concerns\n\n`;
+
+    prompt += `2. **Testing & Coverage** (2-3 insights)\n`;
+    prompt += `   - Test file detection and coverage estimation\n`;
+    prompt += `   - Testing framework usage\n`;
+    prompt += `   - Missing test patterns\n\n`;
+
+    prompt += `3. **Security** (1-2 insights)\n`;
+    prompt += `   - Security vulnerabilities and risks\n`;
+    prompt += `   - Dependency security concerns\n`;
+    prompt += `   - Authentication/authorization patterns\n\n`;
+
+    prompt += `4. **Performance** (1-2 insights)\n`;
+    prompt += `   - Performance bottlenecks\n`;
+    prompt += `   - Optimization opportunities\n`;
+    prompt += `   - Resource usage patterns\n\n`;
+
+    prompt += `5. **Documentation & Project Health** (2-3 insights)\n`;
+    prompt += `   - Missing critical files (README, LICENSE, .gitignore)\n`;
+    prompt += `   - Documentation quality\n`;
+    prompt += `   - Project setup and onboarding\n\n`;
+
+    prompt += `6. **Architecture & Maintainability** (1-2 insights)\n`;
+    prompt += `   - Codebase size assessment (>100k lines = large, >50k = medium)\n`;
+    prompt += `   - Language diversity (>6 languages = high diversity)\n`;
+    prompt += `   - Directory structure and organization\n`;
+    prompt += `   - Architectural patterns and decisions\n\n`;
+
+    prompt += `## Output Format\n\n`;
+    prompt += `Respond ONLY with a JSON array containing 8-12 insights. Each insight must have:\n`;
+    prompt += `- category: one of ["security", "performance", "codeQuality", "maintainability", "testing"]\n`;
+    prompt += `- severity: one of ["low", "medium", "high", "critical"]\n`;
+    prompt += `- title: brief title (max 60 chars)\n`;
+    prompt += `- description: detailed explanation (100-150 words)\n`;
+    prompt += `- suggestion: specific actionable recommendation with concrete steps\n`;
+    prompt += `- files: array of affected file paths (if applicable, max 3)\n\n`;
+
+    prompt += `**Example format:**\n`;
+    prompt += `[\n`;
+    prompt += `  {\n`;
+    prompt += `    "category": "security",\n`;
+    prompt += `    "severity": "high",\n`;
+    prompt += `    "title": "Missing Input Validation",\n`;
+    prompt += `    "description": "The API endpoints lack proper input validation which could lead to injection attacks and data corruption. This is particularly critical in user-facing endpoints that handle sensitive data.",\n`;
+    prompt += `    "suggestion": "Implement input validation using a library like Joi or Zod. Add schema validation for all API endpoints, especially those handling user input, file uploads, and database operations.",\n`;
+    prompt += `    "files": ["src/api/users.js", "src/api/posts.js"]\n`;
+    prompt += `  }\n`;
+    prompt += `]\n\n`;
+
+    prompt += `**CRITICAL:** \n`;
+    prompt += `- Provide EXACTLY 8-12 insights (not fewer)\n`;
+    prompt += `- Cover ALL 6 analysis areas mentioned above\n`;
+    prompt += `- Be specific and actionable, not generic\n`;
+    prompt += `- Reference actual files from the top files list when relevant\n`;
+    prompt += `- Output ONLY valid JSON, no markdown code blocks, no explanations before or after\n`;
+    prompt += `- Ensure the JSON is properly formatted and parseable`;
+
+    const response = await aiService.call(prompt, qaAgent, 3, {
       action: 'repository_insights',
       repositoryId: analysis.repositoryId,
-      maxTokens: 4000
+      maxTokens: 8000 // Increased for comprehensive insights (8-12 items)
     }, analysis.userId.toString());
 
     return parseAIInsights(response.content);

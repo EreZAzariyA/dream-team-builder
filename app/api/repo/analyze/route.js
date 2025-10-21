@@ -18,6 +18,8 @@ import { PusherService } from '@/lib/bmad/orchestration/PusherService.js';
  * POST /api/repo/analyze
  * Start repository analysis
  */
+import { redisService } from '@/lib/utils/redis';
+
 export async function POST(request) {
   try {
     // Check authentication
@@ -113,11 +115,22 @@ export async function POST(request) {
       maxFileSize: options.maxFileSize || 1024 * 1024, // 1MB
       maxFiles: options.maxFiles || 10000,
       includeTests: options.includeTests !== false,
-      includeDocs: options.includeDocs || false
+      includeDocs: options.includeDocs || true
     };
 
     const analysis = new RepoAnalysis(analysisData);
     await analysis.save();
+
+    // --- START of Cache Invalidation Logic ---
+    const redisKey = `analysis:status:${owner}:${name}`;
+    try {
+      logger.info(`INVALIDATING CACHE for ${redisKey}`);
+      await redisService.del(redisKey);
+    } catch (error) {
+      logger.error(`Failed to invalidate cache for ${redisKey}:`, error);
+      // Do not block the main operation, just log the error
+    }
+    // --- END of Cache Invalidation Logic ---
 
     // Start background analysis (don't await - let it run async)
     performRepositoryAnalysis(analysis._id.toString(), session.user)
@@ -165,10 +178,11 @@ async function performRepositoryAnalysis(analysisId, user) {
   // Initialize Pusher for real-time updates
   const pusherService = new PusherService();
   const channelName = `repo-analysis-${analysisId}`;
+  let analysis; // Defined here to be accessible in the final catch block
 
   try {
     // Get analysis record
-    const analysis = await RepoAnalysis.findById(analysisId);
+    analysis = await RepoAnalysis.findById(analysisId);
     if (!analysis) {
       throw new Error('Analysis record not found');
     }
@@ -299,6 +313,16 @@ async function performRepositoryAnalysis(analysisId, user) {
       duration
     });
 
+    // --- START of Cache Invalidation on Success ---
+    const redisKeyOnSuccess = `analysis:status:${analysis.owner}:${analysis.name}`;
+    try {
+      logger.info(`WORKFLOW SUCCESS: INVALIDATING CACHE for ${redisKeyOnSuccess}`);
+      await redisService.del(redisKeyOnSuccess);
+    } catch (error) {
+      logger.error(`Workflow failed to invalidate cache on success for ${redisKeyOnSuccess}:`, error);
+    }
+    // --- END of Cache Invalidation on Success ---
+
     // Final completion update
     await pusherService.trigger(channelName, 'analysis-complete', {
       step: 'completed',
@@ -326,13 +350,26 @@ async function performRepositoryAnalysis(analysisId, user) {
     });
     
     // Mark as failed
-    const analysis = await RepoAnalysis.findById(analysisId);
+    if (!analysis) {
+      analysis = await RepoAnalysis.findById(analysisId);
+    }
+    
     if (analysis) {
       await analysis.markAsFailed(error.message, {
         stack: error.stack,
         timestamp: new Date(),
         duration: Date.now() - startTime
       });
+
+      // --- START of Cache Invalidation on Failure ---
+      const redisKeyOnFailure = `analysis:status:${analysis.owner}:${analysis.name}`;
+      try {
+        logger.info(`WORKFLOW FAILURE: INVALIDATING CACHE for ${redisKeyOnFailure}`);
+        await redisService.del(redisKeyOnFailure);
+      } catch (redisError) {
+        logger.error(`Workflow failed to invalidate cache on failure for ${redisKeyOnFailure}:`, redisError);
+      }
+      // --- END of Cache Invalidation on Failure ---
     }
     
     throw error;

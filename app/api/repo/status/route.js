@@ -15,6 +15,8 @@ import logger from '@/lib/utils/logger.js';
  * GET /api/repo/status?owner={owner}&name={name}
  * Get analysis status and results
  */
+import { redisService } from '@/lib/utils/redis';
+
 export async function GET(request) {
   try {
     // Check authentication
@@ -26,13 +28,31 @@ export async function GET(request) {
       }, { status: 401 });
     }
 
-    await connectMongoose();
-
     const { searchParams } = new URL(request.url);
     const analysisId = searchParams.get('id');
     const owner = searchParams.get('owner');
     const name = searchParams.get('name');
 
+    // --- START of Caching Logic (GET) ---
+    // Only apply caching when looking up by owner/name
+    if (owner && name) {
+      const redisKey = `analysis:status:${owner}:${name}`;
+      try {
+        const cachedData = await redisService.get(redisKey);
+        if (cachedData) {
+          logger.info(`CACHE HIT for ${redisKey}`);
+          // The cached data is the final API response body, so we can return it directly
+          return NextResponse.json(cachedData);
+        }
+        logger.info(`CACHE MISS for ${redisKey}. Fetching from DB.`);
+      } catch (redisError) {
+        logger.error(`Redis GET error for key ${redisKey}:`, redisError);
+        // Don't block request if Redis fails, just log and proceed to DB
+      }
+    }
+    // --- END of Caching Logic (GET) ---
+
+    await connectMongoose();
     let analysis = null;
 
     if (analysisId) {
@@ -79,10 +99,9 @@ export async function GET(request) {
       await analysis.save();
     }
 
-    // Return analysis data (only include complete data if analysis is finished)
+    // This is the final object we want to return AND cache
     const isCompleted = analysis.status === 'completed';
-    
-    return NextResponse.json({
+    const responsePayload = {
       success: true,
       analysis: {
         id: analysis._id,
@@ -92,7 +111,6 @@ export async function GET(request) {
         fullName: analysis.fullName,
         branch: analysis.branch,
         status: analysis.status,
-        // Only include complete analysis results if status is 'completed'
         summary: isCompleted ? analysis.summary : null,
         metrics: isCompleted ? analysis.metrics : null,
         fileIndex: isCompleted ? analysis.fileIndex : null,
@@ -102,7 +120,24 @@ export async function GET(request) {
         createdAt: analysis.createdAt,
         updatedAt: analysis.updatedAt
       }
-    });
+    };
+
+    // --- START of Caching Logic (SET) ---
+    // Only cache if we looked up by owner/name and the result is final (completed or failed)
+    if (owner && name && (analysis.status === 'completed' || analysis.status === 'failed')) {
+      const redisKey = `analysis:status:${owner}:${name}`;
+      const CACHE_TTL_SECONDS = 300; // 5 minutes
+      try {
+        // Cache the entire successful response payload
+        await redisService.set(redisKey, responsePayload, CACHE_TTL_SECONDS);
+        logger.info(`SET CACHE for ${redisKey}`);
+      } catch (redisError) {
+        logger.error(`Redis SET error for key ${redisKey}:`, redisError);
+      }
+    }
+    // --- END of Caching Logic (SET) ---
+
+    return NextResponse.json(responsePayload);
 
   } catch (error) {
     logger.error('Status check error:', error);

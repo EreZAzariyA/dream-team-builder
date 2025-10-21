@@ -61,24 +61,27 @@ export const useRepositoryData = () => {
       return response.json();
     },
     onSuccess: (data, repository) => {
-      // Manually update the cache with the new analysis in 'pending' status
-      // This prevents showing old/empty data
-      if (data.analysisId) {
-        queryClient.setQueryData(
-          QUERY_KEYS.repositoryStatus(repository.owner.login, repository.name),
-          {
-            id: data.analysisId,
-            repositoryId: repository.id,
-            owner: repository.owner.login,
-            name: repository.name,
-            fullName: repository.full_name,
-            status: 'pending',
-            summary: null,
-            metrics: null,
-            fileIndex: null,
-            createdAt: new Date().toISOString()
-          }
-        );
+      // When analysis starts, or if we get a cached completed analysis back,
+      // we need to update the query cache immediately.
+      const queryKey = QUERY_KEYS.repositoryStatus(repository.owner.login, repository.name);
+
+      if (data.status === 'completed' && data.analysis) {
+        // If the API returned a cached, completed analysis, update the cache with the full data.
+        queryClient.setQueryData(queryKey, data.analysis);
+      } else if (data.analysisId) {
+        // Otherwise, if a new analysis was started, set its status to pending.
+        queryClient.setQueryData(queryKey, {
+          id: data.analysisId,
+          repositoryId: repository.id,
+          owner: repository.owner.login,
+          name: repository.name,
+          fullName: repository.full_name,
+          status: data.status || 'pending', // Use status from response, default to pending
+          summary: null,
+          metrics: null,
+          fileIndex: null,
+          createdAt: new Date().toISOString()
+        });
       }
     },
   });
