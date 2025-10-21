@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../../../../lib/auth/config.js';
-import { AIService } from '../../../../lib/ai/AIService.js';
+import { AIServiceV2 } from '../../../../lib/ai/AIServiceV2.js';
 import logger from '@/lib/utils/logger.js';
 
 /**
@@ -11,7 +11,7 @@ export async function POST(request) {
   try {
     const session = await getServerSession(authOptions);
     const { apiKeys } = await request.json();
-    
+
     if (!apiKeys || typeof apiKeys !== 'object') {
       return NextResponse.json(
         { error: 'Invalid API keys provided' },
@@ -21,7 +21,7 @@ export async function POST(request) {
 
     // For clearing keys, allow empty object
     const hasKeys = apiKeys.openai || apiKeys.gemini;
-    
+
     // If keys are provided, validate them
     if (hasKeys && !apiKeys.openai && !apiKeys.gemini) {
       return NextResponse.json(
@@ -30,25 +30,29 @@ export async function POST(request) {
       );
     }
 
-    // Initialize the AI service with user keys and current user's ID - use singleton instance
-    const userId = session?.user?.id || null;
-    const aiService = AIService.getInstance();
-    const success = await aiService.initialize(apiKeys, userId);
-    
-    if (success) {
+    // Reinitialize the AI service with user keys (V2 API)
+    const aiService = AIServiceV2.getInstance();
+    const initResult = await aiService.reinitialize(apiKeys);
+
+    if (initResult.success) {
       // Get updated health status
       const healthStatus = await aiService.healthCheck();
-      
+
       return NextResponse.json({
         success: true,
-        message: hasKeys ? 'AI service reinitialized with user API keys' : 'AI service reset to limited mode (no API keys)',
+        message: hasKeys
+          ? 'AI service reinitialized with user API keys'
+          : 'AI service reset to limited mode (no API keys)',
+        providers: initResult.providers,
         healthStatus
       });
     } else {
-      return NextResponse.json(
-        { error: 'Failed to reinitialize AI service' },
-        { status: 500 }
-      );
+      logger.error('Reinitialize failed:', initResult.error);
+      return NextResponse.json({
+        error: initResult.error?.message || 'Failed to reinitialize AI service',
+        errorCode: initResult.error?.code,
+        details: initResult.error?.details
+      }, { status: 500 });
     }
   } catch (error) {
     logger.error('AI reinitialize error:', error);

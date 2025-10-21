@@ -6,13 +6,20 @@ import QuickNavigation from '../../../components/dashboard/sections/QuickNavigat
 import SystemOverview from '../../../components/dashboard/sections/SystemOverview';
 import ActiveProjects from '../../../components/dashboard/sections/ActiveProjects';
 import AgentStatus from '../../../components/dashboard/sections/AgentStatus';
+import { useDashboardData } from '../../../components/dashboard/hooks/useDashboardData';
 
 /**
  * Clean, modular dashboard page
  * Real data integration with modern UI components
+ *
+ * NOTE: useDashboardData is called ONCE here to avoid duplicate API calls
+ * Data is passed down as props to child components
  */
 const DashboardPage = () => {
   const { data: session } = useSession();
+
+  // Fetch dashboard data ONCE at the parent level
+  const dashboardData = useDashboardData();
 
   // Get greeting based on time
   const getGreeting = () => {
@@ -45,7 +52,7 @@ const DashboardPage = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.1 }}
       >
-        <QuickNavigation />
+        <QuickNavigation data={dashboardData} />
       </motion.div>
 
       {/* System Overview */}
@@ -54,7 +61,7 @@ const DashboardPage = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.2 }}
       >
-        <SystemOverview />
+        <SystemOverview data={dashboardData} />
       </motion.div>
 
       {/* Active Projects */}

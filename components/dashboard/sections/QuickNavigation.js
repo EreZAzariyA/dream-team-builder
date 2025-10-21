@@ -1,22 +1,23 @@
 'use client';
 
-import { 
-  FolderOpen, 
-  Users, 
-  MessageSquare, 
+import {
+  FolderOpen,
+  Users,
+  MessageSquare,
   BarChart3,
   Settings,
   Search
 } from 'lucide-react';
 import NavigationCard from '../components/NavigationCard';
-import { useDashboardData } from '../hooks/useDashboardData';
 
 /**
  * Clean navigation section
  * Replaces the old GitHub launcher overlay
+ *
+ * @param {Object} data - Dashboard data passed from parent
  */
-const QuickNavigation = () => {
-  const { activeProjects, agentTeams, loading } = useDashboardData();
+const QuickNavigation = ({ data = {} }) => {
+  const { activeProjects = 0, agentTeams = 0, loading = false } = data;
 
   const navigationItems = [
     {

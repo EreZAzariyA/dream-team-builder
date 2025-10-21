@@ -1,30 +1,31 @@
 'use client';
 
-import { 
-  Activity, 
-  Users, 
-  Target, 
+import {
+  Activity,
+  Users,
+  Target,
   Clock,
   TrendingUp,
   Server
 } from 'lucide-react';
 import MetricCard from '../components/MetricCard';
 import HealthIndicator, { HealthCard } from '../components/HealthIndicator';
-import { useDashboardData } from '../hooks/useDashboardData';
 
 /**
  * System overview section with real metrics
+ *
+ * @param {Object} data - Dashboard data passed from parent
  */
-const SystemOverview = () => {
-  const { 
-    activeProjects, 
-    agentTeams, 
-    repositories,
-    systemHealth, 
-    successRate, 
-    totalDeployments,
-    loading 
-  } = useDashboardData();
+const SystemOverview = ({ data = {} }) => {
+  const {
+    activeProjects = 0,
+    agentTeams = 0,
+    repositories = 0,
+    systemHealth = 'good',
+    successRate = 0,
+    totalDeployments = 0,
+    loading = false
+  } = data;
 
   const metrics = [
     {

@@ -3,9 +3,9 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { MessageCircle, Bot, Sparkles, Loader2 } from 'lucide-react';
-import { AgentChat } from '../agent-chat';
+import { AgentChat } from '.';
 import { useAgents } from '@/lib/hooks/useAgents';
-import { getAgentStyle, getAgentDisplayName } from '@/lib/utils/agentHelpers';
+import { getAgentStyle } from '@/lib/utils/agentHelpers';
 
 /**
  * Agent Chat Launcher Component

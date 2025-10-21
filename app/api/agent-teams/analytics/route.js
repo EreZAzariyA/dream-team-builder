@@ -39,7 +39,8 @@ export async function GET(request) {
 
     await connectMongoose();
 
-    logger.info(`📊 [Analytics] Generating analytics for user: ${session.user.id}, range: ${range}`);
+    // Changed from info to debug - this is normal operation, not noteworthy
+    logger.debug(`📊 [Analytics] Generating analytics for user: ${session.user.id}, range: ${range}`);
 
     // Calculate date range
     const now = new Date();
@@ -191,7 +192,10 @@ export async function GET(request) {
 
     const deploymentTrend = calculateTrend(dailyActivity);
 
-    logger.info(`✅ [Analytics] Generated analytics: ${summary.total} deployments, ${summary.successful} successful`);
+    // Changed from info to debug - normal operation, only log if there's actual activity
+    if (summary.total > 0) {
+      logger.debug(`✅ [Analytics] Generated analytics: ${summary.total} deployments, ${summary.successful} successful`);
+    }
 
     return NextResponse.json({
       success: true,

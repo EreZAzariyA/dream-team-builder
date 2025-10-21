@@ -7,11 +7,9 @@ import { useSession } from 'next-auth/react';
 import ChatHeader from './components/ChatHeader';
 import MessagesList from './components/MessagesList';
 import ChatInput from './components/ChatInput';
-import ApiKeyGuard from '../ui/ApiKeyGuard';
 import { usePusherChat } from './hooks/usePusherChat';
 import { useChatPersistence } from './hooks/useChatPersistence';
 import { useChatAPI } from './hooks/useChatAPI';
-import { useApiKeys } from '../../lib/hooks/useApiKeys';
 
 /**
  * Main Agent Chat Interface Component
@@ -32,8 +30,7 @@ const AgentChat = ({
 }) => {
   const { data: session, status } = useSession();
   const user = session?.user;
-  const { hasAnyKeys, missingProviders, loading: apiKeysLoading } = useApiKeys();
-  
+
   // UI State
   const [isOpen, setIsOpen] = useState(true);
   const [isMinimized, setIsMinimized] = useState(false);

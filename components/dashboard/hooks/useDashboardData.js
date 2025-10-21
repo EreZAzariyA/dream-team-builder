@@ -77,10 +77,11 @@ export const useDashboardData = () => {
 
   useEffect(() => {
     fetchDashboardData();
-    
-    // Refresh every 30 seconds
-    const interval = setInterval(fetchDashboardData, 60000);
-    
+
+    // Refresh every 5 minutes (300 seconds) - dashboard data doesn't change frequently
+    // Previous: 60 seconds (too aggressive, caused log spam)
+    const interval = setInterval(fetchDashboardData, 300000);
+
     return () => clearInterval(interval);
   }, []);
 
@@ -158,7 +159,8 @@ export const useActiveProjects = () => {
 
   useEffect(() => {
     fetchActiveProjects();
-    const interval = setInterval(fetchActiveProjects, 15000); // Refresh every 15 seconds
+    // Refresh every 30 seconds (was 15s - too frequent for active projects)
+    const interval = setInterval(fetchActiveProjects, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -235,7 +237,8 @@ export const useAgentStatus = () => {
 
   useEffect(() => {
     fetchAgentStatus();
-    const interval = setInterval(fetchAgentStatus, 20000); // Refresh every 20 seconds
+    // Refresh every 45 seconds (was 20s - too frequent for agent status)
+    const interval = setInterval(fetchAgentStatus, 45000);
     return () => clearInterval(interval);
   }, []);
 

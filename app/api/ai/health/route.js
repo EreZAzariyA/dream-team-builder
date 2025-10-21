@@ -7,7 +7,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../../../../lib/auth/config.js';
 import { compose, withMethods, withAuth, withErrorHandling, withRateLimit, withSecurityHeaders } from '../../../../lib/api/middleware.js';
-import { AIService } from '../../../../lib/ai/AIService.js';
+import { AIServiceV2 } from '../../../../lib/ai/AIServiceV2.js';
 
 /**
  * GET /api/ai/health
@@ -17,19 +17,27 @@ async function GET() {
   try {
     const session = await getServerSession(authOptions);
     const userId = session?.user?.id || null;
-    
-    // Ensure AI service is initialized with user context
-    const aiService = AIService.getInstance();
+
+    // Ensure AI service is initialized with user context (V2 explicit initialization)
+    const aiService = AIServiceV2.getInstance();
     if (!aiService.initialized) {
-      await aiService.initialize(null, userId);
+      const initResult = await aiService.initialize({ userId });
+      if (!initResult.success) {
+        return NextResponse.json({
+          status: 'uninitialized',
+          error: initResult.error?.message || 'Failed to initialize',
+          errorCode: initResult.error?.code,
+          timestamp: new Date().toISOString()
+        }, { status: 503 }); // Service Unavailable
+      }
     }
-    
+
     const healthStatus = await aiService.healthCheck();
-    const systemStatus = aiService.getSystemStatus();
-    
+    const initState = aiService.getInitializationState();
+
     return NextResponse.json({
       ...healthStatus,
-      system: systemStatus,
+      initialization: initState,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
@@ -48,12 +56,12 @@ async function GET() {
 async function POST() {
   try {
     // Force a fresh health check and get the results
-    const aiService = AIService.getInstance();
-    const healthStatus = await aiService.checkHealth();
-    
+    const aiService = AIServiceV2.getInstance();
+    const healthStatus = await aiService.healthCheck();
+
     return NextResponse.json({
       message: 'Health check completed',
-      providers: healthStatus, // checkHealth returns the providers object
+      ...healthStatus,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
@@ -73,18 +81,18 @@ async function PATCH(req) {
   try {
     const body = await req.json();
     const { action, data } = body;
-    
+
     if (action === 'reset-circuit-breakers') {
-      const aiService = AIService.getInstance();
+      const aiService = AIServiceV2.getInstance();
       aiService.resetCircuitBreakers();
       return NextResponse.json({
         message: 'Circuit breakers reset successfully',
         timestamp: new Date().toISOString()
       });
     }
-    
+
     if (action === 'update-provider-priority' && data?.priority) {
-      const aiService = AIService.getInstance();
+      const aiService = AIServiceV2.getInstance();
       aiService.setProviderPriority(data.priority);
       return NextResponse.json({
         message: 'Provider priority updated',
@@ -92,11 +100,11 @@ async function PATCH(req) {
         timestamp: new Date().toISOString()
       });
     }
-    
+
     return NextResponse.json({
       error: 'Invalid action. Supported actions: reset-circuit-breakers, update-provider-priority'
     }, { status: 400 });
-    
+
   } catch (error) {
     return NextResponse.json({
       error: error.message,
