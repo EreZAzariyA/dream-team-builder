@@ -1,16 +1,42 @@
 import { NextResponse } from 'next/server';
 import { AgentLoader } from '@/lib/bmad/AgentLoader.js';
 import logger from '@/lib/utils/logger.js';
+import { redisService } from '@/lib/utils/redis.js';
 
 /**
  * GET /api/bmad/agents
- * Returns all available BMAD agents with their metadata
+ * Returns all available BMAD agents with their metadata (with Redis caching)
  * Used by the agent-chat page and other components that need agent listings
  */
 export async function GET(request) {
   try {
-    logger.info('🔍 Loading all BMAD agents for API response');
-    
+    const { searchParams } = new URL(request.url);
+    const forceRefresh = searchParams.get('forceRefresh') === 'true';
+
+    const redisKey = 'agents:all';
+
+    // Check Redis cache first (unless force refresh)
+    if (!forceRefresh) {
+      try {
+        const cachedAgents = await redisService.get(redisKey);
+        if (cachedAgents) {
+          logger.info('✅ AGENTS CACHE HIT: Loaded from Redis');
+          return NextResponse.json({
+            ...cachedAgents,
+            cached: true,
+            source: 'redis'
+          });
+        }
+        logger.info('⚠️ AGENTS CACHE MISS: Loading from filesystem');
+      } catch (redisError) {
+        logger.error(`Redis GET error for ${redisKey}:`, redisError);
+      }
+    } else {
+      logger.info('🔄 Force refresh requested for agents list');
+    }
+
+    logger.info('🔍 Loading all BMAD agents from filesystem');
+
     // Load agents using AgentLoader (file-based)
     const agentLoader = new AgentLoader();
     await agentLoader.loadAllAgents();
@@ -93,8 +119,8 @@ export async function GET(request) {
     }
     
     logger.info(`✅ Successfully loaded ${agents.length} agents for API response`);
-    
-    return NextResponse.json({
+
+    const responseData = {
       success: true,
       agents,
       metadata: {
@@ -103,6 +129,20 @@ export async function GET(request) {
         source: 'file-based (.bmad-core/agents)',
         agentIds: agents.map(a => a.id)
       }
+    };
+
+    // Cache in Redis (no TTL - persists until server restart)
+    try {
+      await redisService.set(redisKey, responseData);
+      logger.info(`📦 Cached ${agents.length} agents to Redis (no TTL - persists until restart)`);
+    } catch (redisError) {
+      logger.error(`Redis SET error for ${redisKey}:`, redisError);
+    }
+
+    return NextResponse.json({
+      ...responseData,
+      cached: false,
+      source: 'filesystem'
     });
     
   } catch (error) {

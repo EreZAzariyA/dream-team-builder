@@ -18,6 +18,80 @@ import {
 import { useAgents } from '@/lib/hooks/useAgents';
 
 /**
+ * Build dynamic welcome message based on agent capabilities
+ */
+const buildWelcomeMessage = (agent, repository) => {
+  // Try multiple paths to get agent data
+  const agentName = agent.name || agent.agent?.name || agent.id;
+  const agentTitle = agent.title || agent.agent?.title || 'AI Agent';
+  const agentIcon = agent.icon || agent.agent?.icon || '🤖';
+  const whenToUse = agent.whenToUse || agent.agent?.whenToUse;
+  const commands = agent.commands || [];
+  const persona = agent.persona || {};
+
+  let message = `Hello! I'm **${agentName}** ${agentIcon}, your ${agentTitle}.\n\n`;
+  message += `I'm here to help you explore and work with the **${repository.name}** repository.\n\n`;
+
+  // Add "When to use" section if available
+  if (whenToUse) {
+    message += `**Use me for:** ${whenToUse}\n\n`;
+  }
+
+  // Add role/focus if available
+  if (persona.role) {
+    message += `**My expertise:** ${persona.role}\n\n`;
+  }
+
+  // Repository exploration capabilities (always available)
+  message += `**What I can help with:**\n`;
+  message += `- 📊 **Analyze code**: Explain functionality, structure, and technologies\n`;
+  message += `- 📄 **Read files**: Show you specific file contents from the repository\n`;
+  message += `- ✏️ **Make changes**: Modify code and create new files\n`;
+  message += `- 🌿 **Git operations**: Create branches, commits, and push changes\n`;
+  message += `- 🔀 **GitHub integration**: Create pull requests and manage issues\n\n`;
+
+  // Add BMAD commands if available (commands is an array of objects)
+  if (Array.isArray(commands) && commands.length > 0) {
+    const commandNames = commands
+      .map(cmd => Object.keys(cmd)[0])
+      .filter(name => name && name !== 'help' && name !== 'exit'); // Exclude help and exit
+
+    if (commandNames.length > 0) {
+      const displayCommands = commandNames.slice(0, 5); // Show first 5 commands
+      message += `**BMAD Commands** (type * prefix):\n`;
+      displayCommands.forEach(cmd => {
+        message += `- \`*${cmd}\`\n`;
+      });
+      if (commandNames.length > 5) {
+        message += `- _...and ${commandNames.length - 5} more (type \`*help\` to see all)_\n`;
+      }
+      message += `\n`;
+    }
+  }
+
+  // Suggested questions
+  message += `**Try asking me:**\n`;
+  message += `- "What does this repository do?"\n`;
+  message += `- "Show me the package.json file"\n`;
+  message += `- "Explain the main architecture"\n`;
+
+  // Add agent-specific suggestions
+  if (agent.id === 'architect') {
+    message += `- "Create a full-stack architecture document"`;
+  } else if (agent.id === 'analyst') {
+    message += `- "Analyze the codebase and provide insights"`;
+  } else if (agent.id === 'qa') {
+    message += `- "Review the code quality and suggest improvements"`;
+  } else if (agent.id === 'dev') {
+    message += `- "Help me implement a new feature"`;
+  } else {
+    message += `- "Help me understand the codebase"`;
+  }
+
+  return message;
+};
+
+/**
  * Repository Chat Interface Component
  * AI-powered chat about repository code with file citations and BMAD agent personas
  */
@@ -72,6 +146,9 @@ const RepoChatInterface = ({ repository, analysisData }) => {
       if (result.success) {
         setSessionId(result.sessionId);
 
+        // Build dynamic welcome message based on agent capabilities
+        const welcomeContent = buildWelcomeMessage(selectedAgent, repository);
+
         // Add welcome message from the agent
         setMessages([{
           id: 'welcome',
@@ -79,22 +156,7 @@ const RepoChatInterface = ({ repository, analysisData }) => {
           agentId: selectedAgent.id,
           agentName: selectedAgent.agent?.name || selectedAgent.id,
           agentIcon: selectedAgent.agent?.icon || '🤖',
-          content: `Hello! I'm **${selectedAgent.agent?.name || selectedAgent.id}**, your ${selectedAgent.agent?.title || 'AI Agent'}. ${selectedAgent.agent?.icon || '🤖'}
-
-I'm here to help you explore and work with the **${repository.name}** repository.
-
-**What I can do:**
-- **Analyze code**: Explain functionality, structure, and technologies
-- **Read files**: Show you specific file contents
-- **Make changes**: Modify code and create new files
-- **Git operations**: Create branches, commits, and push changes
-- **GitHub integration**: Create pull requests
-
-**Try asking me:**
-- "What does this repository do?"
-- "Show me the package.json file"
-- "Add a new feature to improve error handling"
-- "Create a new branch for my changes"`,
+          content: welcomeContent,
           timestamp: new Date(),
           citations: []
         }]);
@@ -405,7 +467,7 @@ I'm here to help you explore and work with the **${repository.name}** repository
   }
 
   return (
-    <div className="flex h-[calc(100vh-20rem)]">
+    <div className="flex h-screen">
       {/* Agent Sidebar */}
       <div className="w-64 border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex flex-col">
         <div className="p-4 border-b border-gray-200 dark:border-gray-700">

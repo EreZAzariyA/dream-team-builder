@@ -25,6 +25,7 @@ export const GitGraph = ({ repository, analysisData }) => {
   const [selectedBranch, setSelectedBranch] = useState(null);
   const [expandedCommits, setExpandedCommits] = useState(new Set());
   const [viewMode, setViewMode] = useState('commits'); // commits, branches, graph
+  const [cacheInfo, setCacheInfo] = useState(null);
 
   useEffect(() => {
     if (repository && !selectedBranch) {
@@ -62,30 +63,34 @@ export const GitGraph = ({ repository, analysisData }) => {
     }
   };
 
-  const loadGitData = async () => {
+  const loadGitData = async (forceRefresh = false) => {
     if (!repository) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      // Load commits and branches in parallel
-      const [commitsResponse, branchesResponse] = await Promise.all([
-        fetch(`/api/github/git/commits?owner=${repository.owner.login}&repo=${repository.name}&branch=${selectedBranch}&per_page=30`),
-        fetch(`/api/github/repositories/${repository.owner.login}/${repository.name}`)
-      ]);
+      // Load commits (includes branches in response now - much faster!)
+      const commitsResponse = await fetch(
+        `/api/github/git/commits?owner=${repository.owner.login}&repo=${repository.name}&branch=${selectedBranch}&per_page=30&forceRefresh=${forceRefresh}`
+      );
 
       if (!commitsResponse.ok) {
         throw new Error('Failed to fetch git data');
       }
 
       const commitsData = await commitsResponse.json();
-      const repoData = branchesResponse.ok ? await branchesResponse.json() : null;
 
       setGitData({
         commits: commitsData.data?.commits || [],
-        branches: repoData?.context?.git?.branches || [],
-        repository: commitsData.data?.repository
+        branches: commitsData.data?.branches || [],
+        repository: commitsData.data?.repository,
+        defaultBranch: commitsData.data?.defaultBranch || selectedBranch
+      });
+
+      setCacheInfo({
+        cached: commitsData.cached || false,
+        source: commitsData.source || 'github'
       });
 
     } catch (error) {
@@ -94,6 +99,10 @@ export const GitGraph = ({ repository, analysisData }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const refreshGitData = () => {
+    loadGitData(true); // Force refresh
   };
 
   const toggleCommitExpansion = (sha) => {
@@ -183,19 +192,44 @@ export const GitGraph = ({ repository, analysisData }) => {
     <div className="p-6 space-y-6">
       {/* Header Controls */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="flex items-center space-x-4">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
-            <CodeBracketSquareIcon className="w-5 h-5 mr-2" />
-            Git History
-          </h3>
-          {gitData?.repository && (
-            <span className="text-sm text-gray-500 dark:text-gray-400">
-              {gitData.repository}
-            </span>
+        <div className="flex flex-col space-y-1">
+          <div className="flex items-center space-x-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+              <CodeBracketSquareIcon className="w-5 h-5 mr-2" />
+              Git History
+            </h3>
+            {gitData?.repository && (
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                {gitData.repository}
+              </span>
+            )}
+          </div>
+          {cacheInfo && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 ml-7">
+              {cacheInfo.cached ? (
+                <>
+                  <span className="text-green-600 dark:text-green-400">●</span> Loaded from {cacheInfo.source === 'redis' ? 'cache' : cacheInfo.source === 'database' ? 'database' : 'GitHub'}
+                </>
+              ) : (
+                <>
+                  <span className="text-blue-600 dark:text-blue-400">●</span> Freshly fetched from GitHub
+                </>
+              )}
+            </p>
           )}
         </div>
 
         <div className="flex items-center space-x-3">
+          {/* Refresh Button */}
+          <button
+            onClick={refreshGitData}
+            disabled={loading}
+            className="flex items-center space-x-1 px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg transition-colors"
+            title="Refresh git history"
+          >
+            <ArrowPathIcon className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">{loading ? 'Refreshing...' : 'Refresh'}</span>
+          </button>
           {/* View Mode Selector */}
           <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
             {[

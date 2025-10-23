@@ -10,6 +10,7 @@ import RepoAnalysis from '@/lib/database/models/RepoAnalysis.js';
 import RepoChatSession from '@/lib/database/models/RepoChatSession.js';
 import { connectMongoose } from '@/lib/database/mongodb.js';
 import logger from '@/lib/utils/logger.js';
+import redisService from '@/lib/utils/redis.js';
 
 /**
  * POST /api/repo/chat
@@ -63,6 +64,21 @@ export async function POST(request) {
  */
 async function createChatSession(userId, analysisId, repositoryId) {
   try {
+    const redisKey = `chat:session:${userId}:${repositoryId}`;
+
+    // Check Redis cache for existing session
+    const cachedSession = await redisService.get(redisKey);
+    if (cachedSession && cachedSession.sessionId) {
+      logger.info(`✅ CHAT SESSION CACHE HIT: Loaded from Redis`);
+      return NextResponse.json({
+        success: true,
+        sessionId: cachedSession.sessionId,
+        existing: true,
+        cached: true,
+        source: 'redis'
+      });
+    }
+
     // Verify analysis exists and belongs to user
     const analysis = await RepoAnalysis.findById(analysisId);
     if (!analysis || analysis.userId.toString() !== userId) {
@@ -72,7 +88,7 @@ async function createChatSession(userId, analysisId, repositoryId) {
       }, { status: 404 });
     }
 
-    // Check for existing active session
+    // Check for existing active session in DB
     const existingSession = await RepoChatSession.findOne({
       userId,
       repositoryId,
@@ -80,10 +96,22 @@ async function createChatSession(userId, analysisId, repositoryId) {
     }).sort({ lastActivityAt: -1 });
 
     if (existingSession) {
+      // Cache session ID (1 hour TTL)
+      const sessionData = {
+        sessionId: existingSession.sessionId,
+        userId: existingSession.userId.toString(),
+        repositoryId: existingSession.repositoryId,
+        metadata: existingSession.metadata || {}
+      };
+      await redisService.set(redisKey, sessionData, 3600);
+      logger.info(`📦 Cached chat session to Redis (1 hour TTL)`);
+
       return NextResponse.json({
         success: true,
         sessionId: existingSession.sessionId,
-        existing: true
+        existing: true,
+        cached: false,
+        source: 'database'
       });
     }
 
@@ -99,10 +127,22 @@ async function createChatSession(userId, analysisId, repositoryId) {
       }
     );
 
+    // Cache new session (1 hour TTL)
+    const sessionData = {
+      sessionId: chatSession.sessionId,
+      userId: chatSession.userId.toString(),
+      repositoryId: chatSession.repositoryId,
+      metadata: chatSession.metadata || {}
+    };
+    await redisService.set(redisKey, sessionData, 3600);
+    logger.info(`📦 Cached new chat session to Redis (1 hour TTL)`);
+
     return NextResponse.json({
       success: true,
       sessionId: chatSession.sessionId,
-      existing: false
+      existing: false,
+      cached: false,
+      source: 'created'
     });
 
   } catch (error) {

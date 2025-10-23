@@ -9,10 +9,11 @@ import { authOptions } from '@/lib/auth/config.js';
 import RepoAnalysis from '@/lib/database/models/RepoAnalysis.js';
 import { connectMongoose } from '@/lib/database/mongodb.js';
 import logger from '@/lib/utils/logger.js';
+import { redisService } from '@/lib/utils/redis.js';
 
 /**
  * POST /api/repo/insights
- * Generate repository insights and suggestions
+ * Generate repository insights and suggestions (with caching)
  */
 export async function POST(request) {
   try {
@@ -28,7 +29,7 @@ export async function POST(request) {
     await connectMongoose();
 
     const body = await request.json();
-    const { analysisId, repositoryId } = body;
+    const { analysisId, repositoryId, forceRefresh = false } = body;
 
     if (!analysisId) {
       return NextResponse.json({
@@ -46,12 +47,84 @@ export async function POST(request) {
       }, { status: 404 });
     }
 
-    // Generate insights
+    const redisKey = `insights:${analysisId}`;
+
+    // Check Redis cache first (unless force refresh)
+    if (!forceRefresh) {
+      try {
+        const cachedInsights = await redisService.get(redisKey);
+        if (cachedInsights) {
+          logger.info(`✅ CACHE HIT for insights: ${redisKey}`);
+          return NextResponse.json({
+            success: true,
+            insights: cachedInsights,
+            cached: true,
+            source: 'redis'
+          });
+        }
+        logger.info(`⚠️ CACHE MISS for insights: ${redisKey}`);
+      } catch (redisError) {
+        logger.error(`Redis GET error for ${redisKey}:`, redisError);
+        // Continue to DB check
+      }
+
+      // Check DB cache (if insights exist and not too old)
+      if (analysis.insights && analysis.insights.generatedAt) {
+        const insightsAge = Date.now() - new Date(analysis.insights.generatedAt).getTime();
+        const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+
+        if (insightsAge < maxAge) {
+          logger.info(`✅ DB CACHE HIT for insights (${Math.round(insightsAge / 1000 / 60)} minutes old)`);
+
+          // Store in Redis for faster access next time
+          try {
+            await redisService.set(redisKey, analysis.insights, 3600); // 1 hour TTL
+            logger.info(`📦 Cached insights to Redis: ${redisKey}`);
+          } catch (redisError) {
+            logger.error(`Redis SET error for ${redisKey}:`, redisError);
+          }
+
+          return NextResponse.json({
+            success: true,
+            insights: analysis.insights,
+            cached: true,
+            source: 'database'
+          });
+        } else {
+          logger.info(`⏰ Insights are stale (${Math.round(insightsAge / 1000 / 60 / 60)} hours old), regenerating...`);
+        }
+      }
+    } else {
+      logger.info(`🔄 Force refresh requested for insights: ${redisKey}`);
+    }
+
+    // Generate new insights
+    logger.info(`🤖 Generating fresh insights with QA agent for ${analysisId}`);
     const insights = await generateRepositoryInsights(analysis, session.user.id);
+
+    // Save to database
+    analysis.insights = {
+      ...insights,
+      generatedAt: new Date(),
+      generatedBy: 'qa',
+      version: '1.0'
+    };
+    await analysis.save();
+    logger.info(`💾 Saved insights to database for ${analysisId}`);
+
+    // Cache in Redis (1 hour TTL)
+    try {
+      await redisService.set(redisKey, analysis.insights, 3600);
+      logger.info(`📦 Cached insights to Redis: ${redisKey} (TTL: 1 hour)`);
+    } catch (redisError) {
+      logger.error(`Redis SET error for ${redisKey}:`, redisError);
+    }
 
     return NextResponse.json({
       success: true,
-      insights
+      insights: analysis.insights,
+      cached: false,
+      source: 'generated'
     });
 
   } catch (error) {

@@ -313,7 +313,7 @@ export const RepoExplorerPage = () => {
                 </div>
 
                 {/* Tab Content */}
-                <div className="p-6">
+                <div className={activeTab === 'chat' ? '' : 'p-6'}>
                   <AnimatePresence mode="wait">
                     <motion.div
                       key={activeTab}
@@ -323,7 +323,7 @@ export const RepoExplorerPage = () => {
                       transition={{ duration: 0.2 }}
                     >
                       {activeTab === 'overview' && analysisData?.status === 'completed' && (
-                        <RepoOverview 
+                        <RepoOverview
                           repository={selectedRepository}
                           analysisData={analysisData}
                           onRegenerateSummary={handleRegenerateSummary}
@@ -349,7 +349,7 @@ export const RepoExplorerPage = () => {
                         </div>
                       )}
                       {activeTab === 'files' && analysisData?.status === 'completed' && (
-                        <FileTreeViewer 
+                        <FileTreeViewer
                           repository={selectedRepository}
                           analysisData={analysisData}
                         />
@@ -360,7 +360,7 @@ export const RepoExplorerPage = () => {
                         </div>
                       )}
                       {activeTab === 'git' && (
-                        <GitGraph 
+                        <GitGraph
                           repository={selectedRepository}
                           analysisData={analysisData}
                         />
@@ -373,7 +373,7 @@ export const RepoExplorerPage = () => {
                             subtitle="We're working hard to bring you advanced repository analysis capabilities. This feature will be available soon!"
                           />
                         ) : (
-                          <WorkflowSelector 
+                          <WorkflowSelector
                             repository={selectedRepository}
                             analysisData={analysisData}
                           />
@@ -381,13 +381,13 @@ export const RepoExplorerPage = () => {
                         </>
                       )}
                       {activeTab === 'chat' && (
-                        <RepoChatInterface 
+                        <RepoChatInterface
                           repository={selectedRepository}
                           analysisData={analysisData}
                         />
                       )}
                       {activeTab === 'insights' && analysisData?.status === 'completed' && (
-                        <RepoInsights 
+                        <RepoInsights
                           repository={selectedRepository}
                           analysisData={analysisData}
                         />
