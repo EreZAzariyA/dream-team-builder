@@ -233,10 +233,14 @@ const WorkflowSelector = ({ repository, analysisData }) => {
   const [workflows, setWorkflows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
   const [selectedWorkflow, setSelectedWorkflow] = useState(null);
   const [viewMode, setViewMode] = useState('templates'); // 'templates', 'user-workflows'
   const [executingWorkflow, setExecutingWorkflow] = useState(null); // Track executing workflow
   const [workflowInstanceId, setWorkflowInstanceId] = useState(null); // Track workflow instance
+  const [searchQuery, setSearchQuery] = useState('');
+  const [complexityFilter, setComplexityFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
 
   useEffect(() => {
     if (repository) {
@@ -252,17 +256,55 @@ const WorkflowSelector = ({ repository, analysisData }) => {
 
     try {
       const response = await fetch('/api/workflows/templates');
+
       if (!response.ok) {
-        throw new Error('Failed to fetch workflows');
+        // Provide specific error messages based on status code
+        let errorMessage = 'Failed to fetch workflows';
+        let errorType = 'server';
+
+        if (response.status === 401 || response.status === 403) {
+          errorMessage = 'Authentication required. Please sign in again.';
+          errorType = 'auth';
+        } else if (response.status === 404) {
+          errorMessage = 'Workflow service not found. Please contact support.';
+          errorType = 'not_found';
+        } else if (response.status >= 500) {
+          errorMessage = 'Server error. Our team has been notified.';
+          errorType = 'server';
+        } else if (!navigator.onLine) {
+          errorMessage = 'No internet connection. Please check your network.';
+          errorType = 'network';
+        }
+
+        throw new Error(JSON.stringify({ message: errorMessage, type: errorType, status: response.status }));
       }
 
       const data = await response.json();
       setWorkflows(data.templates || []);
+      setRetryCount(0); // Reset retry count on success
     } catch (error) {
-      setError(error.message);
+      let parsedError;
+      try {
+        parsedError = JSON.parse(error.message);
+      } catch {
+        parsedError = {
+          message: error.message || 'An unexpected error occurred',
+          type: 'unknown'
+        };
+      }
+      setError(parsedError);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRetry = () => {
+    setRetryCount(prev => prev + 1);
+    // Exponential backoff: wait 1s, 2s, 4s, 8s...
+    const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
+    setTimeout(() => {
+      loadWorkflows();
+    }, delay);
   };
 
   const handleWorkflowSelect = (workflow) => {
@@ -359,27 +401,97 @@ const WorkflowSelector = ({ repository, analysisData }) => {
     return colors[type] || 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
   };
 
+  // Skeleton loader component
+  const WorkflowCardSkeleton = () => (
+    <div className="bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 p-6 animate-pulse">
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex-1">
+          <div className="h-5 bg-gray-300 dark:bg-gray-600 rounded w-3/4 mb-2"></div>
+          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
+          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-5/6 mt-1"></div>
+        </div>
+      </div>
+      <div className="space-y-3 mb-4">
+        <div className="flex items-center space-x-2">
+          <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full w-20"></div>
+          <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full w-16"></div>
+        </div>
+        <div className="flex items-center justify-between">
+          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
+          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
+        </div>
+      </div>
+      <div className="flex items-center space-x-2">
+        <div className="h-9 bg-gray-300 dark:bg-gray-600 rounded flex-1"></div>
+        <div className="h-9 w-9 bg-gray-200 dark:bg-gray-700 rounded"></div>
+      </div>
+    </div>
+  );
+
   if (loading) {
     return (
-      <div className="p-8 text-center">
-        <ArrowPathIcon className="w-8 h-8 text-blue-500 animate-spin mx-auto mb-4" />
-        <p className="text-gray-600 dark:text-gray-400">Loading workflows...</p>
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="flex items-center space-x-4">
+            <div className="h-6 bg-gray-300 dark:bg-gray-600 rounded w-48 animate-pulse"></div>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <WorkflowCardSkeleton key={i} />
+          ))}
+        </div>
       </div>
     );
   }
 
   if (error) {
+    const getErrorIcon = () => {
+      if (error.type === 'network') return '📡';
+      if (error.type === 'auth') return '🔒';
+      if (error.type === 'not_found') return '🔍';
+      return '⚠️';
+    };
+
+    const getErrorColor = () => {
+      if (error.type === 'network') return 'text-orange-600 dark:text-orange-400';
+      if (error.type === 'auth') return 'text-yellow-600 dark:text-yellow-400';
+      return 'text-red-600 dark:text-red-400';
+    };
+
     return (
       <div className="p-8 text-center">
-        <ExclamationTriangleIcon className="w-8 h-8 text-red-500 mx-auto mb-4" />
-        <p className="text-red-600 dark:text-red-400 mb-4">Failed to load workflows</p>
-        <p className="text-sm text-gray-500 dark:text-gray-400">{error}</p>
-        <button 
-          onClick={loadWorkflows}
-          className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
-        >
-          Retry
-        </button>
+        <div className="text-6xl mb-4">{getErrorIcon()}</div>
+        <p className={`${getErrorColor()} font-semibold mb-2`}>
+          {error.message || 'Failed to load workflows'}
+        </p>
+        {error.status && (
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+            Error Code: {error.status}
+          </p>
+        )}
+        <div className="flex items-center justify-center space-x-3 mt-6">
+          <button
+            onClick={handleRetry}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors flex items-center space-x-2"
+          >
+            <ArrowPathIcon className="w-4 h-4" />
+            <span>Retry{retryCount > 0 ? ` (${retryCount})` : ''}</span>
+          </button>
+          {error.type === 'auth' && (
+            <button
+              onClick={() => window.location.href = '/auth/signin'}
+              className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors"
+            >
+              Sign In
+            </button>
+          )}
+        </div>
+        {retryCount > 0 && (
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-4">
+            Retrying in {Math.min(Math.pow(2, retryCount), 10)} seconds...
+          </p>
+        )}
       </div>
     );
   }
@@ -391,7 +503,10 @@ const WorkflowSelector = ({ repository, analysisData }) => {
     const [isConnected, setIsConnected] = useState(false);
     const [inputMessage, setInputMessage] = useState('');
     const [isLoading, setIsLoading] = useState(true);
+    const [progress, setProgress] = useState({ current: 0, total: 0, percentage: 0, eta: null });
+    const [isPaused, setIsPaused] = useState(false);
     const messagesEndRef = useRef(null);
+    const startTimeRef = useRef(Date.now());
     
     // Use the custom Pusher hook
     const { setupPusherSubscription, cleanup: cleanupPusher } = usePusherChat();
@@ -444,16 +559,74 @@ const WorkflowSelector = ({ repository, analysisData }) => {
         if (response.ok) {
           const data = await response.json();
           setWorkflowData(data);
-          
+
           // Load existing messages from workflow data
           if (data.communication?.timeline) {
             setMessages(data.communication.timeline);
           }
+
+          // Calculate progress
+          if (data.workflow && data.workflow.sequence) {
+            const total = data.workflow.sequence.length;
+            const current = data.progress?.currentStep || 0;
+            const percentage = total > 0 ? Math.round((current / total) * 100) : 0;
+
+            // Calculate ETA based on elapsed time and progress
+            const elapsed = Date.now() - startTimeRef.current;
+            const avgTimePerStep = current > 0 ? elapsed / current : 0;
+            const remainingSteps = total - current;
+            const etaMs = avgTimePerStep * remainingSteps;
+            const etaMinutes = Math.round(etaMs / 60000);
+
+            setProgress({
+              current,
+              total,
+              percentage,
+              eta: etaMinutes > 0 ? `${etaMinutes} min` : null
+            });
+          }
+
+          // Check if paused
+          setIsPaused(data.status === 'PAUSED' || data.status === 'PAUSED_FOR_ELICITATION');
         } else {
           // Failed to load workflow data
         }
       } catch (error) {
         // Error loading workflow data
+      }
+    };
+
+    const handlePauseResume = async () => {
+      try {
+        const action = isPaused ? 'resume' : 'pause';
+        const response = await fetch(`/api/workflows/${workflowId}/${action}`, {
+          method: 'POST'
+        });
+
+        if (response.ok) {
+          setIsPaused(!isPaused);
+          await loadWorkflowData();
+        }
+      } catch (error) {
+        console.error(`Failed to ${isPaused ? 'resume' : 'pause'} workflow:`, error);
+      }
+    };
+
+    const handleCancel = async () => {
+      if (!confirm('Are you sure you want to cancel this workflow? This action cannot be undone.')) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/workflows/${workflowId}/cancel`, {
+          method: 'POST'
+        });
+
+        if (response.ok) {
+          onClose();
+        }
+      } catch (error) {
+        console.error('Failed to cancel workflow:', error);
       }
     };
     
@@ -639,24 +812,78 @@ const WorkflowSelector = ({ repository, analysisData }) => {
         className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-lg"
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center space-x-3">
-            <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-            <div>
-              <h3 className="font-semibold text-gray-900 dark:text-white">
-                {workflow.name} - Live Monitor
-              </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Workflow ID: {workflowId}
-              </p>
+        <div className="border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between p-4">
+            <div className="flex items-center space-x-3">
+              <div className={`w-3 h-3 rounded-full ${isPaused ? 'bg-yellow-500' : 'bg-green-500 animate-pulse'}`}></div>
+              <div>
+                <h3 className="font-semibold text-gray-900 dark:text-white">
+                  {workflow.name} - Live Monitor
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {progress.total > 0 ? `Step ${progress.current} of ${progress.total}` : 'Starting...'}
+                  {progress.eta && ` • ETA: ${progress.eta}`}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={handlePauseResume}
+                className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                title={isPaused ? 'Resume' : 'Pause'}
+              >
+                {isPaused ? (
+                  <PlayIcon className="w-5 h-5" />
+                ) : (
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M5 4h3v12H5V4zm7 0h3v12h-3V4z" />
+                  </svg>
+                )}
+              </button>
+              <button
+                onClick={handleCancel}
+                className="p-2 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                title="Cancel Workflow"
+              >
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+              <button
+                onClick={onClose}
+                className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                title="Close Monitor"
+              >
+                <ChevronRightIcon className="w-5 h-5" />
+              </button>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-          >
-            <XMarkIcon className="w-5 h-5" />
-          </button>
+
+          {/* Progress Bar */}
+          {progress.total > 0 && (
+            <div className="px-4 pb-3">
+              <div className="relative w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${progress.percentage}%` }}
+                  transition={{ duration: 0.5 }}
+                  className={`absolute top-0 left-0 h-full rounded-full ${
+                    isPaused
+                      ? 'bg-yellow-500'
+                      : 'bg-gradient-to-r from-blue-500 to-green-500'
+                  }`}
+                />
+              </div>
+              <div className="flex justify-between items-center mt-1">
+                <span className="text-xs text-gray-600 dark:text-gray-400">
+                  {progress.percentage}% complete
+                </span>
+                {isPaused && (
+                  <span className="text-xs text-yellow-600 dark:text-yellow-400 font-medium">
+                    ⏸ Paused
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
         </div>
         
         {/* Chat Area */}
@@ -748,9 +975,26 @@ const WorkflowSelector = ({ repository, analysisData }) => {
     setWorkflowInstanceId(null);
   };
 
+  // Filter workflows based on search and filters
+  const filteredWorkflows = workflows.filter(workflow => {
+    // Search filter
+    const matchesSearch = searchQuery === '' ||
+      workflow.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      workflow.description?.toLowerCase().includes(searchQuery.toLowerCase());
+
+    // Complexity filter
+    const matchesComplexity = complexityFilter === 'all' ||
+      workflow.decision_guidance?.complexity?.toLowerCase() === complexityFilter;
+
+    // Type filter
+    const matchesType = typeFilter === 'all' || workflow.type === typeFilter;
+
+    return matchesSearch && matchesComplexity && matchesType;
+  });
+
   return (
     <div className="space-y-6">
-      
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center space-x-4">
@@ -762,6 +1006,40 @@ const WorkflowSelector = ({ repository, analysisData }) => {
             for {repository.name}
           </span>
         </div>
+      </div>
+
+      {/* Search and Filters */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex-1">
+          <input
+            type="text"
+            placeholder="Search workflows..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+          />
+        </div>
+        <select
+          value={complexityFilter}
+          onChange={(e) => setComplexityFilter(e.target.value)}
+          className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+        >
+          <option value="all">All Complexity</option>
+          <option value="simple">Simple</option>
+          <option value="moderate">Moderate</option>
+          <option value="complex">Complex</option>
+        </select>
+        <select
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value)}
+          className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+        >
+          <option value="all">All Types</option>
+          <option value="greenfield">Greenfield</option>
+          <option value="brownfield">Brownfield</option>
+          <option value="maintenance">Maintenance</option>
+          <option value="enhancement">Enhancement</option>
+        </select>
       </div>
 
       {/* Repository Context */}
@@ -792,9 +1070,15 @@ const WorkflowSelector = ({ repository, analysisData }) => {
       )}
 
       {/* Workflows Grid */}
-      {workflows.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {workflows.map((workflow) => (
+      {filteredWorkflows.length > 0 ? (
+        <>
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Showing {filteredWorkflows.length} of {workflows.length} workflow{workflows.length !== 1 ? 's' : ''}
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredWorkflows.map((workflow) => (
             <motion.div
               key={workflow.id}
               initial={{ opacity: 0, scale: 0.95 }}
@@ -840,10 +1124,29 @@ const WorkflowSelector = ({ repository, analysisData }) => {
                     )}
                   </div>
 
-                  {/* Agents and Steps */}
+                  {/* Agents with Avatars */}
                   <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-                    <div className="flex items-center space-x-1">
-                      <UserIcon className="w-3 h-3" />
+                    <div className="flex items-center space-x-2">
+                      {workflow.sequence?.length > 0 ? (
+                        <div className="flex -space-x-2">
+                          {workflow.sequence.slice(0, 3).map((step, idx) => (
+                            <div
+                              key={idx}
+                              className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 border-2 border-white dark:border-gray-800 flex items-center justify-center text-white text-xs font-semibold"
+                              title={step.agent}
+                            >
+                              {step.agent?.charAt(0).toUpperCase()}
+                            </div>
+                          ))}
+                          {workflow.sequence.length > 3 && (
+                            <div className="w-6 h-6 rounded-full bg-gray-300 dark:bg-gray-600 border-2 border-white dark:border-gray-800 flex items-center justify-center text-gray-700 dark:text-gray-300 text-xs">
+                              +{workflow.sequence.length - 3}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <UserIcon className="w-3 h-3" />
+                      )}
                       <span>{workflow.sequence?.length || 0} agents</span>
                     </div>
                     {workflow.decision_guidance?.estimated_time && (
@@ -899,6 +1202,27 @@ const WorkflowSelector = ({ repository, analysisData }) => {
               </div>
             </motion.div>
           ))}
+        </div>
+        </>
+      ) : workflows.length > 0 ? (
+        <div className="text-center py-12">
+          <div className="text-4xl mb-4">🔍</div>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+            No Matching Workflows
+          </h3>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">
+            Try adjusting your search or filters
+          </p>
+          <button
+            onClick={() => {
+              setSearchQuery('');
+              setComplexityFilter('all');
+              setTypeFilter('all');
+            }}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
+          >
+            Clear Filters
+          </button>
         </div>
       ) : (
         <div className="text-center py-12">

@@ -569,12 +569,12 @@ async function generateAIInsights(analysis, userId) {
     prompt += `   - Architectural patterns and decisions\n\n`;
 
     prompt += `## Output Format\n\n`;
-    prompt += `Respond ONLY with a JSON array containing 8-12 insights. Each insight must have:\n`;
+    prompt += `Respond ONLY with a JSON array containing 5-7 insights (not more to avoid truncation). Each insight must have:\n`;
     prompt += `- category: one of ["security", "performance", "codeQuality", "maintainability", "testing"]\n`;
     prompt += `- severity: one of ["low", "medium", "high", "critical"]\n`;
     prompt += `- title: brief title (max 60 chars)\n`;
-    prompt += `- description: detailed explanation (100-150 words)\n`;
-    prompt += `- suggestion: specific actionable recommendation with concrete steps\n`;
+    prompt += `- description: detailed explanation (80-120 words, concise)\n`;
+    prompt += `- suggestion: specific actionable recommendation (max 100 words)\n`;
     prompt += `- files: array of affected file paths (if applicable, max 3)\n\n`;
 
     prompt += `**Example format:**\n`;
@@ -597,13 +597,32 @@ async function generateAIInsights(analysis, userId) {
     prompt += `- Output ONLY valid JSON, no markdown code blocks, no explanations before or after\n`;
     prompt += `- Ensure the JSON is properly formatted and parseable`;
 
-    const response = await aiService.call(prompt, qaAgent, 3, {
+    // Use callWithTools() instead of call() to avoid LangChain Gemini JSON bug
+    // Bug: https://github.com/langchain-ai/langchainjs/issues/7848
+    // generateText() with Gemini crashes on JSON requests due to MALFORMED_FUNCTION_CALL
+    // callWithTools() uses our manual Gemini loop which works correctly
+    // Note: We don't actually use any tools here, but this routes through the working code path
+    const response = await aiService.callWithTools(prompt, qaAgent, 3, {
       action: 'repository_insights',
       repositoryId: analysis.repositoryId,
       maxTokens: 8000 // Increased for comprehensive insights (8-12 items)
     }, analysis.userId.toString());
 
-    return parseAIInsights(response.content);
+    logger.info(`📊 AI Insights response: ${JSON.stringify({
+      hasResponse: !!response,
+      responseKeys: response ? Object.keys(response) : [],
+      hasContent: !!response?.content,
+      hasText: !!response?.text,
+      contentType: typeof response?.content,
+      textType: typeof response?.text,
+      contentLength: response?.content?.length || 0,
+      textLength: response?.text?.length || 0,
+      contentPreview: (response?.content || response?.text || '').substring(0, 200)
+    })}`);
+
+    // Try both .content and .text (generateWithTools returns both)
+    const aiContent = response.content || response.text || '';
+    return parseAIInsights(aiContent);
 
   } catch (error) {
     logger.error('Failed to generate AI insights:', error);
@@ -621,15 +640,24 @@ function parseAIInsights(aiResponse) {
     // Clean up the response - remove markdown code blocks if present
     let cleanedResponse = aiResponse.trim();
 
+    logger.info(`🔍 Parsing AI insights - original length: ${aiResponse.length}`);
+
     // Remove markdown code blocks (```json ... ```)
     cleanedResponse = cleanedResponse.replace(/```json\s*/g, '').replace(/```\s*$/g, '');
+
+    logger.info(`🔍 After removing markdown blocks - length: ${cleanedResponse.length}`);
+    logger.info(`🔍 Cleaned response preview: ${cleanedResponse.substring(0, 300)}`);
 
     // Try to find JSON array in the response
     const jsonMatch = cleanedResponse.match(/\[[\s\S]*\]/);
     if (!jsonMatch) {
       logger.warn('No JSON array found in AI insights response');
+      logger.warn(`Cleaned response: ${cleanedResponse.substring(0, 500)}`);
       return [];
     }
+
+    logger.info(`🔍 Found JSON array - length: ${jsonMatch[0].length}`);
+    logger.info(`🔍 JSON preview: ${jsonMatch[0].substring(0, 300)}`);
 
     const parsedInsights = JSON.parse(jsonMatch[0]);
 
@@ -653,8 +681,8 @@ function parseAIInsights(aiResponse) {
     }));
 
   } catch (error) {
-    logger.error('Failed to parse AI insights JSON:', error.message);
-    logger.debug('AI Response:', aiResponse.substring(0, 500));
+    logger.error(`Failed to parse AI insights JSON: ${error.message}`);
+    logger.error(`Full AI response for debugging: ${aiResponse}`);
     return [];
   }
 }
