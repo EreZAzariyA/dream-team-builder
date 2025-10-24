@@ -34,14 +34,17 @@ export async function POST(request) {
 
     switch (action) {
       case 'create_session':
-        return await createChatSession(session.user.id, analysisId, repositoryId);
-      
+        return await createChatSession(session.user.id, analysisId, repositoryId, body.agentId);
+
+      case 'generate_welcome':
+        return await generateWelcomeMessage(session.user.id, analysisId, repositoryId, body.agentId);
+
       case 'send_message':
         return await sendChatMessage(sessionId, message, analysisId, session.user.id);
-      
+
       case 'get_history':
         return await getChatHistory(sessionId, session.user.id);
-      
+
       default:
         return NextResponse.json({
           success: false,
@@ -60,9 +63,84 @@ export async function POST(request) {
 }
 
 /**
+ * Generate AI welcome message based on agent persona
+ */
+async function generateWelcomeMessage(userId, analysisId, repositoryId, agentId) {
+  try {
+    // Load agent
+    const { AgentLoader } = await import('@/lib/bmad/AgentLoader.js');
+    const agentLoader = new AgentLoader();
+    await agentLoader.loadAllAgents();
+    const agent = await agentLoader.loadAgent(agentId);
+
+    if (!agent) {
+      return NextResponse.json({
+        success: false,
+        error: 'Agent not found'
+      }, { status: 404 });
+    }
+
+    // Get analysis data
+    const analysis = await RepoAnalysis.findById(analysisId);
+    if (!analysis || analysis.userId.toString() !== userId) {
+      return NextResponse.json({
+        success: false,
+        error: 'Analysis not found or access denied'
+      }, { status: 404 });
+    }
+
+    // Initialize AI service
+    const { aiService } = await import('@/lib/ai/AIService.js');
+    if (!aiService.initialized) {
+      await aiService.initialize(null, userId);
+    }
+
+    // Build welcome prompt for the agent
+    let prompt = `You are ${agent.agent?.name || agent.id}, ${agent.agent?.title || 'an AI Agent'}.\n\n`;
+
+    if (agent.persona) {
+      if (agent.persona.role) prompt += `Your role: ${agent.persona.role}\n`;
+      if (agent.persona.identity) prompt += `Your identity: ${agent.persona.identity}\n`;
+      if (agent.persona.style) prompt += `Your communication style: ${agent.persona.style}\n`;
+    }
+
+    prompt += `\nRepository: ${analysis.fullName}\n`;
+    prompt += `Description: ${analysis.summary || 'No description available'}\n\n`;
+
+    prompt += `Generate a brief, personalized welcome message (2-3 sentences) for the user. `;
+    prompt += `Introduce yourself using your name and role, and briefly explain how you can help them with this repository. `;
+    prompt += `Be friendly and professional. Do NOT list specific commands or capabilities - just a warm greeting.`;
+
+    // Generate welcome message using AI
+    const result = await aiService.executeWithRetryAndFallback(
+      prompt,
+      agent,
+      1, // Low complexity for simple greeting
+      { action: 'generate_welcome', repositoryId },
+      userId
+    );
+
+    return NextResponse.json({
+      success: true,
+      welcomeMessage: result.text || result.content,
+      agentName: agent.agent?.name || agent.id,
+      agentIcon: agent.agent?.icon || '🤖'
+    });
+
+  } catch (error) {
+    logger.error('Generate welcome message error:', error);
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to generate welcome message',
+      details: error.message
+    }, { status: 500 });
+  }
+}
+
+/**
  * Create new chat session
  */
-async function createChatSession(userId, analysisId, repositoryId) {
+async function createChatSession(userId, analysisId, repositoryId, agentId) {
   try {
     const redisKey = `chat:session:${userId}:${repositoryId}`;
 

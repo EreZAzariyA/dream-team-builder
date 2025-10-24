@@ -1,6 +1,7 @@
 /**
  * Repository Chat Streaming API
- * Real-time streaming with tool execution progress using Vercel AI SDK
+ * Real-time streaming with tool execution progress
+ * Supports both LangChain and Vercel AI SDK (feature flag)
  */
 
 import { getServerSession } from 'next-auth';
@@ -11,6 +12,7 @@ import { connectMongoose } from '@/lib/database/mongodb.js';
 import logger from '@/lib/utils/logger.js';
 import { streamText, stepCountIs } from 'ai';
 import { tools } from '@/lib/ai/tools/index.js';
+import { langchainTools } from '@/lib/ai/tools/langchain.js';
 
 export const maxDuration = 30;
 export const runtime = 'nodejs';
@@ -111,72 +113,79 @@ export async function POST(request) {
     const systemPrompt = buildSystemPrompt(repoContext, workingBranch, agent);
     const userPrompt = buildUserPrompt(message, conversationContext);
 
-    // Get AI model
-    const model = aiService.aiSdkService.getModel('auto');
+    // Feature flag: Use LangChain or Vercel AI SDK
+    const useLangChain = process.env.USE_LANGCHAIN === 'true' || aiService.useLangChain === true;
 
-    logger.info('🚀 Starting streaming chat with tools');
+    logger.info(`🚀 Starting streaming chat with tools using ${useLangChain ? 'LangChain' : 'Vercel AI SDK'}`);
 
-    // Stream with AI SDK
-    const result = streamText({
-      model,
-      messages: [{ role: 'user', content: userPrompt }],
-      system: systemPrompt,
-      tools,
-      stopWhen: stepCountIs(5),
-      temperature: 0.7,
-      maxTokens: 4000,
-      onStepFinish({ stepType, finishReason, usage }) {
-        // Log each step as it completes (stepIndex not provided by AI SDK)
-        logger.info(`✅ Step finished:`, {
-          stepType,
-          finishReason,
-          usage: {
-            inputTokens: usage?.inputTokens || 0,
-            outputTokens: usage?.outputTokens || 0,
-            totalTokens: usage?.totalTokens || 0
-          }
-        });
-      },
-      async onFinish({ text, toolCalls, toolResults, steps, usage }) {
-        // Save final message to database
-        logger.info(`🏁 Stream finished:`, {
-          totalSteps: steps?.length || 0,
-          totalToolCalls: toolCalls?.length || 0,
-          textLength: text?.length || 0,
-          usage
-        });
+    if (useLangChain) {
+      // LangChain streaming
+      return await streamWithLangChain({
+        aiService,
+        chatSession,
+        systemPrompt,
+        userPrompt,
+        toolExecutor,
+        session
+      });
+    } else {
+      // Vercel AI SDK streaming (original)
+      const model = aiService.aiSdkService.getModel('auto');
 
-        try {
-          // Add AI message to chat session
-          const aiMessage = chatSession.addMessage('assistant', text || 'Operation completed', {
-            toolResults: toolResults || [],
-            usage,
-            steps: steps?.length || 0
+      const result = streamText({
+        model,
+        messages: [{ role: 'user', content: userPrompt }],
+        system: systemPrompt,
+        tools,
+        stopWhen: stepCountIs(5),
+        temperature: 0.7,
+        maxTokens: 4000,
+        onStepFinish({ stepType, finishReason, usage }) {
+          logger.info(`✅ Step finished:`, {
+            stepType,
+            finishReason,
+            usage: {
+              inputTokens: usage?.inputTokens || 0,
+              outputTokens: usage?.outputTokens || 0,
+              totalTokens: usage?.totalTokens || 0
+            }
+          });
+        },
+        async onFinish({ text, toolCalls, toolResults, steps, usage }) {
+          logger.info(`🏁 Stream finished:`, {
+            totalSteps: steps?.length || 0,
+            totalToolCalls: toolCalls?.length || 0,
+            textLength: text?.length || 0,
+            usage
           });
 
-          // Save branch context
-          const currentBranch = toolExecutor.getCurrentWorkingBranch();
-          if (currentBranch) {
-            if (!chatSession.metadata) {
-              chatSession.metadata = {};
+          try {
+            const aiMessage = chatSession.addMessage('assistant', text || 'Operation completed', {
+              toolResults: toolResults || [],
+              usage,
+              steps: steps?.length || 0
+            });
+
+            const currentBranch = toolExecutor.getCurrentWorkingBranch();
+            if (currentBranch) {
+              if (!chatSession.metadata) {
+                chatSession.metadata = {};
+              }
+              chatSession.metadata.workingBranch = currentBranch;
             }
-            chatSession.metadata.workingBranch = currentBranch;
+
+            await chatSession.save();
+            toolExecutor.cleanup();
+
+            logger.info(`💾 Saved message ${aiMessage.id} to chat session`);
+          } catch (error) {
+            logger.error('Failed to save chat message:', error);
           }
-
-          await chatSession.save();
-
-          // Cleanup
-          toolExecutor.cleanup();
-
-          logger.info(`💾 Saved message ${aiMessage.id} to chat session`);
-        } catch (error) {
-          logger.error('Failed to save chat message:', error);
         }
-      }
-    });
+      });
 
-    // Return AI SDK stream as UI Message Stream (like recruiter-ai)
-    return result.toUIMessageStreamResponse();
+      return result.toUIMessageStreamResponse();
+    }
 
   } catch (error) {
     logger.error('Repository chat stream error:', error);
@@ -314,4 +323,100 @@ function buildUserPrompt(message, conversationContext) {
   prompt += `USER REQUEST: ${message}`;
 
   return prompt;
+}
+
+/**
+ * Stream with LangChain
+ */
+async function streamWithLangChain({ aiService, chatSession, systemPrompt, userPrompt, toolExecutor, session }) {
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: userPrompt }
+  ];
+
+  const stream = await aiService.langchainService.streamWithTools(messages, langchainTools, {
+    maxTokens: 4000,
+    temperature: 0.7,
+    maxIterations: 5
+  });
+
+  // Create readable stream for SSE
+  const encoder = new TextEncoder();
+  const readableStream = new ReadableStream({
+    async start(controller) {
+      try {
+        let fullText = '';
+        let toolResults = [];
+
+        for await (const chunk of stream) {
+          if (chunk.type === 'tool_call') {
+            // Tool execution event
+            const event = {
+              type: 'tool_call',
+              toolName: chunk.toolName,
+              toolInput: chunk.toolInput,
+              toolResult: chunk.toolResult,
+              stepIndex: chunk.stepIndex
+            };
+
+            logger.info(`🔧 Tool executed: ${chunk.toolName}`, { stepIndex: chunk.stepIndex });
+            toolResults.push(event);
+
+            // Send tool event to client
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+
+          } else if (chunk.type === 'text') {
+            // Final text output
+            fullText = chunk.content;
+
+            const event = {
+              type: 'text',
+              content: chunk.content,
+              done: true
+            };
+
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+
+            // Save to database
+            try {
+              const aiMessage = chatSession.addMessage('assistant', fullText, {
+                toolResults,
+                steps: toolResults.length
+              });
+
+              const currentBranch = toolExecutor.getCurrentWorkingBranch();
+              if (currentBranch) {
+                if (!chatSession.metadata) {
+                  chatSession.metadata = {};
+                }
+                chatSession.metadata.workingBranch = currentBranch;
+              }
+
+              await chatSession.save();
+              toolExecutor.cleanup();
+
+              logger.info(`💾 LangChain: Saved message ${aiMessage.id} to chat session`);
+            } catch (error) {
+              logger.error('Failed to save LangChain chat message:', error);
+            }
+          }
+        }
+
+        controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+        controller.close();
+
+      } catch (error) {
+        logger.error('LangChain streaming error:', error);
+        controller.error(error);
+      }
+    }
+  });
+
+  return new Response(readableStream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive'
+    }
+  });
 }

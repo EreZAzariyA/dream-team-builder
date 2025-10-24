@@ -128,8 +128,13 @@ const RepoChatInterface = ({ repository, analysisData }) => {
   const initializeChatSession = async () => {
     if (!analysisData?.id || !selectedAgent) return;
 
+    // Show loading state
+    setIsLoading(true);
+    setMessages([]);
+
     try {
-      const response = await fetch('/api/repo/chat', {
+      // Create session
+      const sessionResponse = await fetch('/api/repo/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -142,27 +147,56 @@ const RepoChatInterface = ({ repository, analysisData }) => {
         })
       });
 
-      const result = await response.json();
-      if (result.success) {
-        setSessionId(result.sessionId);
+      const sessionResult = await sessionResponse.json();
+      if (sessionResult.success) {
+        setSessionId(sessionResult.sessionId);
 
-        // Build dynamic welcome message based on agent capabilities
-        const welcomeContent = buildWelcomeMessage(selectedAgent, repository);
+        // Generate AI welcome message
+        const welcomeResponse = await fetch('/api/repo/chat', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'generate_welcome',
+            analysisId: analysisData.id,
+            repositoryId: repository.id,
+            agentId: selectedAgent.id
+          })
+        });
 
-        // Add welcome message from the agent
-        setMessages([{
-          id: 'welcome',
-          role: 'assistant',
-          agentId: selectedAgent.id,
-          agentName: selectedAgent.agent?.name || selectedAgent.id,
-          agentIcon: selectedAgent.agent?.icon || '🤖',
-          content: welcomeContent,
-          timestamp: new Date(),
-          citations: []
-        }]);
+        const welcomeResult = await welcomeResponse.json();
+        if (welcomeResult.success) {
+          // Add AI-generated welcome message
+          setMessages([{
+            id: 'welcome',
+            role: 'assistant',
+            agentId: selectedAgent.id,
+            agentName: welcomeResult.agentName,
+            agentIcon: welcomeResult.agentIcon,
+            content: welcomeResult.welcomeMessage,
+            timestamp: new Date(),
+            citations: []
+          }]);
+        } else {
+          // Fallback to static message if AI generation fails
+          const welcomeContent = buildWelcomeMessage(selectedAgent, repository);
+          setMessages([{
+            id: 'welcome',
+            role: 'assistant',
+            agentId: selectedAgent.id,
+            agentName: selectedAgent.agent?.name || selectedAgent.id,
+            agentIcon: selectedAgent.agent?.icon || '🤖',
+            content: welcomeContent,
+            timestamp: new Date(),
+            citations: []
+          }]);
+        }
       }
     } catch (error) {
       console.error('Failed to initialize chat session:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -241,8 +275,34 @@ const RepoChatInterface = ({ repository, analysisData }) => {
             try {
               const data = JSON.parse(dataContent);
 
-              // Handle AI SDK UI Message Stream events
-              if (data.type === 'text-delta' && data.delta) {
+              // Handle LangChain events
+              if (data.type === 'text' && data.content) {
+                // LangChain final text output
+                setMessages(prev => prev.map(msg =>
+                  msg.id === assistantMessageId
+                    ? { ...msg, content: data.content, isStreaming: false }
+                    : msg
+                ));
+              } else if (data.type === 'tool_call') {
+                // LangChain tool execution
+                const toolMessage = `\n🔧 ${data.toolName}`;
+                const toolResult = data.toolResult ? ` ✅` : '...';
+                setMessages(prev => prev.map(msg =>
+                  msg.id === assistantMessageId
+                    ? {
+                        ...msg,
+                        content: msg.content + toolMessage + toolResult,
+                        toolResults: [...(msg.toolResults || []), {
+                          toolName: data.toolName,
+                          input: data.toolInput,
+                          output: data.toolResult
+                        }]
+                      }
+                    : msg
+                ));
+              }
+              // Handle Vercel AI SDK events (legacy support)
+              else if (data.type === 'text-delta' && data.delta) {
                 // Append streaming text (AI SDK sends 'delta', not 'textDelta')
                 setMessages(prev => prev.map(msg =>
                   msg.id === assistantMessageId
